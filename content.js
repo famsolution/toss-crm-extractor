@@ -2497,6 +2497,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const findCopyBtn = function () {
     return Array.from(document.querySelectorAll('button')).find(function (b) { return (b.textContent || '').trim() === '이미지 복사'; });
   };
+  const findTableTab = function () {
+    return Array.from(document.querySelectorAll('button, [role=tab]')).find(function (b) { return (b.textContent || '').trim() === '표'; });
+  };
   const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   const blobToDataURL = function (blob) { return new Promise(function (res, rej) { const fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(blob); }); };
 
@@ -2515,8 +2518,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const old = fab.textContent;
     fab.textContent = '⏳ 이미지 준비 중…'; fab.disabled = true;
     try {
-      const btn = findCopyBtn();
-      if (btn) btn.click();   // 토스 '이미지 복사' → 클립보드에 이미지
+      // 1) '이미지 복사' 버튼이 안 보이면 → '표' 탭을 먼저 눌러 표 화면을 띄운다
+      let btn = findCopyBtn();
+      if (!btn) {
+        const tab = findTableTab();
+        if (tab) { tab.click(); for (let i = 0; i < 12 && !btn; i++) { await sleep(250); btn = findCopyBtn(); } }
+      }
+      if (!btn) { alert('표 탭 또는 "이미지 복사" 버튼을 찾지 못했습니다.\n토스 보장분석 페이지에서 사용해 주세요.'); return; }
+      btn.click();   // 토스 '이미지 복사' → 클립보드에 이미지
+      await sleep(250);
       let dataURL = null;
       for (let i = 0; i < 14 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
       if (!dataURL) {
@@ -2530,7 +2540,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   function ensureButton() {
     if (document.getElementById('__paintpro_send')) return;
-    if (!findCopyBtn()) return;   // 보장분석 표(이미지 복사 버튼) 있는 화면에서만 노출
+    if (!findCopyBtn() && !findTableTab()) return;   // 보장분석(표 탭 또는 이미지복사 버튼) 화면에서만 노출
     const fab = document.createElement('button');
     fab.id = '__paintpro_send';
     fab.textContent = '🎨 페인트프로로 전송';
