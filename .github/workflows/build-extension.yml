@@ -1,0 +1,38 @@
+name: Build Extension Zip
+
+# push 마다 자동으로 확장을 zip 으로 압축해 'latest' 릴리스에 올린다.
+#   고정 다운로드 링크: releases/latest/download/toss-crm-extractor.zip
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # GitHub Actions 탭에서 수동 실행도 가능
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read manifest version
+        id: ver
+        run: echo "version=$(node -p "require('./manifest.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Create zip (vendor 포함, 개발 파일 제외)
+        run: |
+          zip -r toss-crm-extractor.zip . \
+            -x ".git/*" -x ".github/*" -x "*.zip" -x ".gitignore" -x "README.md"
+          echo "---- zip 내용 확인 ----"
+          unzip -l toss-crm-extractor.zip | head -40
+
+      - name: Publish to 'latest' release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "최신 버전 v${{ steps.ver.outputs.version }}"
+          body: "토스인슈 CRM 추출기 v${{ steps.ver.outputs.version }} — 압축을 풀어 chrome://extensions 에서 '압축해제하여 로드' 하세요."
+          files: toss-crm-extractor.zip
+          fail_on_unmatched_files: true

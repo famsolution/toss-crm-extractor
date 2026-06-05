@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>토스인슈 CRM 추출기</title>
+  <style>
+    /* ═══ Design Tokens ═══ */
+    :root {
+      --primary:        #2563EB;
+      --primary-dark:   #1D4ED8;
+      --primary-pale:   #EFF6FF;
+      --accent:         #F59E0B;
+      --accent-dark:    #D97706;
+      --success:        #10B981;
+      --success-dark:   #059669;
+      --success-pale:   #ECFDF5;
+      --danger:         #EF4444;
+      --danger-pale:    #FEF2F2;
+      --text-1:         #0F172A;
+      --text-2:         #475569;
+      --text-3:         #94A3B8;
+      --bg:             #F8FAFC;
+      --surface:        #FFFFFF;
+      --surface-2:      #F1F5F9;
+      --border:         #E2E8F0;
+      --border-2:       #CBD5E1;
+      --shadow-sm:      0 1px 2px rgba(15, 23, 42, 0.04);
+      --shadow:         0 4px 12px rgba(15, 23, 42, 0.08);
+      --shadow-lg:      0 8px 24px rgba(15, 23, 42, 0.12);
+      --radius:         10px;
+      --radius-sm:      6px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+      width: 560px;
+      min-height: 560px;
+      max-height: 780px;
+      background: var(--bg);
+      color: var(--text-1);
+      font-size: 13px;
+      letter-spacing: -0.01em;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ═══ Header ═══ */
+    .header {
+      background: linear-gradient(135deg, #1D4ED8 0%, #2563EB 50%, #3B82F6 100%);
+      color: white;
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.18);
+    }
+    .header-left { display: flex; align-items: center; gap: 10px; }
+    .header-icon {
+      width: 28px; height: 28px;
+      background: rgba(255,255,255,0.18);
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+    .header h1 {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      line-height: 1.2;
+    }
+    .header .badge {
+      font-size: 11px;
+      background: rgba(255,255,255,0.22);
+      padding: 4px 10px;
+      border-radius: 99px;
+      font-weight: 600;
+    }
+
+    /* ═══ Tabs ═══ */
+    .tab-bar {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      flex: 1;
+      padding: 11px 8px;
+      text-align: center;
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--text-3);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab:hover { color: var(--text-2); }
+    .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ═══ Toolbar ═══ */
+    .toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      gap: 6px;
+      padding: 10px 12px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ═══ Buttons ═══ */
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 9px 12px;
+      font-size: 12px;
+      font-family: inherit;
+      font-weight: 600;
+      transition: transform 0.12s, box-shadow 0.15s, background 0.15s;
+      letter-spacing: -0.2px;
+      white-space: nowrap;
+      min-width: 0;
+    }
+    button:disabled { cursor: not-allowed; opacity: 0.55; }
+    button:hover:not(:disabled) { transform: translateY(-1px); }
+
+    /* 주요 — 큰 버튼 (extract / apply) */
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      flex: 2 1 130px;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-dark); box-shadow: var(--shadow); }
+    .btn-primary:disabled { background: var(--border-2); }
+
+    .btn-apply {
+      background: linear-gradient(135deg, #F59E0B, #EA580C);
+      color: white;
+      flex: 2 1 130px;
+      font-weight: 700;
+      box-shadow: var(--shadow-sm);
+    }
+    .btn-apply:hover:not(:disabled) { background: linear-gradient(135deg, #D97706, #C2410C); box-shadow: var(--shadow); }
+    .btn-apply:disabled { background: #d1d5db; }
+
+    /* 보조 — 콤팩트 (text/json/save) */
+    .copy-format-group {
+      display: flex;
+      gap: 4px;
+      flex: 0 0 auto;
+    }
+
+    .btn-copy {
+      background: var(--success-pale);
+      color: var(--success-dark);
+      border: 1px solid #BBF7D0;
+      flex: 0 0 auto;
+      padding: 8px 10px;
+      font-size: 11.5px;
+    }
+    .btn-copy:hover:not(:disabled) { background: #D1FAE5; }
+
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--text-2);
+      border: 1px solid var(--border);
+      flex: 0 0 auto;
+      padding: 8px 10px;
+      font-size: 11.5px;
+    }
+    .btn-secondary:hover:not(:disabled) { background: var(--surface); border-color: var(--border-2); color: var(--text-1); }
+
+    /* ═══ Content ═══ */
+    .content {
+      overflow-y: auto;
+      max-height: 660px;
+      padding: 10px;
+    }
+    .content::-webkit-scrollbar { width: 6px; }
+    .content::-webkit-scrollbar-track { background: transparent; }
+    .content::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 99px; }
+    .content::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+    .section {
+      background: var(--surface);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+    }
+    .section-header {
+      padding: 11px 14px;
+      background: var(--surface-2);
+      border-bottom: 1px solid var(--border);
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--text-2);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .section-header .count { font-weight: 500; color: var(--text-3); font-size: 11px; }
+
+    .field-row {
+      display: flex;
+      padding: 8px 14px;
+      border-bottom: 1px solid #F1F5F9;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .field-row:last-child { border-bottom: none; }
+    .field-row:hover { background: #FAFBFC; }
+    .field-label {
+      color: var(--text-3);
+      min-width: 110px;
+      font-size: 11.5px;
+      padding-top: 1px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .field-value {
+      color: var(--text-1);
+      font-size: 12.5px;
+      word-break: break-all;
+      flex: 1;
+      line-height: 1.45;
+    }
+    .field-value.was-masked {
+      background: #FFFBEB;
+      padding: 3px 7px;
+      border-radius: 4px;
+      border-left: 2px solid var(--accent);
+    }
+    .field-value.still-masked {
+      color: var(--danger);
+      background: var(--danger-pale);
+      padding: 3px 7px;
+      border-radius: 4px;
+    }
+
+    .alert {
+      background: #FFFBEB;
+      border: 1px solid #FDE68A;
+      color: #92400E;
+      padding: 10px 14px;
+      margin: 8px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .alert.error { background: var(--danger-pale); border-color: #FCA5A5; color: #991B1B; }
+    .alert.success { background: var(--success-pale); border-color: #6EE7B7; color: #065F46; }
+
+    .insurance-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 8px;
+      overflow: hidden;
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+    }
+    .insurance-card-header {
+      padding: 11px 14px;
+      background: linear-gradient(135deg, var(--primary-pale), #F0F4FF);
+      border-bottom: 1px solid #DBEAFE;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--primary-dark);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .insurance-card-header .company {
+      font-size: 10.5px;
+      color: var(--text-2);
+      font-weight: 500;
+      margin-left: auto;
+      background: rgba(255,255,255,0.7);
+      padding: 2px 7px;
+      border-radius: 99px;
+    }
+
+    .status-badge {
+      display: inline-block;
+      font-size: 10.5px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .status-active { background: var(--success-pale); color: var(--success-dark); }
+    .status-ended { background: var(--danger-pale); color: var(--danger); }
+    .status-other { background: var(--surface-2); color: var(--text-2); }
+
+    .notice {
+      padding: 36px 18px;
+      text-align: center;
+      color: var(--text-3);
+    }
+    .notice .icon {
+      font-size: 36px;
+      margin-bottom: 10px;
+      opacity: 0.55;
+    }
+    .notice p {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-2);
+      font-weight: 500;
+    }
+    .notice .sub {
+      font-size: 11.5px;
+      margin-top: 6px;
+      color: var(--text-3);
+      font-weight: 400;
+    }
+
+    .sync-info {
+      padding: 8px 14px;
+      font-size: 11px;
+      color: var(--text-3);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 6px;
+      font-weight: 500;
+    }
+    .saved-list { padding: 6px 8px; }
+    .saved-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 11px 14px;
+      margin-bottom: 6px;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .saved-item:hover { border-color: var(--primary); background: var(--primary-pale); }
+    .saved-item-info .name { font-weight: 700; font-size: 13px; color: var(--text-1); }
+    .saved-item-info .meta { font-size: 11px; color: var(--text-3); margin-top: 3px; font-weight: 500; }
+    .saved-item-actions { display: flex; gap: 4px; }
+    .btn-sm { padding: 5px 10px; font-size: 11px; border-radius: 5px; font-weight: 600; }
+    .btn-danger { background: var(--danger-pale); color: var(--danger); border: 1px solid #FCA5A5; }
+    .btn-danger:hover { background: #FECACA; }
+
+    .toast {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1E293B;
+      color: white;
+      padding: 9px 18px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 600;
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      white-space: nowrap;
+      z-index: 100;
+      box-shadow: var(--shadow-lg);
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* 🆕 템플릿 단독 섹션 — cfg 패널 위쪽 */
+    .tpl-section { background: var(--surface); padding: 9px 14px; border-bottom: 1px solid var(--border); }
+
+    /* 🆕 보험료 비교 설정 패널 */
+    .cfg-panel { background: var(--surface); border-bottom: 1px solid var(--border); }
+    .cfg-header { padding: 10px 14px; font-size: 12.5px; font-weight: 700; color: var(--text-1); cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #fef3c7, #fde68a); }
+    .cfg-header:hover { background: linear-gradient(135deg, #fde68a, #fcd34d); }
+    .cfg-body { padding: 10px 14px; background: var(--surface); }
+    .cfg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+    .cfg-row label { min-width: 80px; font-size: 11.5px; font-weight: 600; color: var(--text-2); }
+    .cfg-row select, .cfg-row input, .cfg-row textarea { flex: 1; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-family: inherit; outline: none; }
+    .cfg-row select:focus, .cfg-row input:focus, .cfg-row textarea:focus { border-color: var(--primary); }
+    .cfg-row textarea { min-height: 70px; resize: vertical; line-height: 1.4; font-size: 11.5px; }
+    .cfg-row button { padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 5px; }
+    .cfg-tpl-bar { background: var(--surface-2); padding: 8px 10px; border-radius: 6px; margin-top: 6px; }
+    .cfg-presets { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
+    .cfg-preset-btn { background: var(--primary-pale); color: var(--primary-dark); border: 1px solid #BFDBFE; padding: 4px 8px; font-size: 11px; border-radius: 4px; cursor: pointer; }
+    .cfg-preset-btn:hover { background: #DBEAFE; }
+
+    /* 🆕 담보 카테고리 접기/펼치기 */
+    .cov-cat { border-bottom: 1px solid var(--border); }
+    .cov-cat:last-child { border-bottom: none; }
+    .cov-cat-header { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; background:#f8fafc; cursor:pointer; user-select:none; font-size:11.5px; font-weight:700; color:var(--text-2); }
+    .cov-cat-header:hover { background:#f1f5f9; }
+    .cov-cat-header .left { display:flex; align-items:center; gap:6px; }
+    .cov-cat-header .chevron { transition: transform 0.15s; font-size:9px; color:var(--text-3); }
+    .cov-cat.open .cov-cat-header .chevron { transform: rotate(90deg); }
+    .cov-cat-count { font-size:10.5px; color:var(--text-3); font-weight:500; }
+    .cov-cat-count .picked { color:var(--primary); font-weight:700; }
+    .cov-cat-body { display:none; padding:4px 0; background:var(--surface); }
+    .cov-cat.open .cov-cat-body { display:block; }
+    .cov-row { display:flex; align-items:center; gap:8px; padding:5px 12px; cursor:pointer; font-size:11.5px; }
+    .cov-row:hover { background:#fef3c7; }
+    .cov-row input[type="checkbox"] { margin:0; cursor:pointer; }
+    .cov-row .cd { font-size:10px; color:var(--text-3); font-family:'Consolas',monospace; min-width:38px; }
+    .cov-row .nm { color:var(--text-1); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .cov-row.hidden { display:none; }
+  </style>
+</head>
+<body>
+
+<!-- 🔐 확장 권한 게이트 — 로그인 + 관리자 승인(active) 통과 전까지 기능 차단 -->
+<div id="__ext_gate" style="position:fixed; inset:0; z-index:99999; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; font-family:'Segoe UI',system-ui,sans-serif;">
+  <div style="font-size:34px; margin-bottom:6px;">🔐</div>
+  <div style="font-weight:800; font-size:16px; color:#0F172A; margin-bottom:2px;">토스인슈 CRM 추출기</div>
+  <div id="__ext_gate_sub" style="font-size:12px; color:#64748B; margin-bottom:16px; text-align:center;">사용하려면 로그인하세요.</div>
+
+  <!-- 로그인 폼 -->
+  <div id="__ext_login_box" style="width:100%; max-width:260px; display:flex; flex-direction:column; gap:8px;">
+    <input id="__ext_email" type="email" autocomplete="username" placeholder="이메일" style="padding:9px 11px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:13px;">
+    <input id="__ext_pw" type="password" autocomplete="current-password" placeholder="비밀번호" style="padding:9px 11px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:13px;">
+    <button id="__ext_login_btn" style="padding:10px; border:none; border-radius:8px; background:#2563EB; color:#fff; font-weight:700; font-size:13px; cursor:pointer;">로그인</button>
+    <button id="__ext_signup_btn" style="padding:9px; border:1.5px solid #2563EB; border-radius:8px; background:#fff; color:#2563EB; font-weight:700; font-size:12.5px; cursor:pointer;">처음이신가요? 회원가입</button>
+    <div id="__ext_gate_msg" style="font-size:11.5px; color:#EF4444; min-height:14px; text-align:center;"></div>
+    <div style="font-size:10.5px; color:#94A3B8; text-align:center; line-height:1.5;">가입 후 <b>관리자 승인</b>을 받아야 사용할 수 있습니다.</div>
+  </div>
+
+  <!-- 승인 대기/거부 안내 (로그인은 됐지만 active=false) -->
+  <div id="__ext_pending_box" style="display:none; width:100%; max-width:280px; text-align:center;">
+    <div style="font-size:13px; color:#0F172A; font-weight:700; margin-bottom:6px;">⏳ 승인 대기 중</div>
+    <div style="font-size:12px; color:#64748B; line-height:1.6;">계정은 등록되었지만 아직 <b>관리자 승인</b>이 필요합니다.<br>관리자에게 승인을 요청하세요.</div>
+    <div id="__ext_pending_email" style="font-size:11px; color:#94A3B8; margin-top:8px;"></div>
+    <button id="__ext_logout_btn" style="margin-top:14px; padding:8px 14px; border:1px solid #FECACA; border-radius:8px; background:#FEF2F2; color:#EF4444; font-weight:700; font-size:12px; cursor:pointer;">로그아웃</button>
+  </div>
+</div>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">📋</div>
+    <h1>토스인슈 CRM 추출기</h1>
+  </div>
+  <span class="badge" id="pageBadge">대기중</span>
+</div>
+
+<div class="tab-bar">
+  <div class="tab active" data-tab="current">현재 페이지</div>
+  <div class="tab" data-tab="saved">저장된 데이터</div>
+</div>
+
+<div class="tab-content active" id="tab-current">
+  <div class="toolbar">
+    <button class="btn-primary" id="btnExtract">📋 데이터 추출</button>
+    <button class="btn-apply" id="btnApply" style="display:none">📤 프로그램 적용</button>
+    <div class="copy-format-group">
+      <button class="btn-copy" id="btnCopyText" style="display:none">📝 텍스트</button>
+      <button class="btn-copy" id="btnCopyJson" style="display:none">{ } JSON</button>
+    </div>
+    <button class="btn-secondary" id="btnSave" style="display:none">💾 저장</button>
+  </div>
+
+  <!-- 🆕 전송 대상 선택 — 어느 페이지/모드로 데이터를 보낼지 -->
+  <div data-target-panel style="background:#eff6ff; padding:10px 14px; border-bottom:1px solid var(--border);">
+    <div style="font-size:11.5px; font-weight:700; color:var(--text-2); margin-bottom:6px;">📍 전송 대상</div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap;">
+      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:600;">
+        <input type="radio" name="targetMode" value="auto" checked> 🤖 자동 감지
+      </label>
+      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:700; color:#2563eb;">
+        <input type="radio" name="targetMode" value="consult"> 📝 상담등록
+      </label>
+      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:600;">
+        <input type="radio" name="targetMode" value="standard"> 📊 표준 보장분석
+      </label>
+      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:600;">
+        <input type="radio" name="targetMode" value="plan"> 📐 가설계 탭
+      </label>
+      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:600;">
+        <input type="radio" name="targetMode" value="premium-page"> 📋 보험료 비교 폼
+      </label>
+    </div>
+    <div id="targetModeHint" style="font-size:10.5px; color:var(--text-3); margin-top:4px;">데이터 종류에 따라 자동으로 적절한 페이지로 전송됩니다</div>
+  </div>
+
+  <!-- 🎯 메인 워크플로 — 추출된 보험상품을 카드 형태로 선택 → mmlfcp 에 담보+금액 자동 전송 -->
+  <div id="productPickerSection" style="display:none; background:linear-gradient(135deg,#eef2ff,#f5f3ff); padding:12px 14px; border-bottom:2px solid #6366f1;">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:8px;">
+      <span style="font-size:13px; font-weight:800; color:#3730a3;">📦 보험상품 선택</span>
+      <span id="productPickerCount" style="font-size:10.5px; color:#6366f1; font-weight:600;"></span>
+    </div>
+    <div style="font-size:10.5px; color:#4f46e5; margin-bottom:8px; line-height:1.4;">
+      추출된 보험을 <b>여러 개 선택</b>(체크)하면, <b>선택한 상품들의 담보+보험금이 합산</b>되어 mmlfcp 보험료 비교 페이지에 자동 입력됩니다. <span style="color:#9ca3af;">(같은 담보명은 금액 합산)</span>
+    </div>
+    <!-- 카드 리스트 — 클릭으로 선택 (체크박스 다중 선택) -->
+    <div id="productCardList" style="display:flex; flex-direction:column; gap:6px; max-height:340px; overflow:auto; padding:2px;"></div>
+    <!-- 미리보기 -->
+    <div id="productPickerPreview" style="margin-top:8px; font-size:10.5px; color:#4338ca; max-height:420px; overflow:auto; padding:6px 8px; background:#fff; border-radius:5px; border:1px solid #c7d2fe; display:none;"></div>
+    <!-- legacy select (호환용, 숨김) -->
+    <select id="productPicker" style="display:none;"><option value=""></option></select>
+  </div>
+
+  <!-- ⚙️ 보험료 비교 자동 설정 패널 (상품 선택 흐름에서는 폼 기본정보만 필요) -->
+  <div class="cfg-panel">
+    <div class="cfg-header" id="cfgHeader" style="font-size:11.5px;">
+      <span>⚙️ 보낼 페이지 설정 — 생손보유형 · 상품유형 · 만기</span>
+      <span id="cfgChevron">▲</span>
+    </div>
+    <div class="cfg-body" id="cfgBody" style="display:block">
+      <div class="cfg-row">
+        <label>생손보 유형</label>
+        <select id="cfgInsType">
+          <option value="LF">생손보</option>
+          <option value="F">손보</option>
+          <option value="L">생보</option>
+        </select>
+      </div>
+      <div class="cfg-row">
+        <label>상품 유형</label>
+        <select id="cfgProdType">
+          <option value="06">손보 종합(무해지)</option>
+          <option value="05">손보 종합(표준환급)</option>
+          <option value="07">손보 5.10.10(무해지)</option>
+          <option value="08">손보 여성건강(무해지)</option>
+          <option value="14">손보 간편3.2.5(무해지)</option>
+          <option value="15">손보 간편3.3.5(무해지)</option>
+          <option value="16">손보 간편3.5.5(무해지)</option>
+          <option value="17">손보 간편3.10.10(5)(무해지)</option>
+          <option value="18">손보 어린이(표준환급)</option>
+          <option value="19">손보 어린이(무해지)</option>
+          <option value="20">손보 청소년(표준환급)</option>
+          <option value="21">손보 청소년(무해지)</option>
+          <option value="22">손보 청소년5.10.10(무해지)</option>
+          <option value="23">손보 실손</option>
+          <option value="24">손보 간편실손</option>
+          <option value="26">손보 치아</option>
+          <option value="28">손보 운전자</option>
+          <option value="30">손보 치매(무해지)</option>
+        </select>
+      </div>
+      <div class="cfg-row">
+        <label>만기</label>
+        <select id="cfgMaturity">
+          <option value="01">20년/100세</option>
+          <option value="02">20년/갱신</option>
+          <option value="03">20년/80세</option>
+          <option value="04">20년/90세</option>
+          <option value="07">30년/80세</option>
+          <option value="08">30년/90세</option>
+          <option value="09">30년/100세</option>
+        </select>
+      </div>
+      <div class="cfg-row">
+        <button type="button" id="btn_sync_options" title="mmlfcp 페이지에서 선택한 생손보유형의 실제 상품유형·만기 옵션을 불러옵니다" style="width:100%; background:#eef2ff; color:#4338ca; font-weight:700; padding:6px; border-radius:6px; border:1px solid #c7d2fe; cursor:pointer;">🔄 mmlfcp 옵션 불러오기 (생손보유형 기준)</button>
+      </div>
+      <div id="sync_options_msg" style="font-size:10px; color:#9ca3af; padding:0 2px 4px;"></div>
+      <!-- 수동 담보 목록 — 상품 선택 흐름에서는 사용 안 함 (Advanced 영역으로 숨김) -->
+      <div class="cfg-row" id="cfgAdvancedCovWrap" style="align-items:flex-start; flex-direction:column; gap:6px; display:none">
+        <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+          <label style="min-width:0">담보 목록 (수동)</label>
+          <div style="display:flex; gap:4px;">
+            <button type="button" class="btn-secondary" id="cfgCovAll" style="padding:3px 8px;font-size:10.5px;">전체</button>
+            <button type="button" class="btn-secondary" id="cfgCovClear" style="padding:3px 8px;font-size:10.5px;">해제</button>
+            <span id="cfgCovCount" style="font-size:10.5px; color:var(--text-3); padding:3px 6px;">0개</span>
+          </div>
+        </div>
+        <input type="text" id="cfgCovSearch" placeholder="🔍 담보명 검색..." style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;outline:none;" />
+        <div id="cfgCovList" style="width:100%; max-height:260px; overflow-y:auto; border:1px solid var(--border); border-radius:6px; background:var(--surface);"></div>
+      </div>
+      <div style="font-size:10px; color:var(--text-3); padding:4px 0;">
+        💡 담보+금액은 상단 "📦 보험상품 선택"에서 추출 상품을 고르면 자동 전송됩니다.
+        <a href="#" id="cfgShowAdvancedCov" style="color:#6366f1; text-decoration:underline; margin-left:4px;">고급 수동 담보 보기</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🆕 템플릿 영역 — 보낼 페이지 설정(cfg) 아래로 이동 -->
+  <div class="tpl-section">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px;">
+      <span style="font-size:12px; font-weight:700; color:var(--text-1);">📋 템플릿</span>
+      <div style="display:flex; gap:4px; align-items:center;">
+        <select id="cfgLoadTpl" style="flex:1; min-width:120px; padding:4px 6px; border:1px solid var(--border); border-radius:5px; font-size:11.5px; outline:none;">
+          <option value="">— 저장된 템플릿 선택 —</option>
+        </select>
+        <button class="btn-secondary" id="cfgSaveTpl" style="padding:4px 8px;font-size:10.5px;">💾 저장</button>
+        <button class="btn-secondary" id="cfgDelTpl" style="padding:4px 6px;font-size:10.5px;background:var(--danger-pale);color:var(--danger)">🗑️</button>
+      </div>
+    </div>
+    <div class="cfg-presets">
+      <button class="cfg-preset-btn" data-preset="basic">기본 종합(무해지)</button>
+      <button class="cfg-preset-btn" data-preset="cancer">암 특화</button>
+      <button class="cfg-preset-btn" data-preset="dental">치아보험</button>
+      <button class="cfg-preset-btn" data-preset="driver">운전자보험</button>
+    </div>
+  </div>
+
+  <div class="content" id="resultContent">
+    <div class="notice">
+      <div class="icon">🔍</div>
+      <p>토스인슈 CRM 페이지에서<br>데이터 추출 버튼을 클릭하세요</p>
+      <p class="sub">상세 페이지 또는 보장 페이지에서 사용 가능합니다</p>
+    </div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-saved">
+  <div class="sync-info">
+    <span>☁️</span>
+    <span>Chrome 계정으로 자동 동기화됩니다</span>
+  </div>
+  <div class="content">
+    <div class="saved-list" id="savedList">
+      <div class="notice">
+        <div class="icon">📂</div>
+        <p>저장된 데이터가 없습니다</p>
+        <p class="sub">현재 페이지에서 데이터를 추출하고 저장해보세요</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- 🔐 Firebase (로컬 SDK — MV3 원격 스크립트 금지) → 초기화 → 게이트 → 본체 순서 -->
+<script src="vendor/firebase-app-compat.js"></script>
+<script src="vendor/firebase-auth-compat.js"></script>
+<script src="vendor/firebase-firestore-compat.js"></script>
+<script src="firebase-init.js"></script>
+<script src="ext-auth-gate.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>
