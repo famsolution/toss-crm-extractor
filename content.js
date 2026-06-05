@@ -2494,6 +2494,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   // ───────── 토스 보장분석 페이지: 전송 버튼 추가 ─────────
+  // 🆕 토스 CRM(보장분석) 도메인이 아니면 전송 버튼을 절대 설치하지 않음
+  //    (vercel 제안서의 '표', mmlfcp 등 다른 사이트에서 잘못 뜨던 문제 차단)
+  if (!/(^|\.)tossinsu\.com$/i.test(host)) return;
   const findCopyBtn = function () {
     return Array.from(document.querySelectorAll('button')).find(function (b) { return (b.textContent || '').trim() === '이미지 복사'; });
   };
