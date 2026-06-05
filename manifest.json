@@ -8,6 +8,7 @@
     "tabs",
     "storage",
     "clipboardWrite",
+    "clipboardRead",
     "scripting"
   ],
   "host_permissions": [
@@ -37,6 +38,23 @@
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://erp.samsungfire.com/*", "*://sp.hi.co.kr/*", "*://www.mdbins.com/*",
+        "*://sales.meritzfire.com/*", "*://sales.kbinsure.co.kr/*", "*://portal.hwgeneralins.com/*",
+        "*://sales.heungkukfire.co.kr/*", "*://lottero.lotteins.co.kr/*", "*://ss.nhfire.co.kr/*",
+        "*://mganet.mggeneralins.com/*", "*://ga.shinhanez.co.kr/*", "*://ga.aig.co.kr/*",
+        "*://sfa.saleshana.com/*", "*://ga.samsunglife.com/*", "*://hmp.hanwhalife.com/*",
+        "*://ga.kyobo.com/*", "*://ga.shinhanlife.co.kr/*", "*://ga.lina.co.kr/*",
+        "*://ga.abllife.co.kr/*", "*://ga.hanalife.co.kr/*", "*://brand.metlife.co.kr/*",
+        "*://sfa.kblife.co.kr/*", "*://sfa.nhlife.co.kr/*", "*://sales.heungkuklife.co.kr/*",
+        "*://ez.fubonhyundai.com/*", "*://etopia.dongbulife.com/*", "*://kss.kdblife.co.kr/*",
+        "*://ga.cardif.co.kr/*", "*://fgs.imlifeins.co.kr/*"
+      ],
+      "js": ["insurer-fill.js"],
+      "run_at": "document_idle",
+      "all_frames": true
     }
   ],
   "icons": {

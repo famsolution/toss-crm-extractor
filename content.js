@@ -2465,4 +2465,82 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// 🆕 토스 보장분석 → 페인트프로(editor.html) 이미지 전송
+//   토스 페이지: '이미지 복사'(클립보드) 자동 클릭 → 클립보드 읽기 → storage 저장 → 새 탭 editor 열기
+//   editor 페이지: storage 의 이미지를 sessionStorage 로 넘기고 editor 의 로더를 트리거
+// ═══════════════════════════════════════════════════════════════════
+(function () {
+  const EDITOR_URL = 'https://tossinssu-pro.vercel.app/editor.html';
+  const STORAGE_KEY = '__paintProImg_v1';
+  const host = location.hostname;
+
+  // ───────── editor(vercel) 페이지: 전달된 이미지를 받아 캔버스에 주입 ─────────
+  if (/tossinssu-pro\.vercel\.app$/.test(host) && /editor\.html/i.test(location.pathname)) {
+    try {
+      chrome.storage.local.get([STORAGE_KEY], function (d) {
+        const payload = d && d[STORAGE_KEY];
+        if (!payload || !payload.dataURL) return;
+        try {
+          sessionStorage.setItem('toss_analysis_image', payload.dataURL);
+          sessionStorage.setItem('toss_analysis_filename', payload.fileName || '토스보장분석.png');
+        } catch (e) {}
+        const trigger = function () { try { window.postMessage({ __paintProLoad: true }, '*'); } catch (e) {} };
+        trigger(); setTimeout(trigger, 400); setTimeout(trigger, 1200); setTimeout(trigger, 2500);
+        try { chrome.storage.local.remove(STORAGE_KEY); } catch (e) {}
+      });
+    } catch (e) {}
+    return;
+  }
+
+  // ───────── 토스 보장분석 페이지: 전송 버튼 추가 ─────────
+  const findCopyBtn = function () {
+    return Array.from(document.querySelectorAll('button')).find(function (b) { return (b.textContent || '').trim() === '이미지 복사'; });
+  };
+  const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+  const blobToDataURL = function (blob) { return new Promise(function (res, rej) { const fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(blob); }); };
+
+  async function readClipboardImage() {
+    try {
+      const items = await navigator.clipboard.read();
+      for (const it of items) {
+        const t = it.types.find(function (x) { return x.startsWith('image/'); });
+        if (t) { const blob = await it.getType(t); return await blobToDataURL(blob); }
+      }
+    } catch (e) {}
+    return null;
+  }
+
+  async function sendToPaintPro(fab) {
+    const old = fab.textContent;
+    fab.textContent = '⏳ 이미지 준비 중…'; fab.disabled = true;
+    try {
+      const btn = findCopyBtn();
+      if (btn) btn.click();   // 토스 '이미지 복사' → 클립보드에 이미지
+      let dataURL = null;
+      for (let i = 0; i < 14 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
+      if (!dataURL) {
+        alert('이미지를 읽지 못했습니다.\n\n· 토스 "이미지 복사"를 먼저 한 번 누른 뒤 이 버튼을 다시 눌러보세요.\n· 클립보드 권한 요청이 뜨면 허용해 주세요.');
+        return;
+      }
+      await new Promise(function (r) { chrome.storage.local.set({ [STORAGE_KEY]: { dataURL: dataURL, fileName: '토스보장분석.png', ts: Date.now() } }, r); });
+      window.open(EDITOR_URL, '_blank');
+    } finally { fab.textContent = old; fab.disabled = false; }
+  }
+
+  function ensureButton() {
+    if (document.getElementById('__paintpro_send')) return;
+    if (!findCopyBtn()) return;   // 보장분석 표(이미지 복사 버튼) 있는 화면에서만 노출
+    const fab = document.createElement('button');
+    fab.id = '__paintpro_send';
+    fab.textContent = '🎨 페인트프로로 전송';
+    fab.style.cssText = 'position:fixed; right:20px; bottom:20px; z-index:2147483647; padding:12px 18px; background:#2563EB; color:#fff; border:none; border-radius:10px; font-weight:700; font-size:13px; box-shadow:0 6px 18px rgba(37,99,235,.4); cursor:pointer; font-family:sans-serif;';
+    fab.onclick = function () { sendToPaintPro(fab); };
+    document.body.appendChild(fab);
+  }
+
+  // 탭 전환/지연 렌더로 버튼이 늦게 생기므로 주기적으로 확인
+  try { ensureButton(); setInterval(ensureButton, 1500); } catch (e) {}
+})();
+
 } // end of __tossCrmExtractorLoaded guard
