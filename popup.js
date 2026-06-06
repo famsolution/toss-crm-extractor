@@ -727,24 +727,53 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _absBtn = document.getElementById('btn_absence_warn');
   if (_absBtn) {
     _absBtn.addEventListener('click', async () => {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (!tab) return;
-      const prev = _absBtn.textContent; _absBtn.textContent = '⏳ 추출 중…'; _absBtn.disabled = true;
-      try {
-        const result = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: () => {
-            const btn = document.getElementById('__studio_send');
-            if (btn) { btn.click(); return 'ok'; }
-            return 'no_button';
-          }
-        });
-        if (result?.[0]?.result === 'no_button') {
-          alert('토스 보장분석 페이지에서 실행해 주세요.');
-        }
-      } catch (e) {
-        alert('오류: ' + (e.message || e));
-      } finally { _absBtn.textContent = prev; _absBtn.disabled = false; }
+      // 🆕 팝업이 이미 가진 extractedData 를 직접 사용 — content.js 경유 불필요
+      const data = extractedData;
+      if (!data) { alert('먼저 "📋 데이터 추출" 버튼을 눌러 데이터를 추출해 주세요.'); return; }
+
+      const STUDIO_URL = 'https://toss-insurance-studio.web.app';
+      const _num = v => parseInt(String(v == null ? '' : v).replace(/[^\d]/g, ''), 10) || 0;
+
+      // 고객 기본정보
+      const cust = data.customer || {};
+      const insList = data.insurances || [];
+      const monthSum = insList.reduce((s, i) => s + _num(i['월납보험료']), 0);
+      const remainSum = insList.reduce((s, i) => s + _num(i['잔여보험료']), 0);
+
+      // setPolicyList 형식 — {name, company, premium, pay, expiry, renew}
+      const policyList = insList.map(ins => ({
+        name:    ins['보험명'] || ins['보험사명'] || '',
+        company: ins['보험사명'] || '',
+        premium: _num(ins['월납보험료']),
+        pay:     ins['납입 여부'] || ins['납입여부'] || '',
+        expiry:  ins['보장만기/만기연령'] || '',
+        renew:   ins['갱신 유무'] || ins['갱신유무'] || ''
+      }));
+
+      const payload = {
+        고객명:   cust.고객명 || cust.name || '',
+        나이:     cust.보험나이 || '',
+        성별:     cust.성별 || '',
+        상령일:   cust.상령일 || '',
+        보험개수: insList.length,
+        월납합계: monthSum,
+        잔여합계: remainSum,
+        policyList,
+        추출시각: new Date().toISOString()
+      };
+
+      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const studioTab = window.open(STUDIO_URL + '/#studio=' + b64, '_blank');
+
+      // 탭 로드 후 postMessage 로 setPolicyList 호출 재시도
+      if (studioTab) {
+        let _tries = 0;
+        const _iv = setInterval(() => {
+          _tries++;
+          try { studioTab.postMessage({ __studioInit: true, policyList, payload }, '*'); } catch {}
+          if (_tries >= 10) clearInterval(_iv);
+        }, 800);
+      }
     });
   }
   // 🆕 페인트 프로 버튼 — 현재 활성 탭(토스 보장분석)의 sendToPaintPro 트리거
