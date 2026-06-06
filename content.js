@@ -2601,7 +2601,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     _ensureSidebar().appendChild(b);
   }
   function ensureButton() {
-    if (!findCopyBtn() && !findTableTab()) return;   // 보장분석(표 탭 또는 이미지복사 버튼) 화면에서만 노출
+    // 🆕 오직 토스 보장분석(보장내역 /cover/ 경로) 페이지에서만 노출 — 다른 토스 페이지/앱에서는 표시 안 함
+    if (!/\/cover\//.test(location.pathname) && !findCopyBtn()) {
+      const _bar = document.getElementById('__ext_sidebar');
+      if (_bar) _bar.remove();   // 보장분석 페이지를 벗어나면(SPA 전환) 버튼 제거
+      return;
+    }
     _makeSideBtn('__paintpro_send', '🎨 페인트 프로', '#2563EB', sendToPaintPro);
     _makeSideBtn('__studio_send', '📤 스튜디오', '#7c3aed', sendToStudio);
   }
