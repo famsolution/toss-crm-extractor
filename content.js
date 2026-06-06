@@ -2633,8 +2633,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       if (_bar) _bar.remove();   // 보장분석 페이지를 벗어나면(SPA 전환) 버튼 제거
       return;
     }
-    _makeSideBtn('__paintpro_send', '🎨 페인트 프로', '#2563EB', sendToPaintPro);
-    // 부재고객[경고]는 확장 팝업 내부로 이동 — 사이드바에서는 제거
+    // 🆕 페인트 프로·부재고객[경고] 모두 확장 팝업으로 이동.
+    //   __paintpro_send 는 팝업의 '🎨 페인트 프로' 버튼이 scripting으로 click() 하는 앵커 — 화면엔 안 보이게 숨김.
+    if (!document.getElementById('__paintpro_send')) {
+      const _anchor = document.createElement('button');
+      _anchor.id = '__paintpro_send';
+      _anchor.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;pointer-events:none;';
+      _anchor.onclick = function () { sendToPaintPro(_anchor); };
+      document.body.appendChild(_anchor);
+    }
   }
 
   // 탭 전환/지연 렌더로 버튼이 늦게 생기므로 주기적으로 확인

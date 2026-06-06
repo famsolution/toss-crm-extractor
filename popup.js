@@ -747,6 +747,30 @@ document.addEventListener('DOMContentLoaded', async () => {
       } finally { _absBtn.textContent = prev; _absBtn.disabled = false; }
     });
   }
+  // 🆕 페인트 프로 버튼 — 현재 활성 탭(토스 보장분석)의 sendToPaintPro 트리거
+  const _ppBtn = document.getElementById('btn_paintpro');
+  if (_ppBtn) {
+    _ppBtn.addEventListener('click', async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) return;
+      const prev = _ppBtn.textContent; _ppBtn.textContent = '⏳ 준비 중…'; _ppBtn.disabled = true;
+      try {
+        const result = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const btn = document.getElementById('__paintpro_send');
+            if (btn) { btn.click(); return 'ok'; }
+            return 'no_button';
+          }
+        });
+        if (result?.[0]?.result === 'no_button') {
+          alert('토스 보장분석 페이지에서 실행해 주세요.');
+        }
+      } catch (e) {
+        alert('오류: ' + (e.message || e));
+      } finally { _ppBtn.textContent = prev; _ppBtn.disabled = false; }
+    });
+  }
   // 저장된 전송 대상 복원
   try {
     chrome.storage.local.get([TARGET_MODE_KEY], v => {
@@ -2320,8 +2344,8 @@ document.getElementById('btnApply').addEventListener('click', async () => {
 });
 
 function showCopyButtons(show) {
-  document.getElementById('btnCopyText').style.display = show ? '' : 'none';
-  document.getElementById('btnCopyJson').style.display = show ? '' : 'none';
+  const dev = document.getElementById('devToolbar');
+  if (dev) dev.style.display = show ? 'flex' : 'none';
   document.getElementById('btnApply').style.display = show ? '' : 'none';
 }
 
