@@ -780,49 +780,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   } catch { _syncTmBtns(); }
 
-  // 🆕 현재 활성 탭 URL 로 페이지 컨텍스트 감지 → UI 자동 조정
-  try {
-    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    const url = activeTab?.url || '';
-    const ctx = {
-      isCustomer: /\/customers\//.test(url),
-      isCoverage: /\/cover\//.test(url),
-      isPremiumPage: /mmlfcp\.ohmymanager\.com|ohmymanager\.com.*보험료/i.test(decodeURIComponent(url))
+  // 🆕 페이지별 버튼 표시/숨김 — 현재 활성 탭 URL로 컨텍스트 감지
+  function applyPageContext(url) {
+    const u = decodeURIComponent(url || '');
+    const isCoverage   = /crm\.tossinsu\.com.*\/cover\//i.test(u);           // 토스 보장분석
+    const isCustomer   = /crm\.tossinsu\.com.*\/customers?\//i.test(u);      // 토스 고객 페이지
+    const isPremium    = /mmlfcp\.ohmymanager\.com/i.test(u);                // 보험료 비교 폼
+    const isVercel     = /tossinssu-pro\.vercel\.app/i.test(u);
+    const isPlan       = isVercel && /plan\.html/i.test(u);                   // 가설계
+    const isEditor     = isVercel && /editor\.html/i.test(u);                // 페인트프로 에디터
+    const isApp        = isVercel && !isPlan && !isEditor;                    // 보장분석 앱 메인
+
+    const targetPanel  = document.querySelector('[data-target-panel]');
+    const cfgPanel     = document.querySelector('.cfg-panel');
+
+    // 버튼 ID → 표시 여부 매핑
+    const btnMap = {
+      tm_auto:        isCustomer || (!isCoverage && !isPremium && !isVercel),  // 기타 페이지
+      tm_consult:     isCustomer,
+      tm_std:         isCoverage || isApp,
+      tm_plan:        isPlan,
+      tm_prem:        isCoverage,
+      btn_paintpro:   isCoverage,
+      btn_absence_warn: isCoverage,
     };
-    const targetPanel = document.querySelector('[data-target-panel]') || document.querySelector('input[name="targetMode"]')?.closest('div[style*="background:#eff6ff"]');
-    const radios = {
-      auto: document.querySelector('input[name="targetMode"][value="auto"]'),
-      consult: document.querySelector('input[name="targetMode"][value="consult"]'),
-      standard: document.querySelector('input[name="targetMode"][value="standard"]'),
-      plan: document.querySelector('input[name="targetMode"][value="plan"]'),
-      premiumPage: document.querySelector('input[name="targetMode"][value="premium-page"]')
-    };
-    const labelOf = (r) => r?.closest('label');
-    if (ctx.isCustomer) {
-      // 🎯 고객 페이지: 전송 대상 패널은 노출하되 "상담등록" 을 기본값으로 선택
-      //   (추출한 고객정보를 상담등록 페이지로 보내는 게 기본 동작)
-      if (targetPanel) targetPanel.style.display = '';
-      if (labelOf(radios.plan)) labelOf(radios.plan).style.display = 'none';
-      setTargetMode('consult');
-      try { chrome.storage.local.set({ [TARGET_MODE_KEY]: 'consult' }); } catch {}
-      updateTargetHint();
-      const cfgPanel = document.querySelector('.cfg-panel');
-      if (cfgPanel) cfgPanel.style.display = 'none';
-    } else if (ctx.isCoverage) {
-      // 🎯 보장 페이지: 표준 보장분석 / 보험료 비교 폼만 노출
-      if (labelOf(radios.auto)) labelOf(radios.auto).style.display = 'none';
-      if (labelOf(radios.plan)) labelOf(radios.plan).style.display = 'none';
-      // 기본값: 표준 보장분석
-      setTargetMode('standard');
-      updateTargetHint();
-    } else if (ctx.isPremiumPage) {
-      // 🎯 보험료 비교 페이지: 라디오 감추고 자동으로 plan (가설계) 라우팅
-      //   (전송 시 보장분석 프로그램의 보험사별 비교 → 가설계 탭으로 전송)
+
+    // label(for=id) 또는 button(id) 표시 제어
+    Object.entries(btnMap).forEach(([id, show]) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      // label 이면 부모가 button 역할; button 이면 그냥 button
+      const target = el.tagName === 'INPUT' ? document.querySelector(`label[for="${id}"]`) : el;
+      if (target) target.style.display = show ? '' : 'none';
+    });
+
+    if (isPremium) {
+      // 보험료 비교 페이지: 전송 대상 패널 숨김 + plan 자동 선택
       if (targetPanel) targetPanel.style.display = 'none';
       setTargetMode('plan');
       try { chrome.storage.local.set({ [TARGET_MODE_KEY]: 'plan' }); } catch {}
+    } else {
+      if (targetPanel) targetPanel.style.display = '';
+      // 기본 선택: 페이지에 맞는 라디오 자동 설정
+      if (isCoverage)     { setTargetMode('standard'); }
+      else if (isCustomer){ setTargetMode('consult'); try { chrome.storage.local.set({ [TARGET_MODE_KEY]: 'consult' }); } catch {} }
+      else if (isPlan)    { setTargetMode('plan'); }
+      else if (isApp)     { setTargetMode('standard'); }
     }
-    // 그 외 페이지는 4개 모두 노출 (기본)
+
+    // 고객 페이지에서는 cfg 패널 숨김
+    if (cfgPanel) cfgPanel.style.display = isCustomer ? 'none' : '';
+
+    updateTargetHint();
+    _syncTmBtns();
+  }
+
+  try {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    applyPageContext(activeTab?.url || '');
   } catch (e) { console.warn('[popup] context detect failed:', e); }
   // 🆕 담보 리스트 렌더링 (초기)
   _renderCoverageList();
