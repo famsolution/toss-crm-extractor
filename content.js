@@ -2531,6 +2531,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       const _num = function (v) { return parseInt(String(v == null ? '' : v).replace(/[^\d]/g, ''), 10) || 0; };
       const monthSum = insurances.reduce(function (s, i) { return s + _num(i['월납보험료']); }, 0);
       const remainSum = insurances.reduce(function (s, i) { return s + _num(i['잔여보험료']); }, 0);
+      // 🆕 가입 보험 내역 → setPolicyList 형식으로 변환
+      //   {name, premium, pay, expiry, renew}
+      //   - name   : 보험명
+      //   - premium: 월납보험료 (숫자, 원 단위)
+      //   - pay    : 납입 여부 (납입중/납입종료/… 등 원문)
+      //   - expiry : 보장만기/만기연령 (원문)
+      //   - renew  : 갱신 유무 (원문)
+      const policyList = insurances.map(function (ins) {
+        return {
+          name: ins['보험명'] || ins['보험사명'] || '',
+          company: ins['보험사명'] || '',
+          premium: _num(ins['월납보험료']),
+          pay: ins['납입 여부'] || ins['납입여부'] || '',
+          expiry: ins['보장만기/만기연령'] || ins['보장만기'] || '',
+          renew: ins['갱신 유무'] || ins['갱신유무'] || ''
+        };
+      });
       const payload = {
         고객명: basic.고객명 || '',
         나이: basic.보험나이 || '',
@@ -2539,6 +2556,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         보험개수: insurances.length,
         월납합계: monthSum,
         잔여합계: remainSum,
+        policyList: policyList,
         추출시각: new Date().toISOString()
       };
       if (!payload.고객명 && insurances.length === 0) {
@@ -2546,7 +2564,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return;
       }
       const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-      window.open(STUDIO_URL + '/#studio=' + b64, '_blank');
+      const studioTab = window.open(STUDIO_URL + '/#studio=' + b64, '_blank');
+      // 🆕 스튜디오 탭이 로드된 후 setPolicyList 호출 — postMessage 로 전달
+      //   스튜디오가 window.addEventListener('message'...) 로 받아서 setPolicyList(data.policyList) 실행
+      if (studioTab) {
+        var _tries = 0;
+        var _iv = setInterval(function () {
+          _tries++;
+          try {
+            studioTab.postMessage({ __studioInit: true, policyList: policyList, payload: payload }, '*');
+          } catch (e) {}
+          if (_tries >= 10) clearInterval(_iv);
+        }, 800);
+      }
     } catch (e) {
       alert('스튜디오 전송 실패: ' + (e.message || e));
     } finally { btn.textContent = old; btn.disabled = false; }
@@ -2604,7 +2634,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return;
     }
     _makeSideBtn('__paintpro_send', '🎨 페인트 프로', '#2563EB', sendToPaintPro);
-    _makeSideBtn('__studio_send', '부재[경고]', '#7c3aed', sendToStudio);
+    _makeSideBtn('__studio_send', '부재고객[경고]', '#7c3aed', sendToStudio);
   }
 
   // 탭 전환/지연 렌더로 버튼이 늦게 생기므로 주기적으로 확인
