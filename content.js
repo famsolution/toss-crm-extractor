@@ -2272,6 +2272,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     try { sendResponse({ ok: true, hasApplyHandler: true, version: __EXT_VERSION }); } catch (e) {}
     return false;
   }
+  // 🆕 페인트 프로/스튜디오 트리거 — popup 이 닫힌 뒤(페이지 focus 복귀) 실행해야 clipboard.read 가 동작
+  if (request.action === 'triggerPaintPro' || request.action === 'triggerStudio') {
+    const _id = request.action === 'triggerPaintPro' ? '__paintpro_send' : '__studio_send';
+    setTimeout(function () { const b = document.getElementById(_id); if (b) b.click(); }, 400);
+    try { sendResponse({ ok: true }); } catch (e) {}
+    return false;
+  }
   // 🆕 mmlfcp 폼의 실제 옵션 읽기 — 생손보유형 설정 후 상품유형/만기 옵션 반환 (popup 드롭다운 동기화용)
   if (request.action === 'getFormOptions') {
     (async () => {

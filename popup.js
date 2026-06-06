@@ -782,22 +782,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     _ppBtn.addEventListener('click', async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab) return;
-      const prev = _ppBtn.textContent; _ppBtn.textContent = '⏳ 준비 중…'; _ppBtn.disabled = true;
+      // 토스 보장분석 페이지(앵커 존재)인지 확인
+      let hasAnchor = false;
       try {
-        const result = await chrome.scripting.executeScript({
+        const r = await chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          func: () => {
-            const btn = document.getElementById('__paintpro_send');
-            if (btn) { btn.click(); return 'ok'; }
-            return 'no_button';
-          }
+          func: () => !!document.getElementById('__paintpro_send')
         });
-        if (result?.[0]?.result === 'no_button') {
-          alert('토스 보장분석 페이지에서 실행해 주세요.');
-        }
-      } catch (e) {
-        alert('오류: ' + (e.message || e));
-      } finally { _ppBtn.textContent = prev; _ppBtn.disabled = false; }
+        hasAnchor = !!(r && r[0] && r[0].result);
+      } catch {}
+      if (!hasAnchor) { alert('토스 보장분석 페이지에서 실행해 주세요.'); return; }
+      // 🔑 popup 을 닫아 페이지 focus 복귀 → content.js 가 clipboard.read() 실행 가능
+      //    (popup 이 떠 있으면 페이지에 focus 가 없어 클립보드 읽기가 브라우저 보안으로 차단됨)
+      try { chrome.tabs.sendMessage(tab.id, { action: 'triggerPaintPro' }, () => { void chrome.runtime.lastError; }); } catch {}
+      setTimeout(() => window.close(), 120);
     });
   }
   // 저장된 전송 대상 복원
