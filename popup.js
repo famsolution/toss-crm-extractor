@@ -705,19 +705,56 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById(id)?.addEventListener('change', saveCfgState);
   });
   // 🆕 전송 대상 라디오 — 변경 시 hint 업데이트 + 영속 저장
+  // 🆕 tm-btn 활성 강조 — 라디오 변경 시 현재 선택된 label 에 active 클래스 토글
+  function _syncTmBtns() {
+    const cur = getTargetMode();
+    document.querySelectorAll('.tm-btn').forEach(lb => {
+      const forId = lb.getAttribute('for');
+      const inp = forId ? document.getElementById(forId) : null;
+      lb.style.background = (inp && inp.value === cur) ? '#2563eb' : '';
+      lb.style.color = (inp && inp.value === cur) ? '#fff' : '';
+      lb.style.borderColor = (inp && inp.value === cur) ? '#1d4ed8' : '';
+    });
+  }
   document.querySelectorAll('input[name="targetMode"]').forEach(r => {
     r.addEventListener('change', () => {
       updateTargetHint();
+      _syncTmBtns();
       try { chrome.storage.local.set({ [TARGET_MODE_KEY]: getTargetMode() }); } catch {}
     });
   });
+  // 🆕 부재고객[경고] 버튼 — 현재 활성 탭(토스 보장분석)에 sendToStudio 트리거
+  const _absBtn = document.getElementById('btn_absence_warn');
+  if (_absBtn) {
+    _absBtn.addEventListener('click', async () => {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab) return;
+      const prev = _absBtn.textContent; _absBtn.textContent = '⏳ 추출 중…'; _absBtn.disabled = true;
+      try {
+        const result = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => {
+            const btn = document.getElementById('__studio_send');
+            if (btn) { btn.click(); return 'ok'; }
+            return 'no_button';
+          }
+        });
+        if (result?.[0]?.result === 'no_button') {
+          alert('토스 보장분석 페이지에서 실행해 주세요.');
+        }
+      } catch (e) {
+        alert('오류: ' + (e.message || e));
+      } finally { _absBtn.textContent = prev; _absBtn.disabled = false; }
+    });
+  }
   // 저장된 전송 대상 복원
   try {
     chrome.storage.local.get([TARGET_MODE_KEY], v => {
       if (v?.[TARGET_MODE_KEY]) setTargetMode(v[TARGET_MODE_KEY]);
       updateTargetHint();
+      _syncTmBtns();
     });
-  } catch {}
+  } catch { _syncTmBtns(); }
 
   // 🆕 현재 활성 탭 URL 로 페이지 컨텍스트 감지 → UI 자동 조정
   try {

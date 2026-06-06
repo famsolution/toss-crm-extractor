@@ -365,6 +365,15 @@
     /* 🆕 템플릿 단독 섹션 — cfg 패널 위쪽 */
     .tpl-section { background: var(--surface); padding: 9px 14px; border-bottom: 1px solid var(--border); }
 
+    /* 🆕 전송 대상 텍스트 버튼 */
+    .tm-btn { display:inline-block; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; background:#e0e7ff; color:#3730a3; border:1.5px solid transparent; transition:all .12s; white-space:nowrap; user-select:none; }
+    .tm-btn:hover { background:#c7d2fe; }
+    input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
+    #tm_auto:checked ~ div label[for="tm_auto"],
+    #tm_consult:checked ~ div label[for="tm_consult"],
+    #tm_std:checked ~ div label[for="tm_std"],
+    #tm_plan:checked ~ div label[for="tm_plan"],
+    #tm_prem:checked ~ div label[for="tm_prem"] { background:#2563eb; color:#fff; border-color:#1d4ed8; }
     /* 🆕 보험료 비교 설정 패널 */
     .cfg-panel { background: var(--surface); border-bottom: 1px solid var(--border); }
     .cfg-header { padding: 10px 14px; font-size: 12.5px; font-weight: 700; color: var(--text-1); cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #fef3c7, #fde68a); }
@@ -455,22 +464,21 @@
   <!-- 🆕 전송 대상 선택 — 어느 페이지/모드로 데이터를 보낼지 -->
   <div data-target-panel style="background:#eff6ff; padding:10px 14px; border-bottom:1px solid var(--border);">
     <div style="font-size:11.5px; font-weight:700; color:var(--text-2); margin-bottom:6px;">📍 전송 대상</div>
-    <div style="display:flex; gap:10px; flex-wrap:wrap;">
-      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:600;">
-        <input type="radio" name="targetMode" value="auto" checked> 🤖 자동 감지
-      </label>
-      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:700; color:#2563eb;">
-        <input type="radio" name="targetMode" value="consult"> 📝 상담등록
-      </label>
-      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:600;">
-        <input type="radio" name="targetMode" value="standard"> 📊 표준 보장분석
-      </label>
-      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:600;">
-        <input type="radio" name="targetMode" value="plan"> 📐 가설계 탭
-      </label>
-      <label style="display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11.5px; font-weight:600;">
-        <input type="radio" name="targetMode" value="premium-page"> 📋 보험료 비교 폼
-      </label>
+    <!-- 라디오 인풋(숨김) — 기존 JS 로직 유지 -->
+    <input type="radio" name="targetMode" value="auto"         id="tm_auto"    style="display:none" checked>
+    <input type="radio" name="targetMode" value="consult"      id="tm_consult" style="display:none">
+    <input type="radio" name="targetMode" value="standard"     id="tm_std"     style="display:none">
+    <input type="radio" name="targetMode" value="plan"         id="tm_plan"    style="display:none">
+    <input type="radio" name="targetMode" value="premium-page" id="tm_prem"    style="display:none">
+    <!-- 텍스트 버튼 스타일 (선택 시 배경 강조) -->
+    <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <label for="tm_auto"    class="tm-btn">🤖 자동 감지</label>
+      <label for="tm_consult" class="tm-btn">📝 상담등록</label>
+      <label for="tm_std"     class="tm-btn">📊 표준 보장분석</label>
+      <label for="tm_plan"    class="tm-btn">📐 가설계 탭</label>
+      <label for="tm_prem"    class="tm-btn">📋 보험료 비교 폼</label>
+      <!-- 부재고객[경고] — 보험료 비교 폼 오른쪽 배치 -->
+      <button id="btn_absence_warn" style="padding:5px 10px; background:#7c3aed; color:#fff; border:none; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">부재고객[경고]</button>
     </div>
     <div id="targetModeHint" style="font-size:10.5px; color:var(--text-3); margin-top:4px;">데이터 종류에 따라 자동으로 적절한 페이지로 전송됩니다</div>
   </div>

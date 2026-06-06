@@ -2634,7 +2634,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return;
     }
     _makeSideBtn('__paintpro_send', '🎨 페인트 프로', '#2563EB', sendToPaintPro);
-    _makeSideBtn('__studio_send', '부재고객[경고]', '#7c3aed', sendToStudio);
+    // 부재고객[경고]는 확장 팝업 내부로 이동 — 사이드바에서는 제거
   }
 
   // 탭 전환/지연 렌더로 버튼이 늦게 생기므로 주기적으로 확인
