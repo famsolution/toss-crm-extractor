@@ -2580,24 +2580,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     } finally { fab.textContent = old; fab.disabled = false; }
   }
 
+  // 🆕 왼쪽 사이드 버튼 스택 — 새 버튼은 _makeSideBtn 으로 추가하면 자동으로 세로 나열된다.
+  function _ensureSidebar() {
+    let bar = document.getElementById('__ext_sidebar');
+    if (!bar) {
+      bar = document.createElement('div');
+      bar.id = '__ext_sidebar';
+      bar.style.cssText = 'position:fixed; left:14px; top:50%; transform:translateY(-50%); z-index:2147483647; display:flex; flex-direction:column; gap:10px; font-family:sans-serif;';
+      document.body.appendChild(bar);
+    }
+    return bar;
+  }
+  function _makeSideBtn(id, text, bg, handler) {
+    if (document.getElementById(id)) return;
+    const b = document.createElement('button');
+    b.id = id;
+    b.textContent = text;
+    b.style.cssText = 'padding:11px 16px; background:' + bg + '; color:#fff; border:none; border-radius:10px; font-weight:700; font-size:13px; box-shadow:0 6px 18px rgba(0,0,0,.22); cursor:pointer; white-space:nowrap; text-align:left;';
+    b.onclick = function () { handler(b); };
+    _ensureSidebar().appendChild(b);
+  }
   function ensureButton() {
     if (!findCopyBtn() && !findTableTab()) return;   // 보장분석(표 탭 또는 이미지복사 버튼) 화면에서만 노출
-    if (!document.getElementById('__paintpro_send')) {
-      const fab = document.createElement('button');
-      fab.id = '__paintpro_send';
-      fab.textContent = '🎨 페인트프로로 전송';
-      fab.style.cssText = 'position:fixed; right:20px; bottom:20px; z-index:2147483647; padding:12px 18px; background:#2563EB; color:#fff; border:none; border-radius:10px; font-weight:700; font-size:13px; box-shadow:0 6px 18px rgba(37,99,235,.4); cursor:pointer; font-family:sans-serif;';
-      fab.onclick = function () { sendToPaintPro(fab); };
-      document.body.appendChild(fab);
-    }
-    if (!document.getElementById('__studio_send')) {
-      const sb = document.createElement('button');
-      sb.id = '__studio_send';
-      sb.textContent = '📤 스튜디오전송';
-      sb.style.cssText = 'position:fixed; right:20px; bottom:70px; z-index:2147483647; padding:12px 18px; background:#7c3aed; color:#fff; border:none; border-radius:10px; font-weight:700; font-size:13px; box-shadow:0 6px 18px rgba(124,58,237,.4); cursor:pointer; font-family:sans-serif;';
-      sb.onclick = function () { sendToStudio(sb); };
-      document.body.appendChild(sb);
-    }
+    _makeSideBtn('__paintpro_send', '🎨 페인트 프로', '#2563EB', sendToPaintPro);
+    _makeSideBtn('__studio_send', '📤 스튜디오', '#7c3aed', sendToStudio);
   }
 
   // 탭 전환/지연 렌더로 버튼이 늦게 생기므로 주기적으로 확인
