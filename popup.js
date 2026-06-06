@@ -745,8 +745,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         name:    ins['보험명'] || ins['보험사명'] || '',
         company: ins['보험사명'] || '',
         premium: _num(ins['월납보험료']),
-        pay:     ins['납입 여부'] || ins['납입여부'] || '',
-        expiry:  ins['보장만기/만기연령'] || '',
+        pay:     ins['납입주기/납입기간'] || ins['납입주기'] || '',
+        expiry:  (function(s){ s=String(s||''); var m=s.match(/(\d+\s*세|종신)/g); return m? m[m.length-1].replace(/\s+/g,'') : s.trim(); })(ins['보장만기/만기연령'] || ''),
         renew:   ins['갱신 유무'] || ins['갱신유무'] || ''
       }));
 
@@ -1236,7 +1236,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
     // 🆕 강제 라우팅 - 표준 보장분석
     if (targetMode === 'standard') {
       console.log('[btnApply] 📤 라우팅: 표준 보장분석 (storage 중개)');
-      const STD_DEFAULT_URL = 'https://tossinssu-pro.vercel.app/';
+      const STD_DEFAULT_URL = 'https://tossinssu-pro.vercel.app/app.html';   // 표준분석 앱(receiver 가 있는 화면). '/' 는 로그인 페이지(index.html)라 적용 불가
       const textData = formatAsText(extractedData);
       // 🆕 적용 데이터를 storage 에 저장 → 앱 페이지의 content.js 가 앱(receiver) 준비되는 순간 자동 적용.
       //   (탭 열림/로그인/렌더 타이밍에 의존하지 않음 — 새로 열려도 준비되면 스스로 가져감)
@@ -1245,7 +1245,8 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       let programTab = findProgramTab();
       if (!programTab) {
         const stored = await new Promise(r => { try { chrome.storage.local.get(['lastProgramUrl'], v => r(v?.lastProgramUrl || null)); } catch { r(null); } });
-        const openUrl = stored || STD_DEFAULT_URL;
+        // 🆕 stored 가 로그인/가설계/에디터 페이지면 무시 — 표준분석 receiver 가 없는 화면이라 적용이 안 됨
+        const openUrl = (stored && !/(plan|editor|index)\.html/i.test(stored)) ? stored : STD_DEFAULT_URL;
         try { programTab = await chrome.tabs.create({ url: openUrl, active: true }); }
         catch (e) { clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false; alert('탭 자동 오픈 실패: ' + (e.message || e)); return; }
       } else {
