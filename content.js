@@ -2517,6 +2517,45 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return null;
   }
 
+  // 🆕 보장분석 요약(고객명/나이/성별/상령일/보험개수/월납합계/잔여합계)을 토스 인슈어런스 스튜디오로 전송
+  const STUDIO_URL = 'https://toss-insurance-studio.web.app';
+  async function sendToStudio(btn) {
+    const old = btn.textContent; btn.textContent = '⏳ 추출 중…'; btn.disabled = true;
+    try {
+      if (typeof _extAuthCheck === 'function' && !(await _extAuthCheck())) {
+        alert('⛔ 권한이 없습니다. 확장 팝업에서 로그인 후 관리자 승인을 받으세요.');
+        return;
+      }
+      const match = location.pathname.match(/\/cover\/(\d+)/);
+      const custId = match ? match[1] : '';
+      let basic = {};
+      try { basic = (await extractCustomerBasicInfo(custId)) || {}; } catch (e) {}
+      let insurances = [];
+      try { insurances = extractInsuranceData() || []; } catch (e) {}
+      const _num = function (v) { return parseInt(String(v == null ? '' : v).replace(/[^\d]/g, ''), 10) || 0; };
+      const monthSum = insurances.reduce(function (s, i) { return s + _num(i['월납보험료']); }, 0);
+      const remainSum = insurances.reduce(function (s, i) { return s + _num(i['잔여보험료']); }, 0);
+      const payload = {
+        고객명: basic.고객명 || '',
+        나이: basic.보험나이 || '',
+        성별: basic.성별 || '',
+        상령일: basic.상령일 || '',
+        보험개수: insurances.length,
+        월납합계: monthSum,
+        잔여합계: remainSum,
+        추출시각: new Date().toISOString()
+      };
+      if (!payload.고객명 && insurances.length === 0) {
+        alert('추출할 보장분석 데이터를 찾지 못했습니다.\n토스 보장분석(보장내역) 페이지에서 사용해 주세요.');
+        return;
+      }
+      const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      window.open(STUDIO_URL + '/#studio=' + b64, '_blank');
+    } catch (e) {
+      alert('스튜디오 전송 실패: ' + (e.message || e));
+    } finally { btn.textContent = old; btn.disabled = false; }
+  }
+
   async function sendToPaintPro(fab) {
     const old = fab.textContent;
     fab.textContent = '⏳ 이미지 준비 중…'; fab.disabled = true;
@@ -2542,14 +2581,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   function ensureButton() {
-    if (document.getElementById('__paintpro_send')) return;
     if (!findCopyBtn() && !findTableTab()) return;   // 보장분석(표 탭 또는 이미지복사 버튼) 화면에서만 노출
-    const fab = document.createElement('button');
-    fab.id = '__paintpro_send';
-    fab.textContent = '🎨 페인트프로로 전송';
-    fab.style.cssText = 'position:fixed; right:20px; bottom:20px; z-index:2147483647; padding:12px 18px; background:#2563EB; color:#fff; border:none; border-radius:10px; font-weight:700; font-size:13px; box-shadow:0 6px 18px rgba(37,99,235,.4); cursor:pointer; font-family:sans-serif;';
-    fab.onclick = function () { sendToPaintPro(fab); };
-    document.body.appendChild(fab);
+    if (!document.getElementById('__paintpro_send')) {
+      const fab = document.createElement('button');
+      fab.id = '__paintpro_send';
+      fab.textContent = '🎨 페인트프로로 전송';
+      fab.style.cssText = 'position:fixed; right:20px; bottom:20px; z-index:2147483647; padding:12px 18px; background:#2563EB; color:#fff; border:none; border-radius:10px; font-weight:700; font-size:13px; box-shadow:0 6px 18px rgba(37,99,235,.4); cursor:pointer; font-family:sans-serif;';
+      fab.onclick = function () { sendToPaintPro(fab); };
+      document.body.appendChild(fab);
+    }
+    if (!document.getElementById('__studio_send')) {
+      const sb = document.createElement('button');
+      sb.id = '__studio_send';
+      sb.textContent = '📤 스튜디오전송';
+      sb.style.cssText = 'position:fixed; right:20px; bottom:70px; z-index:2147483647; padding:12px 18px; background:#7c3aed; color:#fff; border:none; border-radius:10px; font-weight:700; font-size:13px; box-shadow:0 6px 18px rgba(124,58,237,.4); cursor:pointer; font-family:sans-serif;';
+      sb.onclick = function () { sendToStudio(sb); };
+      document.body.appendChild(sb);
+    }
   }
 
   // 탭 전환/지연 렌더로 버튼이 늦게 생기므로 주기적으로 확인

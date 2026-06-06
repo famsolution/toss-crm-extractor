@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "토스인슈 CRM 데이터 추출기",
-  "version": "3.10.0",
+  "version": "3.10.4",
   "description": "토스인슈 CRM 데이터 추출 — 마스킹 자동 복원 + 로그인/관리자 승인 권한 게이트.",
   "permissions": [
     "activeTab",
@@ -42,7 +42,7 @@
     {
       "matches": [
         "*://erp.samsungfire.com/*", "*://sp.hi.co.kr/*", "*://www.mdbins.com/*",
-        "*://sales.meritzfire.com/*", "*://sales.kbinsure.co.kr/*", "*://portal.hwgeneralins.com/*",
+        "*://sales.meritzfire.com/*", "*://nsso.meritzfire.com/*", "*://sales.kbinsure.co.kr/*", "*://portal.hwgeneralins.com/*",
         "*://sales.heungkukfire.co.kr/*", "*://lottero.lotteins.co.kr/*", "*://ss.nhfire.co.kr/*",
         "*://mganet.mggeneralins.com/*", "*://ga.shinhanez.co.kr/*", "*://ga.aig.co.kr/*",
         "*://sfa.saleshana.com/*", "*://ga.samsunglife.com/*", "*://hmp.hanwhalife.com/*",
