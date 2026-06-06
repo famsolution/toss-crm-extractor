@@ -1323,36 +1323,33 @@ document.getElementById('btnApply').addEventListener('click', async () => {
         /tossinssu-pro\.vercel\.app\/plan\.html/i.test(t.url)
       ));
       let target = planTab || programTab;
-      // 🆕 보장분석 프로그램이 안 열려있으면 마지막 URL 로 자동 오픈
+      // 🆕 보장분석 프로그램이 안 열려있으면 마지막 URL(또는 기본 URL)로 자동 오픈 + 로드 대기
       if (!target) {
         const stored = await new Promise(r => {
           try { chrome.storage.local.get(['lastProgramUrl'], v => r(v?.lastProgramUrl || null)); } catch { r(null); }
         });
-        if (stored) {
-          try {
-            programTab = await chrome.tabs.create({ url: stored, active: true });
-            target = programTab;
-            // 페이지 로드 대기 (max 15초)
-            await new Promise(resolve => {
-              let elapsed = 0;
-              const tid = setInterval(async () => {
-                elapsed += 500;
-                try {
-                  const [r] = await chrome.scripting.executeScript({
-                    target: { tabId: programTab.id }, world: 'MAIN',
-                    func: () => typeof window.__applyTossDataFromExtension === 'function' || document.querySelectorAll('button').length > 5
-                  });
-                  if (r && r.result) { clearInterval(tid); resolve(true); return; }
-                } catch {}
-                if (elapsed >= 15000) { clearInterval(tid); resolve(false); }
-              }, 500);
-            });
-          } catch (e) {
-            alert('보장분석 프로그램 자동 오픈 실패: ' + (e.message || e) + '\n\n· chrome://extensions → 파일 URL 액세스 허용 ON 확인');
-            return;
-          }
-        } else {
-          alert('보장분석 프로그램이 열려있지 않습니다.\n\n파일을 한 번 직접 열어주세요 (한 번 적용 성공 후부터 자동 오픈).');
+        const openUrl = stored || 'https://tossinssu-pro.vercel.app/';
+        try {
+          programTab = await chrome.tabs.create({ url: openUrl, active: true });
+          target = programTab;
+          // 페이지(앱) 준비 대기 (max 18초) — 새 탭이 열린 직후엔 receiver 가 없으므로 반드시 기다린다
+          await new Promise(resolve => {
+            let elapsed = 0;
+            const tid = setInterval(async () => {
+              elapsed += 500;
+              try {
+                const [r] = await chrome.scripting.executeScript({
+                  target: { tabId: programTab.id }, world: 'MAIN',
+                  func: () => typeof window.__applyTossDataFromExtension === 'function' || typeof window.__applyPremiumDataFromExtension === 'function' || document.querySelectorAll('button').length > 5
+                });
+                if (r && r.result) { clearInterval(tid); resolve(true); return; }
+              } catch {}
+              if (elapsed >= 18000) { clearInterval(tid); resolve(false); }
+            }, 500);
+          });
+        } catch (e) {
+          clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
+          alert('보장분석 프로그램 자동 오픈 실패: ' + (e.message || e));
           return;
         }
       }
