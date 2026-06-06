@@ -2586,7 +2586,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (!bar) {
       bar = document.createElement('div');
       bar.id = '__ext_sidebar';
-      bar.style.cssText = 'position:fixed; left:14px; top:50%; transform:translateY(-50%); z-index:2147483647; display:flex; flex-direction:column; gap:10px; font-family:sans-serif;';
+      bar.style.cssText = 'position:fixed; left:14px; bottom:20px; z-index:2147483647; display:flex; flex-direction:column; gap:10px; font-family:sans-serif;';
       document.body.appendChild(bar);
     }
     return bar;
