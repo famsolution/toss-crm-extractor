@@ -2522,10 +2522,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   async function sendToStudio(btn) {
     const old = btn.textContent; btn.textContent = '⏳ 추출 중…'; btn.disabled = true;
     try {
-      if (typeof _extAuthCheck === 'function' && !(await _extAuthCheck())) {
-        alert('⛔ 권한이 없습니다. 확장 팝업에서 로그인 후 관리자 승인을 받으세요.');
-        return;
-      }
       const match = location.pathname.match(/\/cover\/(\d+)/);
       const custId = match ? match[1] : '';
       let basic = {};
@@ -2608,7 +2604,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       return;
     }
     _makeSideBtn('__paintpro_send', '🎨 페인트 프로', '#2563EB', sendToPaintPro);
-    _makeSideBtn('__studio_send', '📤 스튜디오', '#7c3aed', sendToStudio);
+    _makeSideBtn('__studio_send', '부재[경고]', '#7c3aed', sendToStudio);
   }
 
   // 탭 전환/지연 렌더로 버튼이 늦게 생기므로 주기적으로 확인
