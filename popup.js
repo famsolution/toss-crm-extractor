@@ -1235,51 +1235,53 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       return;
     }
 
-    // 🆕 강제 라우팅 - 표준 보장분석 (사용자가 명시 선택 시)
+    // 🆕 강제 라우팅 - 표준 보장분석
     if (targetMode === 'standard') {
-      console.log('[btnApply] 📤 라우팅: 표준 보장분석 (toss_insu*.html)');
+      console.log('[btnApply] 📤 라우팅: 표준 보장분석');
+      const STD_DEFAULT_URL = 'https://tossinssu-pro.vercel.app/';
       let programTab = findProgramTab();
-      // 프로그램 탭이 없으면 마지막 URL 로 자동 오픈 시도
+
+      // 탭이 없으면 저장된 URL 또는 기본 URL로 자동 오픈
       if (!programTab) {
         const stored = await new Promise(r => {
           try { chrome.storage.local.get(['lastProgramUrl'], v => r(v?.lastProgramUrl || null)); } catch { r(null); }
         });
-        if (!stored) {
-          alert('보장분석 프로그램이 열려있지 않습니다.\n\nhttps://tossinssu-pro.vercel.app 을 먼저 열어주세요. (한 번 적용 성공 후 자동 오픈됩니다)');
-          return;
-        }
+        const openUrl = stored || STD_DEFAULT_URL;
         try {
-          programTab = await chrome.tabs.create({ url: stored, active: true });
-          // receiver 함수 정의될 때까지 대기 (최대 15초)
-          await new Promise(resolve => {
-            let elapsed = 0;
-            const tid = setInterval(async () => {
-              elapsed += 500;
-              try {
-                const [r] = await chrome.scripting.executeScript({
-                  target: { tabId: programTab.id }, world: 'MAIN',
-                  func: () => typeof window.__applyTossDataFromExtension === 'function'
-                });
-                if (r?.result) { clearInterval(tid); resolve(true); return; }
-              } catch {}
-              if (elapsed >= 15000) { clearInterval(tid); resolve(false); }
-            }, 500);
-          });
-        } catch (e) { alert('탭 자동 오픈 실패: ' + (e.message || e)); return; }
+          programTab = await chrome.tabs.create({ url: openUrl, active: true });
+          console.log('[btnApply] 새 탭 오픈:', openUrl);
+        } catch (e) {
+          clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
+          alert('탭 자동 오픈 실패: ' + (e.message || e)); return;
+        }
       }
-      // 표준 모드로 전환
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: programTab.id }, world: 'MAIN',
-          func: () => {
-            const tabs = Array.from(document.querySelectorAll('button'));
-            const stdBtn = tabs.find(b => /표준\s*보장분석/.test(b.textContent || ''));
-            if (stdBtn) stdBtn.click();
-          }
-        });
-        await new Promise(r => setTimeout(r, 300));
-      } catch {}
-      // 데이터 적용 — extractedData 전체를 텍스트로 포맷팅하여 전송
+
+      // 🆕 기존·신규 탭 모두 — receiver 함수 준비까지 대기 (최대 18초)
+      const receiverReady = await new Promise(resolve => {
+        let elapsed = 0;
+        const tid = setInterval(async () => {
+          elapsed += 500;
+          try {
+            const [r] = await chrome.scripting.executeScript({
+              target: { tabId: programTab.id }, world: 'MAIN',
+              func: () => typeof window.__applyTossDataFromExtension === 'function'
+            });
+            if (r?.result) { clearInterval(tid); resolve(true); return; }
+          } catch {}
+          if (elapsed >= 18000) { clearInterval(tid); resolve(false); }
+        }, 500);
+      });
+
+      if (!receiverReady) {
+        clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
+        alert('보장분석 앱 준비 실패 (18초 초과).\n\n' +
+              '① https://tossinssu-pro.vercel.app 탭을 열고 로그인해 주세요\n' +
+              '② 로그인 후 Ctrl+Shift+R 새로고침\n' +
+              '③ 다시 프로그램 적용');
+        return;
+      }
+
+      // 데이터 적용
       const textData = formatAsText(extractedData);
       try {
         const [r] = await chrome.scripting.executeScript({
@@ -1290,29 +1292,24 @@ document.getElementById('btnApply').addEventListener('click', async () => {
               try { window.__applyTossDataFromExtension(text); return { ok: true }; }
               catch (e) { return { ok: false, error: e.message }; }
             }
-            return { ok: false, error: 'receiver 없음 - 페이지 새로고침 필요' };
+            return { ok: false, error: 'receiver 없음' };
           }
         });
+        clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
         if (r?.result?.ok) {
-          // 성공 → URL 영속 저장 (다음 자동 오픈용)
           try { chrome.storage.local.set({ lastProgramUrl: programTab.url }); } catch {}
-          // 🆕 보장분석 탭으로 확실히 전환 — 탭 활성화 + 하이라이트 + 창 포커스(+주의환기)
           try {
             await chrome.tabs.update(programTab.id, { active: true, highlighted: true });
             await chrome.windows.update(programTab.windowId, { focused: true, drawAttention: true });
-          } catch (e) { console.warn('[btnApply] 탭 전환 실패:', e); }
-          clearTimeout(safetyTimer);
-          btn.textContent = '📤 프로그램 적용';
-          btn.disabled = false;
-          showToast('✅ 표준 보장분석에 적용 — 해당 탭으로 이동했습니다');
+          } catch {}
+          showToast('✅ 표준 보장분석에 적용 완료');
           setTimeout(() => window.close(), 600);
         } else {
-          clearTimeout(safetyTimer);
-          btn.textContent = '📤 프로그램 적용';
-          btn.disabled = false;
-          alert('표준 보장분석 적용 실패: ' + (r?.result?.error || 'unknown') + '\n\n· 프로그램을 Ctrl+Shift+R 로 새로고침 후 재시도');
+          alert('표준 보장분석 적용 실패: ' + (r?.result?.error || 'unknown') +
+                '\n\n· 프로그램을 Ctrl+Shift+R 로 새로고침 후 재시도');
         }
       } catch (e) {
+        clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
         alert('실행 실패: ' + (e.message || e));
       }
       return;
