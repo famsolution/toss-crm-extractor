@@ -1237,81 +1237,29 @@ document.getElementById('btnApply').addEventListener('click', async () => {
 
     // 🆕 강제 라우팅 - 표준 보장분석
     if (targetMode === 'standard') {
-      console.log('[btnApply] 📤 라우팅: 표준 보장분석');
+      console.log('[btnApply] 📤 라우팅: 표준 보장분석 (storage 중개)');
       const STD_DEFAULT_URL = 'https://tossinssu-pro.vercel.app/';
-      let programTab = findProgramTab();
-
-      // 탭이 없으면 저장된 URL 또는 기본 URL로 자동 오픈
-      if (!programTab) {
-        const stored = await new Promise(r => {
-          try { chrome.storage.local.get(['lastProgramUrl'], v => r(v?.lastProgramUrl || null)); } catch { r(null); }
-        });
-        const openUrl = stored || STD_DEFAULT_URL;
-        try {
-          programTab = await chrome.tabs.create({ url: openUrl, active: true });
-          console.log('[btnApply] 새 탭 오픈:', openUrl);
-        } catch (e) {
-          clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
-          alert('탭 자동 오픈 실패: ' + (e.message || e)); return;
-        }
-      }
-
-      // 🆕 기존·신규 탭 모두 — receiver 함수 준비까지 대기 (최대 18초)
-      const receiverReady = await new Promise(resolve => {
-        let elapsed = 0;
-        const tid = setInterval(async () => {
-          elapsed += 500;
-          try {
-            const [r] = await chrome.scripting.executeScript({
-              target: { tabId: programTab.id }, world: 'MAIN',
-              func: () => typeof window.__applyTossDataFromExtension === 'function'
-            });
-            if (r?.result) { clearInterval(tid); resolve(true); return; }
-          } catch {}
-          if (elapsed >= 18000) { clearInterval(tid); resolve(false); }
-        }, 500);
-      });
-
-      if (!receiverReady) {
-        clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
-        alert('보장분석 앱 준비 실패 (18초 초과).\n\n' +
-              '① https://tossinssu-pro.vercel.app 탭을 열고 로그인해 주세요\n' +
-              '② 로그인 후 Ctrl+Shift+R 새로고침\n' +
-              '③ 다시 프로그램 적용');
-        return;
-      }
-
-      // 데이터 적용
       const textData = formatAsText(extractedData);
-      try {
-        const [r] = await chrome.scripting.executeScript({
-          target: { tabId: programTab.id }, world: 'MAIN',
-          args: [textData],
-          func: (text) => {
-            if (typeof window.__applyTossDataFromExtension === 'function') {
-              try { window.__applyTossDataFromExtension(text); return { ok: true }; }
-              catch (e) { return { ok: false, error: e.message }; }
-            }
-            return { ok: false, error: 'receiver 없음' };
-          }
-        });
-        clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
-        if (r?.result?.ok) {
-          try { chrome.storage.local.set({ lastProgramUrl: programTab.url }); } catch {}
-          try {
-            await chrome.tabs.update(programTab.id, { active: true, highlighted: true });
-            await chrome.windows.update(programTab.windowId, { focused: true, drawAttention: true });
-          } catch {}
-          showToast('✅ 표준 보장분석에 적용 완료');
-          setTimeout(() => window.close(), 600);
-        } else {
-          alert('표준 보장분석 적용 실패: ' + (r?.result?.error || 'unknown') +
-                '\n\n· 프로그램을 Ctrl+Shift+R 로 새로고침 후 재시도');
-        }
-      } catch (e) {
-        clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
-        alert('실행 실패: ' + (e.message || e));
+      // 🆕 적용 데이터를 storage 에 저장 → 앱 페이지의 content.js 가 앱(receiver) 준비되는 순간 자동 적용.
+      //   (탭 열림/로그인/렌더 타이밍에 의존하지 않음 — 새로 열려도 준비되면 스스로 가져감)
+      await new Promise(r => { try { chrome.storage.local.set({ __tossPendingApply: { text: textData, ts: Date.now() } }, r); } catch { r(); } });
+
+      let programTab = findProgramTab();
+      if (!programTab) {
+        const stored = await new Promise(r => { try { chrome.storage.local.get(['lastProgramUrl'], v => r(v?.lastProgramUrl || null)); } catch { r(null); } });
+        const openUrl = stored || STD_DEFAULT_URL;
+        try { programTab = await chrome.tabs.create({ url: openUrl, active: true }); }
+        catch (e) { clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false; alert('탭 자동 오픈 실패: ' + (e.message || e)); return; }
+      } else {
+        try {
+          await chrome.tabs.update(programTab.id, { active: true, highlighted: true });
+          await chrome.windows.update(programTab.windowId, { focused: true, drawAttention: true });
+        } catch {}
       }
+      try { chrome.storage.local.set({ lastProgramUrl: programTab.url }); } catch {}
+      clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
+      showToast('✅ 표준 보장분석으로 전송 — 앱이 준비되면 자동 입력됩니다');
+      setTimeout(() => window.close(), 900);
       return;
     }
 

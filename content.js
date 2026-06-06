@@ -2493,6 +2493,36 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return;
   }
 
+  // ───────── vercel 메인 앱(app.html 등): storage 의 적용 대기 데이터를 페이지로 중개 ─────────
+  //   확장 popup 이 chrome.storage.local['__tossPendingApply'] 에 저장 → 앱이 로그인/렌더 완료돼
+  //   receiver(__applyTossDataFromExtension)가 준비되는 순간 적용 (탭 열림/로그인 타이밍 무관).
+  if (/tossinssu-pro\.vercel\.app$/.test(host)) {
+    (function () {
+      const PKEY = '__tossPendingApply';
+      let done = false, iv = null;
+      const stop = function () { done = true; if (iv) { clearInterval(iv); iv = null; } };
+      // 앱이 적용 완료를 알리면 storage 삭제 후 중단
+      window.addEventListener('message', function (e) {
+        if (e && e.data && e.data.__tossApplyDone) { try { chrome.storage.local.remove(PKEY); } catch (x) {} stop(); }
+      });
+      const tick = function () {
+        if (done) return;
+        try {
+          chrome.storage.local.get([PKEY], function (d) {
+            const p = d && d[PKEY];
+            if (!p || !p.text) return;
+            // receiver 가 준비됐든 아니든 계속 보냄 — 준비되면 페이지가 수신해 적용 후 __tossApplyDone 응답
+            try { window.postMessage({ __tossApply: p.text, __ts: p.ts }, '*'); } catch (x) {}
+          });
+        } catch (x) {}
+      };
+      tick();
+      iv = setInterval(tick, 1000);
+      setTimeout(stop, 90000);   // 90초 후 중단
+    })();
+    return;
+  }
+
   // ───────── 토스 보장분석 페이지: 전송 버튼 추가 ─────────
   // 🆕 토스 CRM(보장분석) 도메인이 아니면 전송 버튼을 절대 설치하지 않음
   //    (vercel 제안서의 '표', mmlfcp 등 다른 사이트에서 잘못 뜨던 문제 차단)
