@@ -373,7 +373,9 @@
     #tm_consult:checked ~ div label[for="tm_consult"],
     #tm_std:checked ~ div label[for="tm_std"],
     #tm_plan:checked ~ div label[for="tm_plan"],
-    #tm_prem:checked ~ div label[for="tm_prem"] { background:#2563eb; color:#fff; border-color:#1d4ed8; }
+    #tm_prem:checked ~ div label[for="tm_prem"],
+    #tm_paintpro:checked ~ div label[for="tm_paintpro"],
+    #tm_absence:checked ~ div label[for="tm_absence"] { background:#2563eb; color:#fff; border-color:#1d4ed8; }
     /* 🆕 보험료 비교 설정 패널 */
     .cfg-panel { background: var(--surface); border-bottom: 1px solid var(--border); }
     .cfg-header { padding: 10px 14px; font-size: 12.5px; font-weight: 700; color: var(--text-1); cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #fef3c7, #fde68a); }
@@ -465,15 +467,17 @@
     <input type="radio" name="targetMode" value="standard"     id="tm_std"     style="display:none">
     <input type="radio" name="targetMode" value="plan"         id="tm_plan"    style="display:none">
     <input type="radio" name="targetMode" value="premium-page" id="tm_prem"    style="display:none">
-    <!-- 텍스트 버튼 스타일 (선택 시 배경 강조) -->
+    <input type="radio" name="targetMode" value="paintpro"     id="tm_paintpro" style="display:none">
+    <input type="radio" name="targetMode" value="absence"      id="tm_absence"  style="display:none">
+    <!-- 텍스트 버튼 스타일 (선택 시 배경 강조) — 모든 대상은 '선택'만 하고 📤 프로그램 적용 으로 실행 -->
     <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-      <label for="tm_auto"    class="tm-btn">🤖 자동 감지</label>
-      <label for="tm_consult" class="tm-btn">📝 상담등록</label>
-      <label for="tm_std"     class="tm-btn">📊 표준 보장분석</label>
-      <label for="tm_plan"    class="tm-btn">📐 가설계 탭</label>
-      <label for="tm_prem"    class="tm-btn">OK마이보험비교</label>
-      <button id="btn_paintpro"    class="tm-btn">🎨 페인트 프로</button>
-      <button id="btn_absence_warn" class="tm-btn">부재고객[경고]</button>
+      <label for="tm_auto"     class="tm-btn">🤖 자동 감지</label>
+      <label for="tm_consult"  class="tm-btn">📝 상담등록</label>
+      <label for="tm_std"      class="tm-btn">📊 표준 보장분석</label>
+      <label for="tm_plan"     class="tm-btn">📐 가설계 탭</label>
+      <label for="tm_prem"     class="tm-btn">OK마이보험비교</label>
+      <label for="tm_paintpro" class="tm-btn">🎨 페인트 프로</label>
+      <label for="tm_absence"  class="tm-btn">부재고객[경고]</label>
     </div>
     <div id="targetModeHint" style="font-size:10.5px; color:var(--text-3); margin-top:4px;">데이터 종류에 따라 자동으로 적절한 페이지로 전송됩니다</div>
   </div>

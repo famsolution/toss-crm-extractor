@@ -394,7 +394,9 @@ function updateTargetHint() {
     'consult': '고객 상담등록 페이지(page_jmin.html)로 전송 — 추출한 고객정보를 상담등록 폼에 자동 입력',
     'standard': '보장분석 프로그램의 표준 보장분석 모드로 전송 — 보험상품/담보 매트릭스 채우기',
     'plan': '보장분석 프로그램의 가설계 탭 (premium_plan iframe) 으로 전송',
-    'premium-page': '현재 활성 탭(보험료 비교 페이지) 의 폼을 자동 입력 — 이름/생년월일/성별/유형/만기/담보'
+    'premium-page': '현재 활성 탭(보험료 비교 페이지) 의 폼을 자동 입력 — 이름/생년월일/성별/유형/만기/담보',
+    'paintpro': '토스 보장분석 표 이미지를 페인트 프로로 전송 (📤 프로그램 적용 시 실행)',
+    'absence': '추출 데이터를 부재고객[경고] 스튜디오로 전송 (📤 프로그램 적용 시 실행)'
   };
   hint.textContent = map[mode] || '';
 }
@@ -828,8 +830,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       tm_std:         isCoverage || isApp,
       tm_plan:        isPlan,
       tm_prem:        isCoverage,
-      btn_paintpro:   isCoverage,
-      btn_absence_warn: isCoverage,
+      tm_paintpro:    isCoverage,
+      tm_absence:     isCoverage,
     };
 
     // label(for=id) 또는 button(id) 표시 제어
@@ -1064,6 +1066,66 @@ document.getElementById('btnSave').addEventListener('click', async () => {
 // 📤 프로그램에 적용 — 자동으로 적절한 대상 탭을 찾아 데이터 주입
 //   · type==='premium_compare' → premium_plan.html 탭 또는 보장분석의 iframe 으로
 //   · 그 외(customer/coverage) → toss_insu260406_*.html / page_*.html 탭으로 (기존 로직)
+// 🆕 전송 대상 '🎨 페인트 프로' 실행 — 프로그램 적용으로 통일 라우팅 (선택 후 📤 프로그램 적용)
+async function _execPaintProRoute(btn, safetyTimer) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const _restore = () => { try { clearTimeout(safetyTimer); } catch {} if (btn) { btn.textContent = '📤 프로그램 적용'; btn.disabled = false; } };
+  if (!tab) { _restore(); return; }
+  let hasAnchor = false;
+  try {
+    const r = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => !!document.getElementById('__paintpro_send') });
+    hasAnchor = !!(r && r[0] && r[0].result);
+  } catch {}
+  if (!hasAnchor) { alert('토스 보장분석 페이지에서 실행해 주세요.'); _restore(); return; }
+  // 🔑 popup 을 닫아 페이지 focus 복귀 → content.js 가 clipboard.read() 실행 가능
+  try { chrome.tabs.sendMessage(tab.id, { action: 'triggerPaintPro' }, () => { void chrome.runtime.lastError; }); } catch {}
+  try { clearTimeout(safetyTimer); } catch {}
+  setTimeout(() => window.close(), 120);
+}
+
+// 🆕 전송 대상 '부재고객[경고]' 실행 — 추출 데이터를 스튜디오로 전송
+async function _execAbsenceRoute(btn, safetyTimer) {
+  const _restore = () => { try { clearTimeout(safetyTimer); } catch {} if (btn) { btn.textContent = '📤 프로그램 적용'; btn.disabled = false; } };
+  const data = extractedData;
+  if (!data) { alert('먼저 "📋 데이터 추출" 버튼을 눌러 데이터를 추출해 주세요.'); _restore(); return; }
+  const STUDIO_URL = 'https://toss-insurance-studio.web.app';
+  const _num = v => parseInt(String(v == null ? '' : v).replace(/[^\d]/g, ''), 10) || 0;
+  const cust = data.customer || {};
+  const insList = data.insurances || [];
+  const monthSum = insList.reduce((s, i) => s + _num(i['월납보험료']), 0);
+  const remainSum = insList.reduce((s, i) => s + _num(i['잔여보험료']), 0);
+  const policyList = insList.map(ins => ({
+    name:    ins['보험명'] || ins['보험사명'] || '',
+    company: ins['보험사명'] || '',
+    premium: _num(ins['월납보험료']),
+    pay:     ins['납입주기/납입기간'] || ins['납입주기'] || '',
+    expiry:  (function(s){ s=String(s||''); var m=s.match(/(\d+\s*세|종신)/g); return m? m[m.length-1].replace(/\s+/g,'') : s.trim(); })(ins['보장만기/만기연령'] || ''),
+    renew:   ins['갱신 유무'] || ins['갱신유무'] || ''
+  }));
+  const payload = {
+    고객명:   cust.고객명 || cust.name || '',
+    나이:     cust.보험나이 || '',
+    성별:     cust.성별 || '',
+    상령일:   cust.상령일 || '',
+    보험개수: insList.length,
+    월납합계: monthSum,
+    잔여합계: remainSum,
+    policyList,
+    추출시각: new Date().toISOString()
+  };
+  const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+  const studioTab = window.open(STUDIO_URL + '/#studio=' + b64, '_blank');
+  if (studioTab) {
+    let _tries = 0;
+    const _iv = setInterval(() => {
+      _tries++;
+      try { studioTab.postMessage({ __studioInit: true, policyList, payload }, '*'); } catch {}
+      if (_tries >= 10) clearInterval(_iv);
+    }, 800);
+  }
+  _restore();
+}
+
 document.getElementById('btnApply').addEventListener('click', async () => {
   console.log('[btnApply] click — extractedData:', extractedData);
   const btn = document.getElementById('btnApply');
@@ -1125,6 +1187,9 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       try { showToast('🤖 자동 감지 → ' + _routeLabel); } catch {}
       targetMode = resolved;
     }
+    // 🆕 페인트 프로 / 부재고객[경고] — 선택 후 '프로그램 적용' 으로 실행 (다른 대상과 동일한 흐름)
+    if (targetMode === 'paintpro') { await _execPaintProRoute(btn, safetyTimer); return; }
+    if (targetMode === 'absence')  { await _execAbsenceRoute(btn, safetyTimer); return; }
     // 🛡 호환성 가드 — 데이터 type 과 맞지 않는 전송 대상이면 자동 보정 + 안내
     const _compatGuard = {
       coverage:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
