@@ -163,6 +163,34 @@ async function fetchPhoneData(customerId) {
   return null;
 }
 
+// 🆕 보장분석(/cover) 페이지에서 customerId 후보를 여러 경로로 수집 — /cover/{id} 가 실제 customerId 와 달라도 대응.
+//   ① URL /cover/{id}  ② DOM 의 고객 링크 a[href*="/customers/{id}"]  ③ 앱 상태(redux/next)의 customerId 류 필드
+function collectCustomerIdCandidates() {
+  const ids = [];
+  try { const m = location.pathname.match(/\/cover\/(\d+)/); if (m) ids.push(m[1]); } catch {}
+  try {
+    document.querySelectorAll('a[href*="/customers/"]').forEach(a => {
+      const m = (a.getAttribute('href') || '').match(/\/customers\/(\d+)/);
+      if (m) ids.push(m[1]);
+    });
+  } catch {}
+  try {
+    const cands = [window.__REDUX_STORE__, window.store, window.__NEXT_DATA__, window.__INITIAL_STATE__, window.__APP_STATE__];
+    const seen = new Set();
+    const scan = (o, d = 0) => {
+      if (!o || d > 5 || typeof o !== 'object' || ids.length > 8) return;
+      for (const k of Object.keys(o)) {
+        const v = o[k];
+        if ((typeof v === 'string' || typeof v === 'number') && /customer[_-]?(id|no)|custId|고객(ID|번호)/i.test(k) && /^\d{3,}$/.test(String(v))) {
+          if (!seen.has(String(v))) { seen.add(String(v)); ids.push(String(v)); }
+        } else if (v && typeof v === 'object' && d < 5) { scan(v, d + 1); }
+      }
+    };
+    for (const c of cands) { if (c) { const s = (typeof c.getState === 'function') ? c.getState() : c; scan(s); } }
+  } catch {}
+  return [...new Set(ids)];   // 중복 제거(우선순위 순서 유지)
+}
+
 // 🆕 페이지 자체의 인증된 fetch 컨텍스트를 활용 — 토스 CRM 의 React/Redux 상태 직접 조회
 //   대부분의 SPA 는 전역 state 에 사용자가 보고 있는 데이터가 평문으로 저장됨
 function findUnmaskedFromAppState(customerId) {
@@ -2451,11 +2479,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           //    ① 앱 상태(redux/next)에서 평문 전화 스캔 → ② phone API(/api/customer/{id}/phone, 쿠키 인증) 폴백
           try {
             let _phone = '';
+            // ① 앱 상태에 평문 전화가 이미 있으면 그대로 사용 (API 불필요)
             const _st = findUnmaskedFromAppState(_custId);
             if (_st && _st.phone) _phone = _st.phone;
-            if (!_phone && _custId) { const p = await fetchPhoneData(_custId); if (p) _phone = p; }
+            // ② 없으면 여러 customerId 후보로 phone API 시도 (쿠키 인증, 페이지 이동 없음)
+            if (!_phone) {
+              const _cands = collectCustomerIdCandidates();
+              console.log('[Toss Extractor] ☎ customerId 후보:', _cands);
+              for (const cid of _cands) {
+                const p = await fetchPhoneData(cid);
+                if (p) { _phone = p; break; }
+              }
+            }
             if (_phone) { coverCustomer['연락처'] = _phone; coverCustomer['phone'] = _phone; console.log('[Toss Extractor] ☎ 보장분석 전화번호 확보:', _phone); }
-            else console.warn('[Toss Extractor] ☎ 보장분석 전화번호 미확보 (앱상태/ API 모두 실패)');
+            else console.warn('[Toss Extractor] ☎ 보장분석 전화번호 미확보 (앱상태/모든 customerId 후보 실패)');
           } catch (e) { console.warn('[Toss Extractor] 보장 전화번호 조회 실패:', e); }
           console.log('[Toss Extractor] 👤 보장내역 기본정보 customer:', coverCustomer);
           sendResponse({

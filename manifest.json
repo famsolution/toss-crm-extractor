@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "토스인슈 CRM 데이터 추출기",
-  "version": "3.10.7",
+  "version": "3.10.8",
   "description": "토스인슈 CRM 데이터 추출 — 마스킹 자동 복원 + 로그인/관리자 승인 권한 게이트.",
   "permissions": [
     "activeTab",
