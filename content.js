@@ -2447,6 +2447,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           if (basicInfo.최초보험연결일) coverCustomer['최초보험연결일'] = basicInfo.최초보험연결일;
           if (basicInfo.상담문의) coverCustomer['상담문의'] = basicInfo.상담문의;
           if (basicInfo.보험나이) coverCustomer['보험나이'] = basicInfo.보험나이;
+          // 🆕 전화번호 — 고객정보 페이지로 이동하지 않고 가져오기:
+          //    ① 앱 상태(redux/next)에서 평문 전화 스캔 → ② phone API(/api/customer/{id}/phone, 쿠키 인증) 폴백
+          try {
+            let _phone = '';
+            const _st = findUnmaskedFromAppState(_custId);
+            if (_st && _st.phone) _phone = _st.phone;
+            if (!_phone && _custId) { const p = await fetchPhoneData(_custId); if (p) _phone = p; }
+            if (_phone) { coverCustomer['연락처'] = _phone; coverCustomer['phone'] = _phone; console.log('[Toss Extractor] ☎ 보장분석 전화번호 확보:', _phone); }
+            else console.warn('[Toss Extractor] ☎ 보장분석 전화번호 미확보 (앱상태/ API 모두 실패)');
+          } catch (e) { console.warn('[Toss Extractor] 보장 전화번호 조회 실패:', e); }
           console.log('[Toss Extractor] 👤 보장내역 기본정보 customer:', coverCustomer);
           sendResponse({
             type: 'coverage',

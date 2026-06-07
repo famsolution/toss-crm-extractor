@@ -742,14 +742,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const monthSum = insList.reduce((s, i) => s + _num(i['월납보험료']), 0);
       const remainSum = insList.reduce((s, i) => s + _num(i['잔여보험료']), 0);
 
-      // setPolicyList 형식 — {name, company, premium, pay, expiry, renew}
+      // setPolicyList 형식 — {name, company, premium, pay, expiry, renew, contractDate}
       const policyList = insList.map(ins => ({
-        name:    ins['보험명'] || ins['보험사명'] || '',
-        company: ins['보험사명'] || '',
-        premium: _num(ins['월납보험료']),
-        pay:     ins['납입주기/납입기간'] || ins['납입주기'] || '',
-        expiry:  (function(s){ s=String(s||''); var m=s.match(/(\d+\s*세|종신)/g); return m? m[m.length-1].replace(/\s+/g,'') : s.trim(); })(ins['보장만기/만기연령'] || ''),
-        renew:   ins['갱신 유무'] || ins['갱신유무'] || ''
+        name:         ins['보험명'] || ins['보험사명'] || '',
+        company:      ins['보험사명'] || '',
+        premium:      _num(ins['월납보험료']),
+        pay:          ins['납입주기/납입기간'] || ins['납입주기'] || '',
+        expiry:       (function(s){ s=String(s||''); var m=s.match(/(\d+\s*세|종신)/g); return m? m[m.length-1].replace(/\s+/g,'') : s.trim(); })(ins['보장만기/만기연령'] || ''),
+        renew:        ins['갱신 유무'] || ins['갱신유무'] || '',
+        contractDate: ins['계약일'] || ''
       }));
 
       const payload = {
@@ -1095,18 +1096,20 @@ async function _execAbsenceRoute(btn, safetyTimer) {
   const monthSum = insList.reduce((s, i) => s + _num(i['월납보험료']), 0);
   const remainSum = insList.reduce((s, i) => s + _num(i['잔여보험료']), 0);
   const policyList = insList.map(ins => ({
-    name:    ins['보험명'] || ins['보험사명'] || '',
-    company: ins['보험사명'] || '',
-    premium: _num(ins['월납보험료']),
-    pay:     ins['납입주기/납입기간'] || ins['납입주기'] || '',
-    expiry:  (function(s){ s=String(s||''); var m=s.match(/(\d+\s*세|종신)/g); return m? m[m.length-1].replace(/\s+/g,'') : s.trim(); })(ins['보장만기/만기연령'] || ''),
-    renew:   ins['갱신 유무'] || ins['갱신유무'] || ''
+    name:         ins['보험명'] || ins['보험사명'] || '',
+    company:      ins['보험사명'] || '',
+    premium:      _num(ins['월납보험료']),
+    pay:          ins['납입주기/납입기간'] || ins['납입주기'] || '',
+    expiry:       (function(s){ s=String(s||''); var m=s.match(/(\d+\s*세|종신)/g); return m? m[m.length-1].replace(/\s+/g,'') : s.trim(); })(ins['보장만기/만기연령'] || ''),
+    renew:        ins['갱신 유무'] || ins['갱신유무'] || '',
+    contractDate: ins['계약일'] || ''
   }));
   const payload = {
     고객명:   cust.고객명 || cust.name || '',
     나이:     cust.보험나이 || '',
     성별:     cust.성별 || '',
     상령일:   cust.상령일 || '',
+    연락처:   cust.연락처 || cust.phone || '',
     보험개수: insList.length,
     월납합계: monthSum,
     잔여합계: remainSum,
