@@ -33,9 +33,14 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { width: 100%; min-width: 0; }
+    body { overflow-x: hidden; }
+    button, label, select, .tab, .tm-btn, .cfg-preset-btn, .ui-mode-label, .tpl-title { word-break: keep-all; overflow-wrap: normal; }
+    .help-text, .notice p, .field-value { word-break: keep-all; overflow-wrap: break-word; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-      width: 560px;
+      width: min(560px, 100vw);
       min-height: 560px;
       max-height: 780px;
       background: var(--bg);
@@ -101,7 +106,7 @@
     .toolbar {
       display: flex;
       align-items: center;
-      flex-wrap: nowrap;
+      flex-wrap: wrap;
       gap: 6px;
       padding: 10px 12px;
       background: var(--surface);
@@ -222,7 +227,8 @@
     .field-value {
       color: var(--text-1);
       font-size: 12.5px;
-      word-break: break-all;
+      word-break: keep-all;
+      overflow-wrap: break-word;
       flex: 1;
       line-height: 1.45;
     }
@@ -359,11 +365,48 @@
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+
+    .ui-mode-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border-bottom: 1px solid var(--border);
+      font-size: 11.5px;
+      color: var(--text-2);
+    }
+    .ui-mode-row .ui-mode-label { font-weight: 700; white-space: nowrap; }
+    .ui-mode-switch { display: inline-flex; gap: 4px; padding: 2px; background: #e2e8f0; border-radius: 7px; }
+    .ui-mode-switch button {
+      border: none;
+      background: transparent;
+      color: #475569;
+      padding: 4px 8px;
+      border-radius: 5px;
+      font-size: 11px;
+      font-weight: 800;
+      box-shadow: none;
+    }
+    .ui-mode-switch button:hover:not(:disabled) { transform: none; background: #f8fafc; }
+    .ui-mode-switch button.active { background: #2563eb; color: #fff; }
+    @media (min-height: 800px) {
+      body { max-height: none; }
+      .content { max-height: calc(100vh - 230px); }
+    }
+
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
     /* 🆕 템플릿 단독 섹션 — cfg 패널 위쪽 */
     .tpl-section { background: var(--surface); padding: 9px 14px; border-bottom: 1px solid var(--border); }
+    .tpl-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 7px; }
+    .tpl-title { flex: 0 0 auto; font-size: 12px; font-weight: 800; color: var(--text-1); white-space: nowrap; }
+    .tpl-controls { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px; align-items: center; flex: 1 1 260px; min-width: 0; }
+    .tpl-select { width: 100%; min-width: 0; padding: 5px 7px; border: 1px solid var(--border); border-radius: 5px; font-size: 11.5px; outline: none; font-family: inherit; }
+    .tpl-action { padding: 5px 8px !important; font-size: 10.5px !important; white-space: nowrap; min-height: 28px; }
+    .tpl-danger { background: var(--danger-pale) !important; color: var(--danger) !important; }
 
     /* 🆕 전송 대상 텍스트 버튼 */
     .tm-btn { display:inline-block; padding:5px 10px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; background:#e0e7ff; color:#3730a3; border:1.5px solid transparent; transition:all .12s; white-space:nowrap; user-select:none; }
@@ -381,15 +424,15 @@
     .cfg-header { padding: 10px 14px; font-size: 12.5px; font-weight: 700; color: var(--text-1); cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(135deg, #fef3c7, #fde68a); }
     .cfg-header:hover { background: linear-gradient(135deg, #fde68a, #fcd34d); }
     .cfg-body { padding: 10px 14px; background: var(--surface); }
-    .cfg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
-    .cfg-row label { min-width: 80px; font-size: 11.5px; font-weight: 600; color: var(--text-2); }
-    .cfg-row select, .cfg-row input, .cfg-row textarea { flex: 1; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-family: inherit; outline: none; }
+    .cfg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+    .cfg-row label { min-width: 0; flex: 0 0 auto; font-size: 11.5px; font-weight: 600; color: var(--text-2); white-space: nowrap; }
+    .cfg-row select, .cfg-row input, .cfg-row textarea { flex: 1 1 180px; min-width: 0; padding: 5px 8px; border: 1px solid var(--border); border-radius: 5px; font-size: 12px; font-family: inherit; outline: none; }
     .cfg-row select:focus, .cfg-row input:focus, .cfg-row textarea:focus { border-color: var(--primary); }
     .cfg-row textarea { min-height: 70px; resize: vertical; line-height: 1.4; font-size: 11.5px; }
     .cfg-row button { padding: 6px 10px; font-size: 11.5px; font-weight: 700; border-radius: 5px; }
     .cfg-tpl-bar { background: var(--surface-2); padding: 8px 10px; border-radius: 6px; margin-top: 6px; }
-    .cfg-presets { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 6px; }
-    .cfg-preset-btn { background: var(--primary-pale); color: var(--primary-dark); border: 1px solid #BFDBFE; padding: 4px 8px; font-size: 11px; border-radius: 4px; cursor: pointer; }
+    .cfg-presets { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+    .cfg-preset-btn { background: var(--primary-pale); color: var(--primary-dark); border: 1px solid #BFDBFE; padding: 5px 8px; font-size: 11px; line-height: 1.25; border-radius: 4px; cursor: pointer; white-space: nowrap; }
     .cfg-preset-btn:hover { background: #DBEAFE; }
 
     /* 🆕 담보 카테고리 접기/펼치기 */
@@ -410,6 +453,21 @@
     .cov-row .cd { font-size:10px; color:var(--text-3); font-family:'Consolas',monospace; min-width:38px; }
     .cov-row .nm { color:var(--text-1); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .cov-row.hidden { display:none; }
+
+    @media (max-width: 430px) {
+      body { width: 100vw; min-width: 0; }
+      .toolbar { padding: 10px; }
+      .btn-primary, .btn-apply, #btnCoverageExcel { flex: 1 1 100%; min-height: 36px; }
+      .ui-mode-row { align-items: flex-start; flex-direction: column; }
+      .ui-mode-switch { width: 100%; display: grid; grid-template-columns: 1fr 1.2fr; }
+      .ui-mode-switch button { min-height: 30px; }
+      .tpl-section { padding: 9px 10px; }
+      .tpl-title { width: 100%; }
+      .tpl-controls { flex-basis: 100%; grid-template-columns: minmax(0, 1fr) auto auto; }
+      .cfg-body { padding: 10px; }
+      .cfg-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .cfg-preset-btn { width: 100%; white-space: normal; text-align: center; }
+    }
   </style>
 </head>
 <body>
@@ -449,16 +507,27 @@
 
 <div class="tab-bar">
   <div class="tab active" data-tab="current">현재 페이지</div>
+  <div class="tab" data-tab="pcs">🛡️ 금소법</div>
   <div class="tab" data-tab="saved">저장된 데이터</div>
 </div>
 
 <div class="tab-content active" id="tab-current">
   <div class="toolbar">
     <button class="btn-primary" id="btnExtract">📋 데이터 추출</button>
+    <button class="btn-secondary" id="btnCoverageExcel">📊 보장분석 엑셀 다운로드</button>
     <button class="btn-apply" id="btnApply" style="display:none">📤 프로그램 적용</button>
   </div>
 
   <!-- 🆕 전송 대상 선택 — 어느 페이지/모드로 데이터를 보낼지 -->
+
+  <div class="ui-mode-row">
+    <span class="ui-mode-label">표시 방식</span>
+    <div class="ui-mode-switch" role="group" aria-label="확장프로그램 표시 방식">
+      <button type="button" id="uiModePopupBtn" title="현재처럼 팝업으로 열기">팝업</button>
+      <button type="button" id="uiModeSideBtn" title="브라우저 오른쪽 사이드패널로 열기">오른쪽 세로바</button>
+    </div>
+  </div>
+
   <div data-target-panel style="background:#eff6ff; padding:10px 14px; border-bottom:1px solid var(--border);">
     <div style="font-size:11.5px; font-weight:700; color:var(--text-2); margin-bottom:6px;">📍 전송 대상</div>
     <!-- 라디오 인풋(숨김) — 기존 JS 로직 유지 -->
@@ -575,14 +644,14 @@
 
   <!-- 🆕 템플릿 영역 — 보낼 페이지 설정(cfg) 아래로 이동 -->
   <div class="tpl-section">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:6px;">
-      <span style="font-size:12px; font-weight:700; color:var(--text-1);">📋 템플릿</span>
-      <div style="display:flex; gap:4px; align-items:center;">
-        <select id="cfgLoadTpl" style="flex:1; min-width:120px; padding:4px 6px; border:1px solid var(--border); border-radius:5px; font-size:11.5px; outline:none;">
+    <div class="tpl-header">
+      <span class="tpl-title">📋 템플릿</span>
+      <div class="tpl-controls">
+        <select id="cfgLoadTpl" class="tpl-select">
           <option value="">— 저장된 템플릿 선택 —</option>
         </select>
-        <button class="btn-secondary" id="cfgSaveTpl" style="padding:4px 8px;font-size:10.5px;">💾 저장</button>
-        <button class="btn-secondary" id="cfgDelTpl" style="padding:4px 6px;font-size:10.5px;background:var(--danger-pale);color:var(--danger)">🗑️</button>
+        <button class="btn-secondary tpl-action" id="cfgSaveTpl">💾 저장</button>
+        <button class="btn-secondary tpl-action tpl-danger" id="cfgDelTpl">🗑️</button>
       </div>
     </div>
     <div class="cfg-presets">
@@ -618,6 +687,96 @@
   </div>
 </div>
 
+<!-- 📄 금소법/상품비교 확인서 — 제안서 상품명 매칭 -->
+<div class="tab-content" id="tab-pcs">
+  <div style="padding:12px 14px; display:flex; flex-direction:column; gap:10px;">
+
+    <!-- 🛡️ 금소법 자동작성 시작 -->
+    <div style="background:linear-gradient(135deg,#eef2ff,#f5f3ff); border:1.5px solid #6366f1; border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:8px;">
+      <div style="font-size:13px; font-weight:800; color:#4338ca;">🛡️ 금소법 확인서 자동작성</div>
+      <!-- 제안서 입력: PDF 드롭 또는 텍스트 → 보험사·상품명 자동 인식 -->
+      <div id="pcsDrop" style="box-sizing:border-box; border:2px dashed #a5b4fc; border-radius:8px; background:#fff; cursor:pointer; padding:12px; text-align:center; transition:all .15s;">
+        <div style="font-size:12px; font-weight:700; color:#4338ca;">📄 제안서 PDF 드롭 / 클릭</div>
+        <div style="font-size:10px; color:#94a3b8; margin-top:2px;">보험사·상품명 자동 인식</div>
+        <input id="pcsDropInput" type="file" accept="application/pdf,.pdf" style="display:none;">
+      </div>
+      <textarea id="pcsProposalText" rows="2" placeholder="또는 제안서 텍스트 붙여넣기 (자동 인식)" style="width:100%; box-sizing:border-box; padding:8px 10px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:12px; resize:vertical;"></textarea>
+      <div style="display:flex; gap:6px;">
+        <input id="pcsCompany" type="text" placeholder="보험사" style="flex:1; min-width:0; padding:8px 10px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:12px;">
+        <input id="pcsProductName" type="text" placeholder="상품명" style="flex:2; min-width:0; padding:8px 10px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:12px;">
+      </div>
+      <input id="pcsPolicyNo" type="text" placeholder="증권번호 (선택 — 있으면 자동입력)" style="width:100%; box-sizing:border-box; padding:8px 10px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:12px;">
+      <div id="pcsDropMsg" style="font-size:11px; color:#64748B; min-height:14px;"></div>
+
+      <!-- ✅ 매칭된 상품 표시 (준비/자동작성 시 채워짐) -->
+      <div id="pcsMatchedInfo" style="display:none; border:1.5px solid #6366f1; border-radius:8px; background:#eef2ff; padding:8px 10px; font-size:11px; line-height:1.5;"></div>
+
+      <!-- 📋 1순위 상품명 복사 (간편 복사용) -->
+      <div id="pcsTopProductCopy" style="display:none; border:1.5px solid #10b981; border-radius:8px; background:#ecfdf5; padding:8px 10px; display:flex; gap:6px; align-items:center;">
+        <input id="pcsTopProductText" type="text" readonly style="flex:1; background:#fff; border:1px solid #d1fae5; border-radius:5px; padding:6px 8px; font-size:11px; font-weight:600; color:#047857;" placeholder="상품명">
+        <button id="pcsTopProductBtn" style="flex:0 0 auto; background:#10b981; color:#fff; border:none; border-radius:5px; padding:6px 10px; font-size:10.5px; font-weight:700; cursor:pointer;">복사</button>
+      </div>
+
+      <!-- ▶️ 한 번 클릭 자동 작성 (고객 수집 + 상품 매칭 + 화면 자동 진행) -->
+      <button id="pcsCalibRunBtn" class="btn-primary" style="width:100%; padding:13px; border-radius:9px; font-weight:800; font-size:13.5px; cursor:pointer;">▶️ 금소법 자동 작성 시작</button>
+      <div style="font-size:10px; color:#64748B; line-height:1.5;">
+        고객 상세 페이지를 연 상태에서 누르면, 고객정보 수집 → 상품 매칭 → 확인서 화면 자동 작성까지 진행합니다. <b>⛔ 서명·발송 직전 정지</b>(직접 확인 후 발송).
+      </div>
+      <div id="pcsCalibMsg" style="font-size:11px; color:#64748B; min-height:14px;"></div>
+
+      <!-- 고급: 최초 1회 좌표 가르치기 + 단계 백업/기준일 -->
+      <details style="font-size:11px; color:#64748b;">
+        <summary style="cursor:pointer; padding:2px 0;">⚙️ 고급 (최초 1회 설정)</summary>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px;">
+          <button id="pcsCalibTeachBtn" class="btn-secondary" style="width:100%; padding:9px; border-radius:8px; font-weight:700; font-size:11.5px; cursor:pointer;">📐 좌표 가르치기 (최초 1회만)</button>
+          <div style="font-size:10px; color:#94a3b8; line-height:1.5;">send 화면에서 고객명·보험사·상품 칸 위치를 한 번 등록합니다. 화면 레이아웃이 바뀌면 다시.</div>
+          <div style="display:flex; gap:6px; align-items:center;">
+            <button id="pcsCalibExportBtn" class="btn-secondary" style="flex:1; min-width:0; padding:7px 8px; border-radius:7px; font-weight:600; font-size:10.5px; cursor:pointer;">📤 내보내기</button>
+            <button id="pcsCalibImportBtn" class="btn-secondary" style="flex:1; min-width:0; padding:7px 8px; border-radius:7px; font-weight:600; font-size:10.5px; cursor:pointer;">📥 불러오기</button>
+            <button id="pcsCalibResetBtn" class="btn-secondary" style="flex:0 0 auto; padding:7px 8px; border-radius:7px; font-weight:600; font-size:10.5px; white-space:nowrap; cursor:pointer;" title="가르친 좌표를 모두 지우기 (다시 가르치기용)">↺ 좌표 초기화</button>
+            <input id="pcsCalibImportInput" type="file" accept="application/json,.json" style="display:none;">
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:10.5px; font-weight:700; color:#334155;">📅 상품 목록 기준일</div>
+              <div id="pcsCatalogStatus" style="font-size:10px; color:#94a3b8; line-height:1.4;">확인 중…</div>
+            </div>
+            <button id="pcsCatalogSyncBtn" class="btn-secondary" style="padding:6px 9px; border-radius:8px; font-weight:700; font-size:10.5px; white-space:nowrap; cursor:pointer;">🔄 최신 확인</button>
+          </div>
+        </div>
+      </details>
+
+      <!-- 🧪 단계 검증 · 편집 — 하나씩 실행하며 추가/삭제/순서/내용 수정 -->
+      <details style="font-size:11px; color:#64748b;">
+        <summary style="cursor:pointer; padding:2px 0;">🧪 단계 검증 · 편집 (하나씩 확인)</summary>
+        <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px;">
+          <div style="display:flex; gap:5px; flex-wrap:wrap;">
+            <button id="pcsEdPrepBtn" class="btn-secondary" style="flex:1; min-width:0; padding:7px; border-radius:7px; font-weight:700; font-size:10.5px; cursor:pointer;">🔄 준비(고객·매칭)</button>
+            <button id="pcsEdReloadBtn" class="btn-secondary" style="flex:0 0 auto; padding:7px 8px; border-radius:7px; font-size:10.5px; cursor:pointer;" title="단계 다시 불러오기">↻</button>
+            <button id="pcsEdAddBtn" class="btn-secondary" style="flex:0 0 auto; padding:7px 8px; border-radius:7px; font-weight:700; font-size:10.5px; cursor:pointer;">＋ 단계</button>
+            <button id="pcsEdResetStepsBtn" class="btn-secondary" style="flex:0 0 auto; padding:7px 8px; border-radius:7px; font-size:10.5px; white-space:nowrap; cursor:pointer;" title="단계를 기본값으로 되돌리기 (좌표는 유지)">기본단계</button>
+          </div>
+          <div id="pcsEdCursor" style="font-size:10.5px; color:#4338ca; font-weight:700; line-height:1.4;"></div>
+          <div style="display:flex; gap:5px;">
+            <button id="pcsEdPrevBtn" class="btn-secondary" style="flex:1; padding:7px; border-radius:7px; font-size:10.5px; cursor:pointer;">◀ 이전</button>
+            <button id="pcsEdRunOneBtn" class="btn-primary" style="flex:2; padding:7px; border-radius:7px; font-weight:800; font-size:10.5px; cursor:pointer;">▶ 이 단계 실행</button>
+            <button id="pcsEdResetCurBtn" class="btn-secondary" style="flex:0 0 auto; padding:7px 8px; border-radius:7px; font-size:10.5px; cursor:pointer;" title="커서 처음으로">⟲</button>
+            <button id="pcsEdRunToBtn" class="btn-secondary" style="flex:1; padding:7px; border-radius:7px; font-size:10.5px; cursor:pointer;" title="처음부터 커서 단계까지 실행">▶ 1→커서</button>
+            <button id="pcsEdRunFromBtn" class="btn-secondary" style="flex:1; padding:7px; border-radius:7px; font-size:10.5px; cursor:pointer;">▶▶ 여기서</button>
+          </div>
+          <button id="pcsEdVerifyBtn" class="btn-secondary" style="width:100%; padding:8px; border-radius:7px; font-weight:700; font-size:11px; cursor:pointer; border-color:#6366f1; color:#4338ca;">🔍 전체 검증 실행 (막히는 단계 자동 표시)</button>
+          <div id="pcsEdList" style="display:flex; flex-direction:column; gap:4px; max-height:240px; overflow:auto;"></div>
+          <div id="pcsEdMsg" style="font-size:11px; color:#64748B; min-height:14px;"></div>
+          <div id="pcsEdReport" style="display:none; font-size:10.5px; max-height:220px; overflow:auto; border:1px solid #e2e8f0; border-radius:6px; padding:5px;"></div>
+          <div style="font-size:10px; color:#94a3b8; line-height:1.5;">
+            <b>검증 흐름</b>: 🔄 준비 → 🔍 전체 검증 실행 → ⚠️ 표시 단계가 막힌 곳. 그 단계 <b>✎</b>로 Tab 횟수 등 고쳐 <b>▶</b> 재실행. 순서 ▲▼·추가/삭제 가능, 변경은 자동 저장.
+          </div>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+
 <!-- 🔧 개발/보조 도구 — 맨 아래 배치 (평소엔 숨겨짐, 추출 후 표시) -->
 <div id="devToolbar" style="display:none; padding:8px 12px; border-top:1px solid var(--border); background:#f8fafc; gap:6px; flex-wrap:wrap; align-items:center;">
   <span style="font-size:10px; color:#94a3b8; font-weight:600; margin-right:4px;">🔧 보조</span>
@@ -634,5 +793,17 @@
 <script src="firebase-init.js"></script>
 <script src="ext-auth-gate.js"></script>
 <script src="popup.js"></script>
+<!-- 📄 확인서 자동화 모듈 -->
+<script src="vendor/pdf.min.js"></script>
+<script src="pcs-automation/pcs-pdf.js"></script>
+<script src="pcs-automation/proposal-parser.js"></script>
+<script src="pcs-automation/pcs-product-matcher.js"></script>
+<script src="pcs-automation/pcs-ui.js"></script>
+<script src="pcs-automation/pcs-geumso.js"></script>
+<script src="pcs-automation/pcs-local-run.js"></script>
+<script src="pcs-automation/pcs-steps.js"></script>
+<script src="pcs-automation/pcs-calibrate.js"></script>
+<script src="pcs-automation/pcs-step-editor.js"></script>
+<script src="pcs-automation/pcs-catalog-ui.js"></script>
 </body>
 </html>

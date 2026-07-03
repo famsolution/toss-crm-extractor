@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "토스인슈 CRM 데이터 추출기",
-  "version": "3.10.8",
+  "version": "3.22.0",
   "description": "토스인슈 CRM 데이터 추출 — 마스킹 자동 복원 + 로그인/관리자 승인 권한 게이트.",
   "permissions": [
     "activeTab",
@@ -9,8 +9,15 @@
     "storage",
     "clipboardWrite",
     "clipboardRead",
-    "scripting"
+    "scripting",
+    "debugger",
+    "alarms",
+    "notifications",
+    "sidePanel"
   ],
+  "background": {
+    "service_worker": "pcs-automation/pcs-local-driver.js"
+  },
   "host_permissions": [
     "https://crm.tossinsu.com/*",
     "https://mmlfcp.ohmymanager.com/*",
@@ -36,23 +43,47 @@
         "https://*.ohmymanager.com/*",
         "https://tossinssu-pro.vercel.app/*"
       ],
-      "js": ["content.js"],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": [
-        "*://erp.samsungfire.com/*", "*://sp.hi.co.kr/*", "*://www.mdbins.com/*",
-        "*://sales.meritzfire.com/*", "*://nsso.meritzfire.com/*", "*://sales.kbinsure.co.kr/*", "*://portal.hwgeneralins.com/*",
-        "*://sales.heungkukfire.co.kr/*", "*://lottero.lotteins.co.kr/*", "*://ss.nhfire.co.kr/*",
-        "*://mganet.mggeneralins.com/*", "*://ga.shinhanez.co.kr/*", "*://ga.aig.co.kr/*",
-        "*://sfa.saleshana.com/*", "*://ga.samsunglife.com/*", "*://hmp.hanwhalife.com/*",
-        "*://ga.kyobo.com/*", "*://ga.shinhanlife.co.kr/*", "*://ga.lina.co.kr/*",
-        "*://ga.abllife.co.kr/*", "*://ga.hanalife.co.kr/*", "*://brand.metlife.co.kr/*",
-        "*://sfa.kblife.co.kr/*", "*://sfa.nhlife.co.kr/*", "*://sales.heungkuklife.co.kr/*",
-        "*://ez.fubonhyundai.com/*", "*://etopia.dongbulife.com/*", "*://kss.kdblife.co.kr/*",
-        "*://ga.cardif.co.kr/*", "*://fgs.imlifeins.co.kr/*"
+        "*://erp.samsungfire.com/*",
+        "*://sp.hi.co.kr/*",
+        "*://www.mdbins.com/*",
+        "*://sales.meritzfire.com/*",
+        "*://nsso.meritzfire.com/*",
+        "*://sales.kbinsure.co.kr/*",
+        "*://portal.hwgeneralins.com/*",
+        "*://sales.heungkukfire.co.kr/*",
+        "*://lottero.lotteins.co.kr/*",
+        "*://ss.nhfire.co.kr/*",
+        "*://mganet.mggeneralins.com/*",
+        "*://ga.shinhanez.co.kr/*",
+        "*://ga.aig.co.kr/*",
+        "*://sfa.saleshana.com/*",
+        "*://ga.samsunglife.com/*",
+        "*://hmp.hanwhalife.com/*",
+        "*://ga.kyobo.com/*",
+        "*://ga.shinhanlife.co.kr/*",
+        "*://ga.lina.co.kr/*",
+        "*://ga.abllife.co.kr/*",
+        "*://ga.hanalife.co.kr/*",
+        "*://brand.metlife.co.kr/*",
+        "*://sfa.kblife.co.kr/*",
+        "*://sfa.nhlife.co.kr/*",
+        "*://sales.heungkuklife.co.kr/*",
+        "*://ez.fubonhyundai.com/*",
+        "*://etopia.dongbulife.com/*",
+        "*://kss.kdblife.co.kr/*",
+        "*://ga.cardif.co.kr/*",
+        "*://fgs.imlifeins.co.kr/*"
       ],
-      "js": ["insurer-fill.js"],
+      "js": [
+        "insurer-fill.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     }
@@ -61,5 +92,14 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["pcs-clip-intercept.js"],
+      "matches": ["https://crm.tossinsu.com/*"]
+    }
+  ]
 }

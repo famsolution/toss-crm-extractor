@@ -787,11 +787,12 @@ function extractInsuranceData() {
   }
 
   const numInsurances = dataMatrix[0].values.length;
-  const insurances = [];
+  // 🆕 1차: 컬럼(보험상품)별 가시성 판정.
+  //   토스 보장분석 페이지에서 '보험상품 선택'으로 일부만 고르면 미선택 상품 컬럼이 hidden 처리된다.
+  const _hiddenCol = [];
+  let _visibleCount = 0;
   for (let i = 0; i < numInsurances; i++) {
-    // 컬럼 가시성 체크: 이 컬럼의 셀이 대부분 숨겨져 있으면 토스 페이지에서 필터로 가려진 보험 → 제외
-    let hiddenCount = 0;
-    let totalChecked = 0;
+    let hiddenCount = 0, totalChecked = 0;
     for (const row of dataMatrix) {
       const cell = row.cells && row.cells[i];
       if (!cell) continue;
@@ -802,9 +803,18 @@ function extractInsuranceData() {
         hiddenCount++;
       }
     }
-    // 절반 이상의 셀이 숨겨져 있으면 이 컬럼은 토스 페이지에서 가려진 것
-    if (totalChecked > 0 && hiddenCount > totalChecked / 2) {
-      console.log(`[Toss Extractor] 숨겨진 컬럼 #${i + 1} 자동 제외 (${hiddenCount}/${totalChecked} 셀 hidden)`);
+    // 절반 이상의 셀이 숨겨져 있으면 이 컬럼은 토스 페이지에서 가려진(미선택) 것
+    _hiddenCol[i] = (totalChecked > 0 && hiddenCount > totalChecked / 2);
+    if (!_hiddenCol[i]) _visibleCount++;
+  }
+  // 🆕 선택 규칙: 일부만 선택 → 그 상품만 / 아무것도 선택 안 함(전부 숨김) 또는 전부 선택 → 전체 상품 전달.
+  const _useAllCols = (_visibleCount === 0);
+  if (_useAllCols) console.log('[Toss Extractor] 선택된 보험상품 없음(전부 숨김) → 전체 상품 전달');
+
+  const insurances = [];
+  for (let i = 0; i < numInsurances; i++) {
+    if (!_useAllCols && _hiddenCol[i]) {
+      console.log(`[Toss Extractor] 미선택(숨김) 컬럼 #${i + 1} 제외`);
       continue;
     }
 
@@ -1229,6 +1239,162 @@ function matchInsuranceNamesFromAccordion(insurances, productSummary) {
   }
   console.log('[Toss Extractor] 매칭 로그:\n' + matchLog.join('\n'));
   return matched;
+}
+
+function _maskCoverageExcelText(v) {
+  let s = String(v == null ? '' : v).trim().replace(/\s+/g, ' ');
+  if (!s) return '';
+  s = s.replace(/\b(\d{6})-?\d{7}\b/g, '$1-*******');
+  s = s.replace(/\b01[016789]-?\d{3,4}-?\d{4}\b/g, '010-****-****');
+  s = s.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/ig, '***@***');
+  return s;
+}
+
+function _normCoverageExcelText(v) {
+  return String(v || '').replace(/\s+/g, '').toLowerCase();
+}
+
+function _coverageExcelPremiumDigits(v) {
+  return String(v == null ? '' : v).replace(/[^\d]/g, '');
+}
+
+function _findInsuranceForCoverageSection(sec, insurances, fallbackIdx) {
+  const list = Array.isArray(insurances) ? insurances : [];
+  const sCompany = _normCoverageExcelText(sec && sec.보험사명);
+  const sName = _normCoverageExcelText(sec && sec.상품명);
+  const sPrem = _coverageExcelPremiumDigits(sec && sec.월납보험료);
+  const sDate = String((sec && sec.보장시작일) || '').slice(0, 7);
+
+  const scored = list.map((ins, idx) => {
+    const iCompany = _normCoverageExcelText(ins && ins['보험사명']);
+    const iName = _normCoverageExcelText(ins && ins['보험명']);
+    const iPrem = _coverageExcelPremiumDigits(ins && (ins['월납보험료'] || ins['총보험료']));
+    const iDate = String((ins && ins['계약일']) || '').slice(0, 7);
+    let score = 0;
+    if (sCompany && iCompany && (sCompany === iCompany || sCompany.includes(iCompany) || iCompany.includes(sCompany))) score += 5;
+    if (sName && iName && (sName === iName || sName.includes(iName) || iName.includes(sName))) score += 8;
+    if (sPrem && iPrem && sPrem === iPrem) score += 3;
+    if (sDate && iDate && sDate === iDate) score += 3;
+    return { ins, idx, score };
+  }).filter(x => x.score > 0).sort((a, b) => b.score - a.score);
+
+  if (scored.length) return scored[0].ins;
+  return list[fallbackIdx] || {};
+}
+
+function normalizeCoverageRowsForExcel(details, productSummary, insurances) {
+  const rows = Array.isArray(details) ? details : [];
+  const summary = Array.isArray(productSummary) ? productSummary : [];
+  const secByNo = {};
+  summary.forEach((sec, i) => {
+    if (!sec) return;
+    secByNo[sec.섹션번호] = sec;
+    sec._excelFallbackIdx = i;
+  });
+
+  const insBySection = {};
+  summary.forEach((sec, i) => {
+    if (!sec) return;
+    insBySection[sec.섹션번호] = _findInsuranceForCoverageSection(sec, insurances, i);
+  });
+
+  const normalized = [];
+  rows.forEach((r, idx) => {
+    const sec = secByNo[r._섹션번호] || {};
+    const ins = insBySection[r._섹션번호] || _findInsuranceForCoverageSection(sec, insurances, Math.max(0, (r._섹션번호 || 1) - 1));
+    const insurer = _maskCoverageExcelText(r._보험사명 || sec.보험사명 || ins['보험사명'] || '');
+    const productName = _maskCoverageExcelText(r._상품명 || sec.상품명 || ins['보험명'] || '');
+    const productCategory = _maskCoverageExcelText([ins['대분류'], ins['소분류']].filter(Boolean).join(' / '));
+    const tabType = _maskCoverageExcelText(r._tabType || '');
+    const coverageName = _maskCoverageExcelText(r['보장명'] || r['보장 소분류'] || '');
+    const descParts = [r['보장 대분류'], r['보장 소분류']]
+      .map(_maskCoverageExcelText)
+      .filter(Boolean)
+      .filter(v => v !== coverageName);
+    const insurancePeriod = _maskCoverageExcelText(
+      (r['보장시작일'] || r['보장종료일'])
+        ? [r['보장시작일'], r['보장종료일']].filter(Boolean).join(' ~ ')
+        : (ins['보장만기/만기연령'] || '')
+    );
+
+    if (!coverageName && !r['보장 금액']) return;
+    normalized.push({
+      insurer,
+      productName,
+      productType: productCategory || tabType,
+      coverageName,
+      coverageDescription: descParts.join(' > '),
+      coverageAmount: _maskCoverageExcelText(r['보장 금액'] || ''),
+      insurancePeriod,
+      paymentPeriod: _maskCoverageExcelText(r['납입기간'] || ins['납입주기/납입기간'] || ''),
+      premium: _maskCoverageExcelText(ins['월납보험료'] || sec.월납보험료 || ins['총보험료'] || ''),
+      renewalType: _maskCoverageExcelText(ins['갱신 유무'] || ins['갱신유무'] || ''),
+      memo: _maskCoverageExcelText(ins['매니저 코멘트'] || ins['매니저 의견'] || ''),
+      sourceOrder: idx + 1
+    });
+  });
+  return normalized;
+}
+
+async function extractCoverageExcelRowsFromPage() {
+  const pageType = detectPageType();
+  if (pageType !== 'coverage') {
+    return { ok: false, error: 'not_coverage_page', rows: [] };
+  }
+  const expandInfo = await expandAllAccordions();
+
+  await switchAllTabsTo('보장');
+  const mainDetails = extractCoverageDetails();
+  mainDetails.rows.forEach(r => { r._tabType = '보장'; });
+
+  const switchedRider = await switchAllTabsTo('특약');
+  console.log(`[Toss Extractor] Excel switchAllTabsTo('특약') → ${switchedRider}회 클릭됨`);
+  await new Promise(r => setTimeout(r, 600));
+  const riderDetails = extractCoverageDetails();
+  const mainKeys = new Set(mainDetails.rows.map(r => `${r._섹션번호}::${r['보장명']||''}::${r['보장 금액']||''}`));
+  let riderRows = riderDetails.rows.filter(r => !mainKeys.has(`${r._섹션번호}::${r['보장명']||''}::${r['보장 금액']||''}`));
+  riderRows.forEach(r => { r._tabType = '특약'; });
+  await switchAllTabsTo('보장');
+
+  const details = {
+    rows: [...mainDetails.rows, ...riderRows],
+    summary: mainDetails.summary
+  };
+  details.summary.forEach(sec => {
+    sec.담보수 = details.rows.filter(r => r._섹션번호 === sec.섹션번호).length;
+  });
+
+  let insurances = extractInsuranceData();
+  insurances = insurances.filter(ins => {
+    const status = (ins['계약상태'] || '').trim();
+    const payStatus = (ins['납입 여부'] || '').trim();
+    const note = (ins['매니저 코멘트'] || '').trim();
+    const combined = `${payStatus} ${note}`;
+    if (['만기', '소멸', '해지', '실효'].includes(status) && /해외여행|단기|여행자/.test(combined)) return false;
+    if (note === '해외여행보험' && status !== '정상') return false;
+    return true;
+  });
+  const matchedNames = matchInsuranceNamesFromAccordion(insurances, details.summary);
+  const rows = normalizeCoverageRowsForExcel(details.rows, details.summary, insurances);
+  console.log('[Toss Extractor] 보장분석 엑셀용 정규화 완료:', {
+    rows: rows.length,
+    productSummary: details.summary.length,
+    insurances: insurances.length,
+    matchedNames,
+    expandInfo
+  });
+  return {
+    ok: rows.length > 0,
+    rows,
+    meta: {
+      url: window.location.href,
+      extractedAt: new Date().toISOString(),
+      productCount: details.summary.length,
+      coverageCount: rows.length,
+      matchedNames,
+      expandInfo
+    }
+  };
 }
 
 function detectPageType() {
@@ -2355,6 +2521,22 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;  // 비동기 응답
   }
+  if (request.action === 'extractCoverageExcelRows') {
+    (async () => {
+      if (!(await _extAuthCheck())) {
+        try { sendResponse({ ok: false, error: '⛔ 권한이 없습니다. 확장 팝업에서 로그인 후 관리자 승인을 받으세요.', _denied: true, rows: [] }); } catch (e) {}
+        return;
+      }
+      try {
+        const result = await extractCoverageExcelRowsFromPage();
+        sendResponse(result);
+      } catch (e) {
+        console.error('[Toss Extractor] 보장분석 엑셀 추출 실패:', e);
+        sendResponse({ ok: false, error: e && e.message ? e.message : String(e), rows: [] });
+      }
+    })();
+    return true;
+  }
   if (request.action === 'extractData') {
     const pageType = detectPageType();
 
@@ -2590,14 +2772,43 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   const blobToDataURL = function (blob) { return new Promise(function (res, rej) { const fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(blob); }); };
 
+  // ── 클립보드 가로채기: 토스가 이미지를 클립보드에 쓰는 순간 그 dataURL 을 받는다 ──
+  //   (clipboard.read 와 달리 포커스가 필요 없어 팝업 실행에서도 동작)
+  let _capturedImageURL = null, _capturedAt = 0;
+  (function injectClipInterceptor() {
+    try {
+      window.addEventListener('message', function (ev) {
+        if (ev.source === window && ev.data && ev.data.__tossImageCaptured && ev.data.dataURL) {
+          _capturedImageURL = ev.data.dataURL; _capturedAt = Date.now();
+        }
+      });
+      const s = document.createElement('script');
+      s.src = chrome.runtime.getURL('pcs-clip-intercept.js');
+      s.onload = function () { s.remove(); };
+      (document.head || document.documentElement).appendChild(s);
+    } catch (e) {}
+  })();
+
+  let _lastClipErr = '';
   async function readClipboardImage() {
     try {
+      // navigator.clipboard.read() 는 문서가 포커스 상태여야 동작한다.
+      // 팝업에서 실행되면 페이지가 포커스를 잃어 "Document is not focused" 로 실패하므로
+      // 먼저 창/문서에 포커스를 준다.
+      if (!document.hasFocus()) {
+        try { window.focus(); } catch (_) {}
+        try { document.body && document.body.focus && document.body.focus(); } catch (_) {}
+        await sleep(60);
+      }
       const items = await navigator.clipboard.read();
       for (const it of items) {
         const t = it.types.find(function (x) { return x.startsWith('image/'); });
         if (t) { const blob = await it.getType(t); return await blobToDataURL(blob); }
       }
-    } catch (e) {}
+      _lastClipErr = '클립보드에 이미지가 없습니다.';
+    } catch (e) {
+      _lastClipErr = (e && e.message) || String(e);
+    }
     return null;
   }
 
@@ -2677,17 +2888,289 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (tab) { tab.click(); for (let i = 0; i < 12 && !btn; i++) { await sleep(250); btn = findCopyBtn(); } }
       }
       if (!btn) { alert('표 탭 또는 "이미지 복사" 버튼을 찾지 못했습니다.\n토스 보장분석 페이지에서 사용해 주세요.'); return; }
-      btn.click();   // 토스 '이미지 복사' → 클립보드에 이미지
-      await sleep(250);
+
+      // 2) 가로채기 리셋 후 토스 '이미지 복사' 클릭 → 토스가 clipboard.write 하는 순간
+      //    가로채기 스크립트가 dataURL 을 postMessage 로 보내준다(포커스 불필요).
+      _capturedImageURL = null;
+      const clickedAt = Date.now();
+      btn.click();
+
+      // 3) 가로챈 이미지를 우선 대기(최대 ~3.5초). 실패 시 클립보드 읽기로 폴백.
       let dataURL = null;
-      for (let i = 0; i < 14 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
+      for (let i = 0; i < 20 && !dataURL; i++) {
+        await sleep(180);
+        if (_capturedImageURL && _capturedAt >= clickedAt) { dataURL = _capturedImageURL; break; }
+      }
+      if (!dataURL) {   // 폴백: 클립보드 직접 읽기(포커스 있을 때만 성공)
+        for (let i = 0; i < 8 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
+      }
       if (!dataURL) {
-        alert('이미지를 읽지 못했습니다.\n\n· 토스 "이미지 복사"를 먼저 한 번 누른 뒤 이 버튼을 다시 눌러보세요.\n· 클립보드 권한 요청이 뜨면 허용해 주세요.');
+        alert('이미지를 읽지 못했습니다.\n\n· 토스 "이미지 복사" 버튼이 정상 동작하는지 확인해 주세요.\n· 확장 새로고침 후 다시 시도해 보세요.' +
+          (_lastClipErr ? '\n\n[오류: ' + _lastClipErr + ']' : ''));
         return;
       }
       await new Promise(function (r) { chrome.storage.local.set({ [STORAGE_KEY]: { dataURL: dataURL, fileName: '토스보장분석.png', ts: Date.now() } }, r); });
       window.open(EDITOR_URL, '_blank');
     } finally { fab.textContent = old; fab.disabled = false; }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  //  🩺 실손보험 세대 분석 → 매니저 코멘트 자동 입력
+  //   계약일(가입시점) 기준으로 실손 세대 + 재가입(전환) 시점을 판정한다.
+  //   가입시점 경계:
+  //     1세대       : ~2009.09           재가입 없음 → 계속 유지
+  //     2세대 초기  : 2009.10 ~ 2013.03  재가입 없음 → 계속 유지
+  //     2세대 후기  : 2013.04 ~ 2017.03  15년 주기 → 계약연도+15
+  //     3세대       : 2017.04 ~ 2021.06  15년 주기 → 계약연도+15
+  //     4세대       : 2021.07 ~ 현재     5년 주기  → 계약연도+5
+  //   예) 2013 계약(2세대후기) → "2세대, 28년전환예정"
+  //       2012 계약(2세대초기) → "2세대, 계속 유지"
+  // ═══════════════════════════════════════════════════════════════════════
+  function analyzeSilsonGeneration(contractDate) {
+    const s = String(contractDate || '');
+    const m = s.match(/(\d{4})\s*[.\-/년]\s*(\d{1,2})/) || s.match(/(\d{4})(\d{2})\d{2}/);
+    if (!m) return null;
+    const y = parseInt(m[1], 10), mo = parseInt(m[2], 10);
+    if (!y || y < 1990 || y > 2100 || mo < 1 || mo > 12) return null;
+    const ym = y * 12 + mo;
+    const YY = (yr) => String(yr).slice(-2);   // 2028 → "28"
+    if (ym <= 2009 * 12 + 9) return { gen: '1세대', renew: '계속 유지', year: y };
+    if (ym <= 2013 * 12 + 3) return { gen: '2세대', renew: '계속 유지', year: y };
+    if (ym <= 2017 * 12 + 3) return { gen: '2세대', renew: YY(y + 15) + '년전환예정', year: y };
+    if (ym <= 2021 * 12 + 6) return { gen: '3세대', renew: YY(y + 15) + '년전환예정', year: y };
+    return { gen: '4세대', renew: YY(y + 5) + '년전환예정', year: y };
+  }
+
+  function _silsonText(el) {
+    if (!el) return '';
+    const input = el.querySelector && el.querySelector('input[type="text"], textarea');
+    if (input && (input.value || '').trim()) return input.value.trim();
+    const title = el.getAttribute && (el.getAttribute('title') || '');
+    const text = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ');
+    return text || title || '';
+  }
+
+  function _silsonNorm(s) {
+    return String(s || '')
+      .replace(/\[[^\]]*\]|\([^\)]*\)/g, '')
+      .replace(/[↔→←▲▼△▽▴▾+\-–—_·ㆍ\[\]{}()]/g, '')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+  }
+
+  function _silsonLooksSameProduct(a, b) {
+    const x = _silsonNorm(a), y = _silsonNorm(b);
+    if (!x || !y) return false;
+    return x === y || x.includes(y) || y.includes(x);
+  }
+
+  function _silsonHasAmount(v) {
+    const s = String(v || '').replace(/\s+/g, '');
+    if (!s || s === '-' || s === '–') return false;
+    if (!/\d/.test(s)) return false;
+    return /(\d[\d,]*)(만원|원)?/.test(s);
+  }
+
+  // 보장분석 상단 가입보험 표를 컬럼(보험상품)별로 스캔 → 계약일/코멘트 셀 확보
+  function _silsonScanColumns() {
+    let tbody = document.querySelector('tbody[data-tds-desktop-table-body]');
+    if (!tbody) { const c = document.querySelector('td.insurance-table-cell'); if (c) tbody = c.closest('tbody'); }
+    const trRows = tbody ? tbody.querySelectorAll('tr') : document.querySelectorAll('tr');
+    const WANT = ['보험명', '보험사명', '계약일', '매니저 코멘트', '매니저 의견', '대분류', '소분류'];
+    const byHeader = {};
+    let refTable = null;
+    trRows.forEach(tr => {
+      const th = tr.querySelector('th'); if (!th) return;
+      const headerEl = th.querySelector('[data-tds-desktop-table-h-cell-children-container]') || th;
+      let header = (headerEl.innerText || '').trim().split('\n')[0].trim();
+      header = ROW_HEADER_ALIAS[header] || header;
+      if (WANT.indexOf(header) < 0) return;
+      const pt = tr.closest('table'); if (!refTable) refTable = pt; if (pt !== refTable) return;
+      const cells = tr.querySelectorAll('td.insurance-table-cell, td[aria-label]');
+      const use = cells.length ? cells : tr.querySelectorAll('td');
+      byHeader[header] = byHeader[header] || [];
+      use.forEach((cell, i) => { byHeader[header][i] = cell; });
+    });
+    const n = Math.max(0, ...WANT.map(h => (byHeader[h] || []).length));
+    const cols = [];
+    for (let i = 0; i < n; i++) {
+      cols.push({
+        idx: i,
+        보험명: _silsonText(byHeader['보험명'] && byHeader['보험명'][i]),
+        보험사명: _silsonText(byHeader['보험사명'] && byHeader['보험사명'][i]),
+        계약일: _silsonText(byHeader['계약일'] && byHeader['계약일'][i]),
+        대분류: _silsonText(byHeader['대분류'] && byHeader['대분류'][i]),
+        소분류: _silsonText(byHeader['소분류'] && byHeader['소분류'][i]),
+        commentCell: (byHeader['매니저 코멘트'] && byHeader['매니저 코멘트'][i])
+          || (byHeader['매니저 의견'] && byHeader['매니저 의견'][i]) || null,
+      });
+    }
+    return cols;
+  }
+
+  // 카테고리별 보장 정보 표에서 대분류 "실비" 아래 상품별 담보금 유무를 스캔한다.
+  // 상단 보험명에 "실손/실비"가 없어도 이 표의 상품 컬럼에 금액이 있으면 실손 후보로 본다.
+  function _silsonScanCategoryAmounts() {
+    const hits = [];
+    const tables = Array.from(document.querySelectorAll('table')).filter(_isElementVisible);
+    tables.forEach(table => {
+      const allRows = Array.from(table.querySelectorAll('tr'));
+      if (!allRows.length) return;
+
+      let headerRow = null, headerTexts = [];
+      for (const tr of allRows) {
+        const cells = Array.from(tr.querySelectorAll('th,td'));
+        const texts = cells.map(_silsonText);
+        const joined = texts.join('|');
+        if (/대분류/.test(joined) && /소분류/.test(joined) && /보험명/.test(joined)) {
+          headerRow = tr;
+          headerTexts = texts;
+          break;
+        }
+      }
+      if (!headerRow) return;
+
+      const majorIdx = headerTexts.findIndex(t => /대분류/.test(t));
+      const minorIdx = headerTexts.findIndex(t => /소분류/.test(t));
+      const baseIdx = headerTexts.findIndex(t => /보험명/.test(t));
+      if (majorIdx < 0 || minorIdx < 0 || baseIdx < 0) return;
+      const productCols = headerTexts
+        .map((label, idx) => ({ label: String(label || '').replace(/\s+/g, ' ').trim(), idx }))
+        .filter(c => c.idx > baseIdx && c.label);
+      if (!productCols.length) return;
+      const visualWidth = Math.max(baseIdx, ...productCols.map(c => c.idx)) + 1;
+
+      const bodyRows = allRows.slice(allRows.indexOf(headerRow) + 1);
+      let currentMajor = '';
+      bodyRows.forEach(tr => {
+        const cells = Array.from(tr.querySelectorAll('td,th'));
+        if (!cells.length) return;
+
+        const shiftedByRowSpan = currentMajor && cells.length < visualWidth;
+        const getCell = (visualIdx) => shiftedByRowSpan ? cells[visualIdx - 1] : cells[visualIdx];
+        const majorCell = getCell(majorIdx);
+        const rawMajor = _silsonText(majorCell);
+        if (rawMajor) currentMajor = rawMajor;
+        const major = rawMajor || currentMajor;
+        if (!/(실비|실손)/.test(major)) return;
+
+        const minor = _silsonText(getCell(minorIdx));
+        productCols.forEach((pc, productIndex) => {
+          const cell = getCell(pc.idx);
+          const amount = _silsonText(cell);
+          if (!_silsonHasAmount(amount)) return;
+          hits.push({
+            productIndex,
+            productName: pc.label,
+            major,
+            minor,
+            amount
+          });
+        });
+      });
+    });
+    return hits;
+  }
+
+  function _silsonFindColumnForCategoryHit(hit, cols) {
+    const byName = cols.find(c => _silsonLooksSameProduct(hit.productName, c.보험명));
+    if (byName) return byName;
+    return cols[hit.productIndex] || null;
+  }
+
+  function _silsonBuildHits(cols) {
+    const byKey = new Map();
+    const addHit = (col, source, detail) => {
+      if (!col) return;
+      const key = String(col.idx);
+      if (!byKey.has(key)) {
+        byKey.set(key, {
+          name: col.보험명 || detail?.productName || '(이름 없음)',
+          company: col.보험사명 || '',
+          date: col.계약일 || '?',
+          cell: col.commentCell,
+          sources: [],
+          details: []
+        });
+      }
+      const h = byKey.get(key);
+      if (source && !h.sources.includes(source)) h.sources.push(source);
+      if (detail) h.details.push(detail);
+    };
+
+    cols.forEach(c => {
+      const blob = `${c.보험명 || ''} ${c.소분류 || ''} ${c.대분류 || ''}`;
+      if (/실손|실비/.test(blob)) addHit(c, '상단 보험상품 정보', null);
+    });
+
+    const categoryHits = _silsonScanCategoryAmounts();
+    categoryHits.forEach(ch => {
+      const col = _silsonFindColumnForCategoryHit(ch, cols);
+      addHit(col, '실비 담보금', ch);
+    });
+
+    return Array.from(byKey.values()).map(h => {
+      const a = analyzeSilsonGeneration(h.date);
+      const detailText = h.details.length
+        ? h.details.slice(0, 4).map(d => `${d.minor || d.major}: ${d.amount}`).join(', ') + (h.details.length > 4 ? ` 외 ${h.details.length - 4}건` : '')
+        : '';
+      return {
+        ...h,
+        text: a ? `${a.gen}, ${a.renew}` : '계약일 인식 실패',
+        ok: !!a,
+        reason: h.sources.join('+') || '실손/실비 텍스트',
+        detailText
+      };
+    });
+  }
+
+  // 매니저 코멘트 셀에 값 입력 (React 호환 — 클릭으로 편집기 활성화 후 native setter)
+  async function _setCommentCell(cell, value) {
+    if (!cell) return false;
+    let inp = cell.querySelector('textarea, input[type="text"], input:not([type])');
+    if (!inp) { try { cell.click(); } catch (_) {} await sleep(160); inp = cell.querySelector('textarea, input[type="text"], input:not([type])'); }
+    if (!inp) {
+      const ce = cell.querySelector('[contenteditable="true"], [role="textbox"]');
+      if (ce) { try { ce.focus(); } catch (_) {} ce.textContent = value; ce.dispatchEvent(new Event('input', { bubbles: true })); ce.dispatchEvent(new Event('blur', { bubbles: true })); return true; }
+      return false;
+    }
+    const proto = inp.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
+    setter.call(inp, value);
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+    inp.dispatchEvent(new Event('blur', { bubbles: true }));
+    return true;
+  }
+
+  async function fillSilsonComments(btn) {
+    const old = btn ? btn.textContent : '';
+    if (btn) { btn.textContent = '⏳ 분석 중…'; btn.disabled = true; }
+    try {
+      const cols = _silsonScanColumns();
+      const hits = _silsonBuildHits(cols);
+      console.log('[Toss Extractor] 실손 세대 분석 후보:', hits);
+      if (!hits.length) { alert('실손/실비 보험을 찾지 못했습니다.\n토스 보장분석 표가 보이는 상태에서 사용하세요.'); return; }
+      const summary = hits.map(h =>
+        `· ${(h.name).slice(0, 26)} (${h.date}) → ${h.text}` +
+        (h.reason ? ` [${h.reason}]` : '') +
+        (h.detailText ? `\n  - ${h.detailText}` : '')
+      ).join('\n');
+      if (!confirm(`실손 ${hits.length}건을 분석했습니다. 매니저 코멘트에 입력할까요?\n\n${summary}`)) return;
+      let written = 0; const failed = [];
+      for (const h of hits) {
+        if (h.ok && h.cell && await _setCommentCell(h.cell, h.text)) written++;
+        else failed.push(`${h.name} → ${h.text} (${h.ok ? '코멘트칸 못찾음' : '계약일 오류'})`);
+      }
+      try { await navigator.clipboard.writeText(hits.map(h => `${h.name}: ${h.text}${h.detailText ? ' / ' + h.detailText : ''}`).join('\n')); } catch (_) {}
+      alert(`✅ 매니저 코멘트 ${written}건 입력 완료.` +
+        (failed.length ? `\n\n⚠️ 미입력 ${failed.length}건(직접 입력 필요):\n${failed.join('\n')}` : '') +
+        `\n\n(결과는 클립보드에도 복사됨)`);
+    } catch (e) {
+      alert('실손 분석 실패: ' + (e && e.message || e));
+    } finally {
+      if (btn) { btn.textContent = old; btn.disabled = false; }
+    }
   }
 
   // 🆕 왼쪽 사이드 버튼 스택 — 새 버튼은 _makeSideBtn 으로 추가하면 자동으로 세로 나열된다.
@@ -2726,6 +3209,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       _anchor.onclick = function () { sendToPaintPro(_anchor); };
       document.body.appendChild(_anchor);
     }
+    // 🩺 실손 세대 분석 버튼 (보장분석 표가 있을 때만 노출)
+    _makeSideBtn('__silson_gen', '🩺 실손 세대 분석', '#0ea5e9', fillSilsonComments);
   }
 
   // 탭 전환/지연 렌더로 버튼이 늦게 생기므로 주기적으로 확인
