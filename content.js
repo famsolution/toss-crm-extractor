@@ -1336,6 +1336,15 @@ function normalizeCoverageRowsForExcel(details, productSummary, insurances) {
   return normalized;
 }
 
+// 🆕 [보장/특약 중복 제거 키] 담보는 보장·특약 중 한 곳에만 속한다. 특약 pass 결과 중
+//   보장 pass 와 동일한 행(탭 전환 실패·같은 표 재수집)을 걸러내기 위한 키.
+//   ⚠️ _섹션번호(= 담보표 순번)는 pass 마다 표 개수가 달라져 어긋나므로 쓰지 않는다.
+//      pass 사이에서 안정적인 _accordionIdx(DOM accordion 순서)를 기준으로 한다.
+function _coverageDupKey(r) {
+  const acc = (r._accordionIdx != null && r._accordionIdx >= 0) ? `A${r._accordionIdx}` : `S${r._섹션번호}`;
+  return [acc, r['보장명'] || '', r['보장 금액'] || '', r['보장 대분류'] || '', r['보장 소분류'] || ''].join('::');
+}
+
 async function extractCoverageExcelRowsFromPage() {
   const pageType = detectPageType();
   if (pageType !== 'coverage') {
@@ -1351,8 +1360,10 @@ async function extractCoverageExcelRowsFromPage() {
   console.log(`[Toss Extractor] Excel switchAllTabsTo('특약') → ${switchedRider}회 클릭됨`);
   await new Promise(r => setTimeout(r, 600));
   const riderDetails = extractCoverageDetails();
-  const mainKeys = new Set(mainDetails.rows.map(r => `${r._섹션번호}::${r['보장명']||''}::${r['보장 금액']||''}`));
-  let riderRows = riderDetails.rows.filter(r => !mainKeys.has(`${r._섹션번호}::${r['보장명']||''}::${r['보장 금액']||''}`));
+  const mainKeys = new Set(mainDetails.rows.map(_coverageDupKey));
+  const _beforeDedupX = riderDetails.rows.length;
+  let riderRows = riderDetails.rows.filter(r => !mainKeys.has(_coverageDupKey(r)));
+  console.log(`[Toss Extractor] Excel 특약 추출: ${_beforeDedupX}건 → 중복 제외 후 ${riderRows.length}건`);
   riderRows.forEach(r => { r._tabType = '특약'; });
   await switchAllTabsTo('보장');
 
@@ -2576,14 +2587,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           await new Promise(r => setTimeout(r, 600));
           const riderDetails = extractCoverageDetails();
           let riderRows = riderDetails.rows;
-          // 보장 탭에서 이미 잡힌 행과 정확히 동일한 행이면 (탭 전환 실패) 제거
-          //   → 키: 섹션번호 + 보장명 + 보장 금액 조합으로 중복 판정
-          const mainKeys = new Set(mainDetails.rows.map(r => `${r._섹션번호}::${r['보장명']||''}::${r['보장 금액']||''}`));
+          // 보장 탭에서 이미 잡힌 행과 동일한 행이면 (탭 전환 실패 등) 제거 — 담보는 보장/특약 중 한 곳에만 속한다.
+          // 🐛 [중복 근본원인] 기존 키는 _섹션번호(= 담보표 순번, tableIdx+1)를 썼는데, 특약 탭에서는
+          //   특약이 없는 상품의 표가 사라져 순번이 앞으로 당겨진다 → 같은 담보인데 섹션번호가 달라져
+          //   중복 판정에 실패, 보장·특약 양쪽에 동일 담보가 남았다.
+          //   pass 사이에서 안정적인 _accordionIdx(= DOM accordion 순서)를 기준으로 바꾼다.
+          const mainKeys = new Set(mainDetails.rows.map(_coverageDupKey));
           const beforeDedup = riderRows.length;
-          riderRows = riderRows.filter(r => {
-            const key = `${r._섹션번호}::${r['보장명']||''}::${r['보장 금액']||''}`;
-            return !mainKeys.has(key);
-          });
+          riderRows = riderRows.filter(r => !mainKeys.has(_coverageDupKey(r)));
           console.log(`[Toss Extractor] 특약 추출: ${beforeDedup}건 → 중복 제외 후 ${riderRows.length}건`);
           riderRows.forEach(r => { r._tabType = '특약'; });
 
