@@ -2,3 +2,10 @@
 node_modules/
 .DS_Store
 Thumbs.db
+
+# 작업 중 남기는 백업 사본 — 빌드 zip 이 .git 과 .github 만 빼고 전부 담기 때문에
+# 커밋되면 그대로 배포본에 실려 나간다. 되돌릴 일이 있으면 git 이력을 쓴다.
+*.bak
+*.bak-*
+*.backup-*
+*.orig

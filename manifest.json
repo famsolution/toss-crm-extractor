@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "토스인슈 CRM 데이터 추출기",
-  "version": "3.22.0",
+  "version": "3.22.1",
   "description": "토스인슈 CRM 데이터 추출 — 마스킹 자동 복원 + 로그인/관리자 승인 권한 게이트.",
   "permissions": [
     "activeTab",
@@ -16,7 +16,7 @@
     "sidePanel"
   ],
   "background": {
-    "service_worker": "pcs-automation/pcs-local-driver.js"
+    "service_worker": "background.js"
   },
   "host_permissions": [
     "https://crm.tossinsu.com/*",
@@ -98,6 +98,7 @@
   },
   "web_accessible_resources": [
     {
+      "_comment": "pcs-clip-intercept.js — 이름은 pcs 로 시작하지만 금소법과 무관. 토스 '이미지 복사'를 가로채 보장분석 표 이미지를 캡처(페인트프로 전송)하는 기능이므로 유지한다.",
       "resources": ["pcs-clip-intercept.js"],
       "matches": ["https://crm.tossinsu.com/*"]
     }

@@ -1307,10 +1307,10 @@ function _xlsxZipStore(files) {
 }
 
 function _xlsxStylesXml() {
-  // 어르신 친화: 큰 글씨(13~18) · 맑은 고딕 · 세로 가운데 · 또렷한 테두리
+  // 시안2 "토스 블루": 맑은 고딕 · 파란 헤더(흰 글씨) · 연파랑 제목/요약 · 얇은 파란 테두리 · 지브라 줄무늬
   //   cellXfs 인덱스:
-  //   0 데이터(왼쪽) 1 제목 2 헤더 3 숫자(#,##0) 4 숫자(원) 5 숫자(만원)
-  //   6 요약줄 7 데이터(가운데)
+  //   0 데이터(왼쪽) 1 제목 2 헤더 3 숫자#,##0 4 숫자원 5 숫자만원 6 요약줄 7 데이터(가운데)
+  //   8 데이터(왼쪽,지브라) 9 데이터(가운데,지브라) 10 숫자#,##0(지브라) 11 숫자원(지브라) 12 숫자만원(지브라)
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <numFmts count="3">
@@ -1319,24 +1319,25 @@ function _xlsxStylesXml() {
     <numFmt numFmtId="166" formatCode="#,##0&quot;만원&quot;"/>
   </numFmts>
   <fonts count="4">
-    <font><sz val="13"/><name val="맑은 고딕"/></font>
-    <font><b/><color rgb="FFFFFFFF"/><sz val="14"/><name val="맑은 고딕"/></font>
-    <font><b/><sz val="18"/><color rgb="FF1E3A8A"/><name val="맑은 고딕"/></font>
-    <font><b/><sz val="13"/><color rgb="FF334155"/><name val="맑은 고딕"/></font>
+    <font><sz val="11"/><color rgb="FF1E293B"/><name val="맑은 고딕"/></font>
+    <font><b/><color rgb="FFFFFFFF"/><sz val="12"/><name val="맑은 고딕"/></font>
+    <font><b/><sz val="16"/><color rgb="FF1D4ED8"/><name val="맑은 고딕"/></font>
+    <font><b/><sz val="11"/><color rgb="FF1D4ED8"/><name val="맑은 고딕"/></font>
   </fonts>
-  <fills count="5">
+  <fills count="6">
     <fill><patternFill patternType="none"/></fill>
     <fill><patternFill patternType="gray125"/></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FF2563EB"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF3182F6"/><bgColor indexed="64"/></patternFill></fill>
     <fill><patternFill patternType="solid"><fgColor rgb="FFDBEAFE"/><bgColor indexed="64"/></patternFill></fill>
-    <fill><patternFill patternType="solid"><fgColor rgb="FFF1F5F9"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFEFF6FF"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF5F9FF"/><bgColor indexed="64"/></patternFill></fill>
   </fills>
   <borders count="2">
     <border><left/><right/><top/><bottom/><diagonal/></border>
-    <border><left style="thin"><color rgb="FFB6BEC9"/></left><right style="thin"><color rgb="FFB6BEC9"/></right><top style="thin"><color rgb="FFB6BEC9"/></top><bottom style="thin"><color rgb="FFB6BEC9"/></bottom><diagonal/></border>
+    <border><left style="thin"><color rgb="FFBFDBFE"/></left><right style="thin"><color rgb="FFBFDBFE"/></right><top style="thin"><color rgb="FFBFDBFE"/></top><bottom style="thin"><color rgb="FFBFDBFE"/></bottom><diagonal/></border>
   </borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="8">
+  <cellXfs count="13">
     <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
     <xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center"/></xf>
     <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
@@ -1345,6 +1346,11 @@ function _xlsxStylesXml() {
     <xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1"><alignment horizontal="right" vertical="center"/></xf>
     <xf numFmtId="0" fontId="3" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
     <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="0" fontId="0" fillId="5" borderId="1" xfId="0" applyFill="1" applyBorder="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
+    <xf numFmtId="164" fontId="0" fillId="5" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="165" fontId="0" fillId="5" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"><alignment horizontal="right" vertical="center"/></xf>
+    <xf numFmtId="166" fontId="0" fillId="5" borderId="1" xfId="0" applyNumberFormat="1" applyFill="1" applyBorder="1"><alignment horizontal="right" vertical="center"/></xf>
   </cellXfs>
   <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
 </styleSheet>`;
@@ -1384,12 +1390,16 @@ function _xlsxRowXml(rowNo, cells, height) {
 function _xlsxColsXml(columns) {
   return `<cols>${columns.map((c, i) => `<col min="${i + 1}" max="${i + 1}" width="${c.width || 14}" customWidth="1"/>`).join('')}</cols>`;
 }
-function _xlsxDataCell(rowNo, colNo, value, colDef) {
-  const textStyle = (colDef && colDef.align === 'center') ? 7 : 0;   // 0=왼쪽, 7=가운데
-  if (colDef && colDef.number) return _xlsxNumberCell(rowNo, colNo, value, 3);
+function _xlsxDataCell(rowNo, colNo, value, colDef, zebra) {
+  // zebra 행은 지브라 스타일(+): 왼쪽 0→8, 가운데 7→9, 숫자 3/4/5→10/11/12
+  const z = zebra ? 1 : 0;
+  const textStyle = (colDef && colDef.align === 'center') ? (z ? 9 : 7) : (z ? 8 : 0);
+  if (colDef && colDef.number) return _xlsxNumberCell(rowNo, colNo, value, z ? 10 : 3);
   if (colDef && colDef.money) {
     const m = _moneyCellValue(value, colDef.money);
-    return m.type === 'n' ? _xlsxNumberCell(rowNo, colNo, m.value, m.style) : _xlsxStringCell(rowNo, colNo, m.value, 7);
+    return m.type === 'n'
+      ? _xlsxNumberCell(rowNo, colNo, m.value, m.style + (z ? 7 : 0))
+      : _xlsxStringCell(rowNo, colNo, m.value, z ? 9 : 7);
   }
   return _xlsxStringCell(rowNo, colNo, value, textStyle);
 }
@@ -1437,18 +1447,20 @@ function _buildCoverageSheet(opts) {
   });
 
   const sheetRows = [_xlsxMergedLabelRow(1, title, ncols, 1, 34)];
-  if (hasInfo) sheetRows.push(_xlsxMergedLabelRow(2, infoLine, ncols, 6, 26));
-  sheetRows.push(_xlsxRowXml(headerRow, columns.map((c, i) => _xlsxStringCell(headerRow, i + 1, c.label, 2)), 30));
+  if (hasInfo) sheetRows.push(_xlsxMergedLabelRow(2, infoLine, ncols, 6, 24));
+  sheetRows.push(_xlsxRowXml(headerRow, columns.map((c, i) => _xlsxStringCell(headerRow, i + 1, c.label, 2)), 28));
 
   if (n) {
     rows.forEach((r, ri) => {
       const rowNo = dataStart + ri;
+      const zebra = (ri % 2 === 1);   // 홀수 데이터행 = 지브라 줄무늬
+      const zc = zebra ? 9 : 7;
       const cells = columns.map((c, ci) => {
-        if (covered[ri][ci]) return `<c r="${_xlsxCellRef(rowNo, ci + 1)}" s="7"/>`;   // 병합에 가려진 빈 셀(테두리 유지)
-        if (c.seq) return _xlsxStringCell(rowNo, ci + 1, String(ri + 1), 7);
-        return _xlsxDataCell(rowNo, ci + 1, r[c.key], c);
+        if (covered[ri][ci]) return `<c r="${_xlsxCellRef(rowNo, ci + 1)}" s="${zc}"/>`;   // 병합에 가려진 빈 셀(테두리 유지)
+        if (c.seq) return _xlsxStringCell(rowNo, ci + 1, String(ri + 1), zc);
+        return _xlsxDataCell(rowNo, ci + 1, r[c.key], c, zebra);
       });
-      sheetRows.push(_xlsxRowXml(rowNo, cells, 26));
+      sheetRows.push(_xlsxRowXml(rowNo, cells, 24));
     });
   } else {
     sheetRows.push(_xlsxRowXml(dataStart, columns.map((c, i) => _xlsxStringCell(dataStart, i + 1, '', 0)), 22));
@@ -1763,7 +1775,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       } catch (e) { console.warn('[btnApply] auto 페이지 감지 실패:', e); }
       // 주소로 판단 못하면 추출 데이터 종류로 폴백 (3개 대상 한정)
       if (!resolved) {
-        if (isPremiumCompare) resolved = 'premium-page'; // 비교 데이터 → 보험료 비교 폼
+        if (isPremiumCompare) resolved = 'plan';         // mmlfcp 추출 비교 데이터 → 보장분석 가설계
         else if (isCustomer)  resolved = 'consult';      // 고객 데이터 → 상담등록
         else                  resolved = 'standard';     // 보장(coverage) 등 → 표준 보장분석
       }
@@ -1807,6 +1819,100 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       /toss_insu\d*_?\d*\.html/i.test(t.url) ||                        // 로컬 파일
       (/tossinssu-pro\.vercel\.app/i.test(t.url) && !/(plan|editor|index)\.html/i.test(t.url)) // Vercel 메인
     ));
+    const PLAN_APP_DEFAULT_URL = 'https://tossinssu-pro.vercel.app/app.html';
+    const isPlanReceiverUrl = (u) => !!u && (
+      /premium_plan\.html/i.test(u) ||
+      /tossinssu-pro\.vercel\.app\/plan\.html/i.test(u)
+    );
+    const isProgramAppUrl = (u) => !!u && (
+      /toss_insu\d*_?\d*\.html/i.test(u) ||
+      (/tossinssu-pro\.vercel\.app/i.test(u) && !/(editor|index)\.html/i.test(u))
+    );
+    const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    const _switchToPlanView = async (tab, opts = {}) => {
+      if (!tab || isPlanReceiverUrl(tab.url)) return true;
+      const tries = opts.quick ? 1 : 4;
+      for (let i = 0; i < tries; i++) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            world: 'MAIN',
+            func: () => {
+              const norm = (s) => String(s || '').replace(/\s+/g, '');
+              const isVisible = (el) => {
+                try {
+                  const r = el.getBoundingClientRect();
+                  return r.width > 0 && r.height > 0;
+                } catch { return true; }
+              };
+              const controls = Array.from(document.querySelectorAll('button, [role="button"], [role="tab"], a'))
+                .filter(isVisible);
+              const byText = (re) => controls.find(el => re.test(norm(el.textContent || el.innerText || el.value || '')));
+              const compareBtn = byText(/보험사(별)?비교|보험사비교|보험료비교|비교표/);
+              if (compareBtn) compareBtn.click();
+              setTimeout(() => {
+                const controls2 = Array.from(document.querySelectorAll('button, [role="button"], [role="tab"], a'));
+                const planBtn = controls2.find(el => /가설계/.test(norm(el.textContent || el.innerText || el.value || '')));
+                if (planBtn) planBtn.click();
+              }, 180);
+              return { compareClicked: !!compareBtn };
+            }
+          });
+        } catch (e) {
+          console.warn('[btnApply/plan] 가설계 화면 전환 스크립트 실패:', e);
+        }
+        await _sleep(opts.quick ? 500 : 900);
+        try {
+          const probe = await chrome.scripting.executeScript({
+            target: { tabId: tab.id, allFrames: true },
+            world: 'MAIN',
+            func: () => ({
+              ok: typeof window.__applyPremiumDataFromExtension === 'function',
+              location: location.href
+            })
+          });
+          if (probe.some(r => r?.result?.ok)) return true;
+        } catch {}
+      }
+      return false;
+    };
+    const _applyPremiumDataToPlan = async (target, dataJson, opts = {}) => {
+      const started = Date.now();
+      const maxMs = opts.maxMs || 35000;
+      let frameResults = [];
+      let lastError = '';
+      while (Date.now() - started < maxMs) {
+        if (opts.switchPlan) await _switchToPlanView(target, { quick: true });
+        try {
+          frameResults = await chrome.scripting.executeScript({
+            target: { tabId: target.id, allFrames: true },
+            world: 'MAIN',
+            args: [dataJson],
+            func: async (json) => {
+              try {
+                const data = JSON.parse(json);
+                if (typeof window.__applyPremiumDataFromExtension === 'function') {
+                  const ret = window.__applyPremiumDataFromExtension(data);
+                  if (ret && typeof ret.then === 'function') await ret;
+                  return { ok: true, location: location.href };
+                }
+                return { ok: false, error: 'receiver 없음', location: location.href };
+              } catch (e) {
+                return { ok: false, error: e.message, location: location.href };
+              }
+            }
+          });
+          const okFrame = frameResults.find(r => r?.result?.ok);
+          if (okFrame) return { ok: true, okFrame, frameResults };
+          lastError = frameResults.map(r => r?.result?.error).filter(Boolean).join(' / ') || lastError;
+        } catch (e) {
+          lastError = e.message || String(e);
+          console.warn('[btnApply/plan] 가설계 데이터 주입 재시도:', lastError);
+        }
+        await _sleep(900);
+      }
+      return { ok: false, frameResults, error: lastError || 'receiver 없음' };
+    };
 
     // 🆕 강제 라우팅 — 상담등록 (CRM page_*.html). 추출한 고객정보를 상담등록 페이지로 전송
     if (targetMode === 'consult') {
@@ -1850,13 +1956,32 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       }
       // 데이터 적용 — 추출 데이터를 텍스트로 포맷해 상담등록 페이지 수신 함수로 전송
       const textData = formatAsText(extractedData);
+      // 🆕 보장분석 데이터면 구조화(JSON) 그대로 전송 → 고객 DB 에 보장내역 저장
+      //    (텍스트 왕복은 담보 매트릭스가 손실되므로 별도 수신 함수 사용)
+      const _isCov = !!(extractedData && extractedData.type === 'coverage' &&
+        ((Array.isArray(extractedData.productSummary) && extractedData.productSummary.length) ||
+         (Array.isArray(extractedData.coverageDetails) && extractedData.coverageDetails.length)));
+      const _covPayload = _isCov ? {
+        type: 'coverage',
+        name: extractedData.customerName || extractedData.name || extractedData['고객명'] ||
+              (extractedData.basicInfo && (extractedData.basicInfo['이름'] || extractedData.basicInfo.name)) || '',
+        phone: extractedData.phone || extractedData['연락처'] ||
+              (extractedData.basicInfo && (extractedData.basicInfo['연락처'] || extractedData.basicInfo.phone)) || '',
+        productSummary: extractedData.productSummary || [],
+        coverageDetails: extractedData.coverageDetails || []
+      } : null;
       try {
         const [r] = await chrome.scripting.executeScript({
           target: { tabId: consultTab.id }, world: 'MAIN',
-          args: [textData],
-          func: (text) => {
+          args: [textData, _covPayload],
+          func: (text, cov) => {
+            // 보장분석 페이로드가 있으면 우선 처리
+            if (cov && typeof window.__applyTossCoverageFromExtension === 'function') {
+              try { window.__applyTossCoverageFromExtension(cov); return { ok: true, mode: 'coverage', location: location.href }; }
+              catch (e) { return { ok: false, error: e.message, location: location.href }; }
+            }
             if (typeof window.__applyTossDataFromExtension === 'function') {
-              try { window.__applyTossDataFromExtension(text); return { ok: true, location: location.href }; }
+              try { window.__applyTossDataFromExtension(text); return { ok: true, mode: 'text', location: location.href }; }
               catch (e) { return { ok: false, error: e.message, location: location.href }; }
             }
             return { ok: false, error: 'receiver 없음 - 상담등록 페이지 새로고침 필요', location: location.href };
@@ -1869,7 +1994,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
           try { chrome.storage.local.set({ lastConsultUrl: consultTab.url }); } catch {}
           await chrome.tabs.update(consultTab.id, { active: true });
           await chrome.windows.update(consultTab.windowId, { focused: true });
-          showToast('✅ 상담등록 페이지에 적용 완료');
+          showToast(r.result.mode === 'coverage' ? '🛡️ 보장분석을 고객 DB에 저장했습니다' : '✅ 상담등록 페이지에 적용 완료');
           setTimeout(() => window.close(), 800);
         } else {
           alert('상담등록 적용 실패: ' + (r?.result?.error || 'unknown') + '\n\n· 상담등록 페이지(page_jmin.html)를 Ctrl+Shift+R 로 새로고침 후 재시도');
@@ -1925,7 +2050,9 @@ document.getElementById('btnApply').addEventListener('click', async () => {
         const stored = await new Promise(r => {
           try { chrome.storage.local.get(['lastProgramUrl'], v => r(v?.lastProgramUrl || null)); } catch { r(null); }
         });
-        const openUrl = stored || 'https://tossinssu-pro.vercel.app/';
+        const openUrl = (stored && isProgramAppUrl(stored) && !/(editor|index)\.html/i.test(stored))
+          ? stored
+          : PLAN_APP_DEFAULT_URL;
         try {
           programTab = await chrome.tabs.create({ url: openUrl, active: true });
           target = programTab;
@@ -1950,25 +2077,8 @@ document.getElementById('btnApply').addEventListener('click', async () => {
           return;
         }
       }
-      // 가설계 모드로 전환
-      if (!planTab && programTab) {
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: programTab.id }, world: 'MAIN',
-            func: () => {
-              const btns = Array.from(document.querySelectorAll('button'));
-              // 🆕 "보험사별 비교" / "보험사비교" 둘 다 매칭 (라벨 축약 호환)
-              const compareBtn = btns.find(b => /보험사\s*(별\s*)?비교/.test(b.textContent || ''));
-              if (compareBtn) compareBtn.click();
-              setTimeout(() => {
-                const planBtn = Array.from(document.querySelectorAll('button')).find(b => /가설계/.test(b.textContent || ''));
-                if (planBtn) planBtn.click();
-              }, 100);
-            }
-          });
-          await new Promise(r => setTimeout(r, 700));
-        } catch {}
-      }
+      // 가설계 모드로 전환하고 iframe/수신 함수가 뜰 시간을 준다.
+      if (!planTab && target) await _switchToPlanView(target);
       // premium_compare 데이터 전송 (있을 때만)
       if (isPremiumCompare) {
         // 데이터 검증
@@ -1976,6 +2086,9 @@ document.getElementById('btnApply').addEventListener('click', async () => {
         const hasCoverages = Array.isArray(extractedData.coverages) && extractedData.coverages.length > 0;
         console.log('[btnApply/plan] 데이터 확인 — companies:', extractedData.companies?.length, '/ coverages:', extractedData.coverages?.length);
         if (!hasCompanies && !hasCoverages) {
+          clearTimeout(safetyTimer);
+          btn.textContent = '📤 프로그램 적용';
+          btn.disabled = false;
           alert('⚠️ 추출된 데이터가 비어 있습니다.\n\nmmlfcp 페이지에서 [조회하기] 버튼을 먼저 누르고 보험료가 표시된 상태에서 추출해주세요.');
           return;
         }
@@ -1983,38 +2096,36 @@ document.getElementById('btnApply').addEventListener('click', async () => {
         try {
           await chrome.tabs.update(target.id, { active: true });
           await chrome.windows.update(target.windowId, { focused: true });
-          // 추가 안정화 대기
-          await new Promise(r => setTimeout(r, 600));
-          const res = await chrome.scripting.executeScript({
-            target: { tabId: target.id, allFrames: true }, world: 'MAIN',
-            args: [dataJson],
-            func: (json) => {
-              try {
-                const data = JSON.parse(json);
-                if (typeof window.__applyPremiumDataFromExtension === 'function') {
-                  window.__applyPremiumDataFromExtension(data);
-                  return { ok: true, location: location.href };
-                }
-                return { ok: false, error: 'receiver 없음', location: location.href };
-              } catch (e) { return { ok: false, error: e.message, location: location.href }; }
-            }
+          const applyResult = await _applyPremiumDataToPlan(target, dataJson, {
+            switchPlan: !isPlanReceiverUrl(target.url),
+            maxMs: 35000
           });
-          const ok = res.find(r => r?.result?.ok);
-          if (ok) {
+          if (applyResult.ok) {
+            clearTimeout(safetyTimer);
+            btn.textContent = '📤 프로그램 적용';
+            btn.disabled = false;
             showToast('✅ 가설계 탭에 적용 완료');
             setTimeout(() => alert(`✅ 가설계 탭 적용 완료\n\n• 보험사: ${extractedData.companies?.length || 0}개\n• 담보: ${extractedData.coverages?.length || 0}개`), 100);
           } else {
-            const tried = res.map(r => r?.result?.location || '?').join('\n  · ');
-            const err = res.map(r => r?.result?.error).filter(Boolean).join(' / ') || '알 수 없음';
-            alert('가설계 탭 적용 실패\n\n원인: ' + err + '\n\n시도한 프레임:\n  · ' + tried + '\n\n해결:\n① 보장분석 프로그램을 한 번 새로고침(Ctrl+Shift+R)\n② 보험사별 비교 → 가설계 탭이 노출된 상태인지 확인');
+            clearTimeout(safetyTimer);
+            btn.textContent = '📤 프로그램 적용';
+            btn.disabled = false;
+            const tried = (applyResult.frameResults || []).map(r => r?.result?.location || '?').join('\n  · ');
+            alert('가설계 탭 적용 실패\n\n원인: ' + (applyResult.error || '알 수 없음') + '\n\n시도한 프레임:\n  · ' + (tried || '(없음)') + '\n\n해결:\n① 보장분석 프로그램을 한 번 새로고침(Ctrl+Shift+R)\n② 보험사별 비교 → 가설계 탭이 노출된 상태인지 확인');
           }
         } catch (e) {
+          clearTimeout(safetyTimer);
+          btn.textContent = '📤 프로그램 적용';
+          btn.disabled = false;
           console.error('[btnApply/plan] 실행 에러:', e);
           alert('실행 실패: ' + (e.message || e));
         }
       } else {
         // coverage/customer 데이터인 경우: 가설계 모드 전환만 + 안내
         if (programTab) await chrome.tabs.update(programTab.id, { active: true });
+        clearTimeout(safetyTimer);
+        btn.textContent = '📤 프로그램 적용';
+        btn.disabled = false;
         alert('✅ 가설계 탭으로 전환됨\n\n현재 추출한 데이터(' + extractedData.type + ')는 가설계와 형식이 달라 자동 입력은 안 됩니다.\n보험료 비교 데이터를 추출해서 다시 적용해주세요.');
       }
       return;
@@ -2756,93 +2867,45 @@ document.getElementById('btnApply').addEventListener('click', async () => {
         /toss_insu\d*_?\d*\.html/i.test(t.url) ||
         (/tossinssu-pro\.vercel\.app/i.test(t.url) && !/(plan|editor|index)\.html/i.test(t.url))
       ));
-      const target = planTabs[0] || programTabs[0];
+      let target = planTabs[0] || programTabs[0];
       if (!target) {
-        alert('보장분석 프로그램이 열려있지 않습니다.\n\nhttps://tossinssu-pro.vercel.app 을 먼저 열어주세요.');
-        return;
+        const stored = await new Promise(r => {
+          try { chrome.storage.local.get(['lastProgramUrl'], v => r(v?.lastProgramUrl || null)); } catch { r(null); }
+        });
+        const openUrl = (stored && isProgramAppUrl(stored) && !/(editor|index)\.html/i.test(stored))
+          ? stored
+          : PLAN_APP_DEFAULT_URL;
+        try {
+          target = await chrome.tabs.create({ url: openUrl, active: true });
+          await _sleep(1500);
+        } catch (e) {
+          clearTimeout(safetyTimer);
+          btn.textContent = '📤 프로그램 적용';
+          btn.disabled = false;
+          alert('보장분석 프로그램 자동 오픈 실패: ' + (e.message || e));
+          return;
+        }
       }
       const dataJson = JSON.stringify(extractedData);
-      // 🆕 보장분석 프로그램에 적용 시 자동으로 보험사별 비교 → 가설계 모드 전환 + iframe 활성화 대기
-      const isProgramTab = !planTabs[0] && programTabs[0];
-      if (isProgramTab) {
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: target.id },
-            world: 'MAIN',
-            func: () => {
-              // React 상태 강제 전환 — appMode='premium_compare' + premiumView='plan'
-              // setter 가 전역에 노출 안 되어 있을 가능성 있으므로 버튼 클릭으로 대신 트리거
-              try {
-                // 1) 보험사별 비교 탭 클릭 — "보험사별 비교"/"보험사비교" 둘 다 매칭(라벨 축약 호환)
-                const tabs = Array.from(document.querySelectorAll('button'));
-                const compareBtn = tabs.find(b => /보험사\s*(별\s*)?비교/.test(b.textContent || ''));
-                if (compareBtn) compareBtn.click();
-                // 2) 가설계 토글 클릭 (이미 활성이면 noop)
-                setTimeout(() => {
-                  const tabs2 = Array.from(document.querySelectorAll('button'));
-                  const planBtn = tabs2.find(b => /가설계/.test(b.textContent || ''));
-                  if (planBtn) planBtn.click();
-                }, 100);
-              } catch (e) { console.warn('[ext] auto-switch failed:', e); }
-            }
-          });
-          // iframe 로드 대기 (최대 3초)
-          await new Promise(resolve => setTimeout(resolve, 700));
-        } catch (e) { console.warn('[ext] mode-switch err:', e); }
-      }
-      // 🔑 allFrames:true → iframe(premium_plan.html) 의 window.__applyPremiumDataFromExtension 호출
-      let frameResults = [];
-      try {
-        frameResults = await chrome.scripting.executeScript({
-          target: { tabId: target.id, allFrames: true },
-          world: 'MAIN',
-          args: [dataJson],
-          func: (json) => {
-            try {
-              const data = JSON.parse(json);
-              if (typeof window.__applyPremiumDataFromExtension === 'function') {
-                window.__applyPremiumDataFromExtension(data);
-                return { ok: true, location: location.href };
-              }
-              return { ok: false, error: 'no receiver', location: location.href };
-            } catch (e) { return { ok: false, error: e.message, location: location.href }; }
-          }
-        });
-      } catch (e) {
-        alert('스크립트 실행 실패: ' + (e.message || e) + '\n\n파일 URL 권한이 필요할 수 있습니다.\n· chrome://extensions → "토스인슈 CRM 데이터 추출기" 상세 → "파일 URL 액세스 허용" ON');
-        return;
-      }
-      // iframe 이 늦게 로드된 경우 1회 재시도 (최대 3초 추가 대기)
-      let okFrame = frameResults.find(r => r && r.result && r.result.ok);
-      if (!okFrame) {
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        try {
-          frameResults = await chrome.scripting.executeScript({
-            target: { tabId: target.id, allFrames: true },
-            world: 'MAIN',
-            args: [dataJson],
-            func: (json) => {
-              try {
-                const data = JSON.parse(json);
-                if (typeof window.__applyPremiumDataFromExtension === 'function') {
-                  window.__applyPremiumDataFromExtension(data);
-                  return { ok: true, location: location.href };
-                }
-                return { ok: false, error: 'no receiver', location: location.href };
-              } catch (e) { return { ok: false, error: e.message, location: location.href }; }
-            }
-          });
-          okFrame = frameResults.find(r => r && r.result && r.result.ok);
-        } catch {}
-      }
-      if (okFrame) {
+      const applyResult = await _applyPremiumDataToPlan(target, dataJson, {
+        switchPlan: !isPlanReceiverUrl(target.url),
+        maxMs: 35000
+      });
+      if (applyResult.ok) {
+        clearTimeout(safetyTimer);
+        btn.textContent = '📤 프로그램 적용';
+        btn.disabled = false;
         await chrome.tabs.update(target.id, { active: true });
         await chrome.windows.update(target.windowId, { focused: true });
-        showToast('✅ 보험료 비교에 적용 완료!');
+        showToast('✅ 가설계 탭에 적용 완료!');
       } else {
         // 디버그 정보 — 어느 프레임이 시도되었는지
+        clearTimeout(safetyTimer);
+        btn.textContent = '📤 프로그램 적용';
+        btn.disabled = false;
+        const frameResults = applyResult.frameResults || [];
         const tried = frameResults.map(r => r?.result?.location || '(unknown)').join('\n  · ');
-        const errMsg = frameResults.map(r => r?.result?.error).filter(Boolean).join(' / ') || 'receiver 없음';
+        const errMsg = applyResult.error || frameResults.map(r => r?.result?.error).filter(Boolean).join(' / ') || 'receiver 없음';
         alert(
           '적용 실패: window.__applyPremiumDataFromExtension 함수를 찾지 못했습니다.\n\n' +
           '시도한 프레임:\n  · ' + (tried || '(없음)') + '\n\n' +
