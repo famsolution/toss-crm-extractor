@@ -47,7 +47,11 @@
     .help-text, .notice p, .field-value { word-break: keep-all; overflow-wrap: break-word; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
-      width: 560px;          /* 팝업의 기준 폭 — 여기서 팝업 크기가 정해진다 */
+      /* 팝업의 기준 폭 — 여기서 팝업 크기가 정해진다.
+         ⚠ 크롬 팝업의 물리적 한계는 800x600 이다. 800 을 넘겨 적어도 크롬이 800 으로
+         잘라내므로 800 이 "팝업으로 가능한 최대 폭". 더 넓게 쓰려면 사이드패널
+         ('오른쪽 세로바' 버튼) 을 쓰면 된다. */
+      width: 800px;
       max-width: 100%;       /* 사이드패널처럼 폭이 좁은 그릇에서만 줄어든다 */
       min-height: 560px;
       max-height: 780px;
