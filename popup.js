@@ -1920,11 +1920,61 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       const CONSULT_URL = 'https://ympaint-86457.web.app/page_jmin.html';
       // ⚠ device-redirect.js 가 좁은 화면·모바일에서 page_*.html → m_*.html 로 갈아탄다.
       //    m_ 을 빼놓으면 이미 열린 탭을 못 찾고 매번 새 탭을 열게 된다.
-      const findConsultTab = () => allTabs.find(t => t.url && (
-        /ympaint-86457\.(web\.app|firebaseapp\.com)\/(page|m)_/i.test(t.url) ||
-        /(page|m)_(jmin|leader|manager|member|rookie|admin)\.html/i.test(t.url)
-      ));
-      let consultTab = findConsultTab();
+      const _isConsultUrl = (u) => !!u && (
+        /ympaint-86457\.(web\.app|firebaseapp\.com)\/(page|m)_/i.test(u) ||
+        /(page|m)_(jmin|leader|manager|member|rookie|admin)\.html/i.test(u)
+      );
+      const findConsultTabs = () => allTabs.filter(t => _isConsultUrl(t.url));
+
+      // receiver(window.__applyTossDataFromExtension) 가 살아 있는지 1회 확인.
+      const _probeReceiver = async (tabId) => {
+        try {
+          const [r] = await chrome.scripting.executeScript({
+            target: { tabId }, world: 'MAIN',
+            func: () => typeof window.__applyTossDataFromExtension === 'function'
+          });
+          return !!(r && r.result);
+        } catch { return false; }
+      };
+      // maxMs 동안 0.5초 간격으로 receiver 를 기다린다.
+      const _waitReceiver = (tabId, maxMs) => new Promise(resolve => {
+        let elapsed = 0;
+        const tid = setInterval(async () => {
+          elapsed += 500;
+          if (await _probeReceiver(tabId)) { clearInterval(tid); resolve(true); return; }
+          if (elapsed >= maxMs) { clearInterval(tid); resolve(false); }
+        }, 500);
+      });
+
+      // ⚠ 후보가 여러 개면 "receiver 가 실제로 살아 있는 탭" 을 고른다.
+      //    크롬 메모리 세이버가 오래 방치된 탭을 폐기(discard)하면 URL 은 그대로인데
+      //    JS 컨텍스트가 없다. 그런 탭을 집으면 'receiver 없음' 으로 떨어진다.
+      const _candidates = findConsultTabs();
+      let consultTab = null;
+      for (const t of _candidates) {
+        if (t.discarded) continue;
+        if (await _probeReceiver(t.id)) { consultTab = t; break; }
+      }
+      // 살아 있는 탭이 없으면 첫 후보를 되살려 쓴다 (새로고침 후 재대기).
+      if (!consultTab && _candidates.length) {
+        const t = _candidates[0];
+        console.log('[btnApply/consult] receiver 없는 탭 — 새로고침 후 재시도:', t.url);
+        try {
+          await chrome.tabs.reload(t.id);
+          if (await _waitReceiver(t.id, 15000)) consultTab = t;
+        } catch (e) { console.warn('[btnApply/consult] 탭 새로고침 실패:', e); }
+        if (!consultTab) {
+          clearTimeout(safetyTimer);
+          btn.textContent = '📤 프로그램 적용';
+          btn.disabled = false;
+          try {
+            await chrome.tabs.update(t.id, { active: true });
+            await chrome.windows.update(t.windowId, { focused: true });
+          } catch {}
+          alert('상담등록 페이지가 응답하지 않습니다.\n\n· 방금 활성화한 탭에서 로그인이 되어 있는지 확인해 주세요\n· 로그인 상태라면 Ctrl+Shift+R 로 새로고침 후 다시 시도해 주세요');
+          return;
+        }
+      }
       // 탭이 없으면 마지막 상담등록 URL → 기본 CONSULT_URL 순으로 자동 오픈
       if (!consultTab) {
         const stored = await new Promise(r => {
@@ -1939,20 +1989,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
           //    → 백그라운드로 열어 적용까지 끝낸 뒤 마지막에 활성화한다.
           consultTab = await chrome.tabs.create({ url: openUrl, active: false });
           // receiver(__applyTossDataFromExtension) 정의될 때까지 대기 (최대 15초)
-          const _ready = await new Promise(resolve => {
-            let elapsed = 0;
-            const tid = setInterval(async () => {
-              elapsed += 500;
-              try {
-                const [r] = await chrome.scripting.executeScript({
-                  target: { tabId: consultTab.id }, world: 'MAIN',
-                  func: () => typeof window.__applyTossDataFromExtension === 'function'
-                });
-                if (r?.result) { clearInterval(tid); resolve(true); return; }
-              } catch {}
-              if (elapsed >= 15000) { clearInterval(tid); resolve(false); }
-            }, 500);
-          });
+          const _ready = await _waitReceiver(consultTab.id, 15000);
           if (!_ready) {
             // 로그인 화면에서 멈춰 있는 경우가 대부분 — 탭을 보여줘야 사용자가 조치할 수 있다.
             clearTimeout(safetyTimer);
@@ -2014,7 +2051,9 @@ document.getElementById('btnApply').addEventListener('click', async () => {
           await chrome.tabs.update(consultTab.id, { active: true });
           await chrome.windows.update(consultTab.windowId, { focused: true });
         } else {
-          alert('상담등록 적용 실패: ' + (r?.result?.error || 'unknown') + '\n\n· 상담등록 페이지(page_jmin.html)를 Ctrl+Shift+R 로 새로고침 후 재시도');
+          alert('상담등록 적용 실패: ' + (r?.result?.error || 'unknown') +
+                '\n\n대상 탭: ' + (r?.result?.location || consultTab.url || '(알 수 없음)') +
+                '\n\n· 그 탭에서 로그인이 되어 있는지 확인\n· Ctrl+Shift+R 로 새로고침 후 재시도');
         }
       } catch (e) {
         clearTimeout(safetyTimer);
