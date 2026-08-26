@@ -1926,6 +1926,19 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       );
       const findConsultTabs = () => allTabs.filter(t => _isConsultUrl(t.url));
 
+      // ⚠ 탭을 활성화하면 그 순간 팝업 문서가 파괴된다 — 뒤에 있는 alert/토스트는
+      //    실행되지 못하고 사용자는 아무 안내도 못 받는다(조용한 실패).
+      //    그래서 안내는 (1) 탭을 건드리기 "전에" (2) 팝업과 수명이 무관한
+      //    브라우저 알림으로 띄운다. notifications 권한은 manifest 에 이미 있다.
+      const _notifyConsult = (message) => {
+        try {
+          chrome.notifications.create({
+            type: 'basic', iconUrl: 'icons/icon128.png',
+            title: '토스인슈 CRM 추출기 — 상담등록', message, priority: 2
+          });
+        } catch (e) { console.warn('[btnApply/consult] 알림 실패:', e); }
+      };
+
       // receiver(window.__applyTossDataFromExtension) 가 살아 있는지 1회 확인.
       const _probeReceiver = async (tabId) => {
         try {
@@ -1967,11 +1980,11 @@ document.getElementById('btnApply').addEventListener('click', async () => {
           clearTimeout(safetyTimer);
           btn.textContent = '📤 프로그램 적용';
           btn.disabled = false;
+          _notifyConsult('상담등록 페이지가 응답하지 않습니다. 방금 활성화한 탭에서 로그인 상태를 확인하고, Ctrl+Shift+R 로 새로고침 후 다시 시도해 주세요.');
           try {
             await chrome.tabs.update(t.id, { active: true });
             await chrome.windows.update(t.windowId, { focused: true });
           } catch {}
-          alert('상담등록 페이지가 응답하지 않습니다.\n\n· 방금 활성화한 탭에서 로그인이 되어 있는지 확인해 주세요\n· 로그인 상태라면 Ctrl+Shift+R 로 새로고침 후 다시 시도해 주세요');
           return;
         }
       }
@@ -1995,9 +2008,9 @@ document.getElementById('btnApply').addEventListener('click', async () => {
             clearTimeout(safetyTimer);
             btn.textContent = '📤 프로그램 적용';
             btn.disabled = false;
+            _notifyConsult('상담등록 페이지가 15초 안에 준비되지 않았습니다. 방금 연 탭에서 로그인이 필요한지 확인한 뒤 다시 [프로그램 적용] 을 눌러주세요.');
             await chrome.tabs.update(consultTab.id, { active: true });
             await chrome.windows.update(consultTab.windowId, { focused: true });
-            alert('상담등록 페이지가 준비되지 않았습니다 (15초 대기).\n\n· 방금 연 탭에서 로그인이 필요한지 확인해 주세요\n· 로그인 후 다시 📤 프로그램 적용 을 눌러주세요');
             return;
           }
         } catch (e) {
