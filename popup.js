@@ -1918,9 +1918,11 @@ document.getElementById('btnApply').addEventListener('click', async () => {
     if (targetMode === 'consult') {
       console.log('[btnApply] 📤 라우팅: 상담등록 (page_*.html)');
       const CONSULT_URL = 'https://ympaint-86457.web.app/page_jmin.html';
+      // ⚠ device-redirect.js 가 좁은 화면·모바일에서 page_*.html → m_*.html 로 갈아탄다.
+      //    m_ 을 빼놓으면 이미 열린 탭을 못 찾고 매번 새 탭을 열게 된다.
       const findConsultTab = () => allTabs.find(t => t.url && (
-        /ympaint-86457\.(web\.app|firebaseapp\.com)\/page_/i.test(t.url) ||
-        /page_(jmin|leader|manager|member|rookie|admin)\.html/i.test(t.url)
+        /ympaint-86457\.(web\.app|firebaseapp\.com)\/(page|m)_/i.test(t.url) ||
+        /(page|m)_(jmin|leader|manager|member|rookie|admin)\.html/i.test(t.url)
       ));
       let consultTab = findConsultTab();
       // 탭이 없으면 마지막 상담등록 URL → 기본 CONSULT_URL 순으로 자동 오픈
@@ -1930,9 +1932,14 @@ document.getElementById('btnApply').addEventListener('click', async () => {
         });
         const openUrl = stored || CONSULT_URL;
         try {
-          consultTab = await chrome.tabs.create({ url: openUrl, active: true });
+          // ⚠ active:true 로 열면 안 된다. 새 탭으로 포커스가 넘어가는 순간 크롬이
+          //    팝업을 닫아버리고, 팝업의 JS 컨텍스트가 통째로 사라진다. 그러면 아래의
+          //    "receiver 대기 → executeScript 로 적용" 이 아예 실행되지 않아
+          //    페이지만 열리고 고객 등록은 안 되는 상태가 된다.
+          //    → 백그라운드로 열어 적용까지 끝낸 뒤 마지막에 활성화한다.
+          consultTab = await chrome.tabs.create({ url: openUrl, active: false });
           // receiver(__applyTossDataFromExtension) 정의될 때까지 대기 (최대 15초)
-          await new Promise(resolve => {
+          const _ready = await new Promise(resolve => {
             let elapsed = 0;
             const tid = setInterval(async () => {
               elapsed += 500;
@@ -1946,6 +1953,16 @@ document.getElementById('btnApply').addEventListener('click', async () => {
               if (elapsed >= 15000) { clearInterval(tid); resolve(false); }
             }, 500);
           });
+          if (!_ready) {
+            // 로그인 화면에서 멈춰 있는 경우가 대부분 — 탭을 보여줘야 사용자가 조치할 수 있다.
+            clearTimeout(safetyTimer);
+            btn.textContent = '📤 프로그램 적용';
+            btn.disabled = false;
+            await chrome.tabs.update(consultTab.id, { active: true });
+            await chrome.windows.update(consultTab.windowId, { focused: true });
+            alert('상담등록 페이지가 준비되지 않았습니다 (15초 대기).\n\n· 방금 연 탭에서 로그인이 필요한지 확인해 주세요\n· 로그인 후 다시 📤 프로그램 적용 을 눌러주세요');
+            return;
+          }
         } catch (e) {
           clearTimeout(safetyTimer);
           btn.textContent = '📤 프로그램 적용';
@@ -1992,10 +2009,10 @@ document.getElementById('btnApply').addEventListener('click', async () => {
         btn.disabled = false;
         if (r?.result?.ok) {
           try { chrome.storage.local.set({ lastConsultUrl: consultTab.url }); } catch {}
+          // 탭을 활성화하는 순간 팝업이 닫히므로 토스트를 먼저 띄운다.
+          showToast(r.result.mode === 'coverage' ? '🛡️ 보장분석을 고객 DB에 저장했습니다' : '✅ 상담등록 페이지에 적용 완료');
           await chrome.tabs.update(consultTab.id, { active: true });
           await chrome.windows.update(consultTab.windowId, { focused: true });
-          showToast(r.result.mode === 'coverage' ? '🛡️ 보장분석을 고객 DB에 저장했습니다' : '✅ 상담등록 페이지에 적용 완료');
-          setTimeout(() => window.close(), 800);
         } else {
           alert('상담등록 적용 실패: ' + (r?.result?.error || 'unknown') + '\n\n· 상담등록 페이지(page_jmin.html)를 Ctrl+Shift+R 로 새로고침 후 재시도');
         }
@@ -2054,7 +2071,9 @@ document.getElementById('btnApply').addEventListener('click', async () => {
           ? stored
           : PLAN_APP_DEFAULT_URL;
         try {
-          programTab = await chrome.tabs.create({ url: openUrl, active: true });
+          // active:false — 위 상담등록과 같은 이유. 새 탭에 포커스를 주면 팝업이 닫히면서
+          // 아래의 "앱 준비 대기 → 적용" 이 실행되지 못한다. 적용 후 활성화한다.
+          programTab = await chrome.tabs.create({ url: openUrl, active: false });
           target = programTab;
           // 페이지(앱) 준비 대기 (max 18초) — 새 탭이 열린 직후엔 receiver 가 없으므로 반드시 기다린다
           await new Promise(resolve => {
