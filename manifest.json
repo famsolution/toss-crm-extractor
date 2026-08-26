@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "토스인슈 CRM 데이터 추출기",
-  "version": "3.22.2",
+  "version": "3.22.3",
   "description": "토스인슈 CRM 데이터 추출 — 마스킹 자동 복원 + 로그인/관리자 승인 권한 게이트.",
   "permissions": [
     "activeTab",
@@ -94,7 +94,8 @@
     "128": "icons/icon128.png"
   },
   "side_panel": {
-    "default_path": "popup.html"
+    "_comment": "?sp=1 — popup-ctx.js 가 이 문서를 사이드패널로 판별하는 표시. 빼면 사이드패널이 800px 고정폭으로 잘린다.",
+    "default_path": "popup.html?sp=1"
   },
   "web_accessible_resources": [
     {
