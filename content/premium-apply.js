@@ -517,6 +517,44 @@ function buildCoverageTargets(payload, cfg, out) {
 // ─────────────────────────────────────────────────────────────
 // 만들어진 담보 목록을 실제 mmlfcp 폼에 체크·금액 입력한다.
 // ─────────────────────────────────────────────────────────────
+// 담보 매칭 학습 저장 키 — chrome.storage.sync 에 사용자가 고친 매칭을 남긴다.
+const LEARN_KEY = 'tossCovMap_v1';
+
+// 금액 input 찾기 헬퍼 (3단계 + 감시에서 공용)
+const _amtInputOf = (cb) => {
+  const cd = cb.getAttribute('data-cd') || cb.id.replace(/^chk_/, '');
+  return document.getElementById(`input_${cd}`)
+    || document.querySelector(`input[data-cd="${cd}"][type="text"], input[data-cd="${cd}"][type="number"]`);
+};
+
+// 🆕 실제 키보드 타이핑 모방 — mmlfcp 금액칸은 키 입력 이벤트로만 내부 state 갱신/재계산됨.
+//   (setInputVal 네이티브 setter 로는 DOM value 만 바뀌고 화면/보험료 미반영. 수동 입력은 반영됨이 확인됨)
+//   focus → 기존값 전체삭제 → 숫자 한 글자씩 keydown/input/keyup → blur
+const typeAmount = (el, value) => {
+  if (!el) return;
+  const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+  el.focus();
+  el.click();
+  // 기존 값 전체선택 → 삭제
+  try { el.setSelectionRange(0, (el.value || '').length); } catch (e) {}
+  nativeSetter.call(el, '');
+  el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
+  // 한 글자씩 타이핑
+  let cur = '';
+  for (const ch of String(value)) {
+    const kc = 48 + (Number(ch) || 0);
+    el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: ch, code: 'Digit' + ch, keyCode: kc, which: kc }));
+    el.dispatchEvent(new KeyboardEvent('keypress', { bubbles: true, key: ch, code: 'Digit' + ch, keyCode: kc, which: kc }));
+    cur += ch;
+    nativeSetter.call(el, cur);
+    el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: ch }));
+    el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: ch, code: 'Digit' + ch, keyCode: kc, which: kc }));
+  }
+  el.dispatchEvent(new Event('change', { bubbles: true }));
+  el.dispatchEvent(new Event('blur', { bubbles: true }));
+  try { if (window.jQuery) window.jQuery(el).trigger('input').trigger('change').trigger('blur'); } catch (e) {}
+};
+
 async function fillCoverageInputs(target, out) {
   const checks = document.querySelectorAll('input[type="checkbox"][data-cd], input[type="checkbox"][coverage_name], input[type="checkbox"][id^="chk_"]');
 
@@ -549,7 +587,6 @@ async function fillCoverageInputs(target, out) {
   const unmatched = [];
   // 🆕 학습된 매핑 로드 — chrome.storage.sync 라 같은 Chrome 계정으로 로그인된 모든 컴퓨터에서 공유된다.
   //   구조: { [추출담보 표준명]: 폼담보 coverage_name }  ('__SKIP__' = 연결 안 함)
-  const LEARN_KEY = 'tossCovMap_v1';
   const learnMap = await new Promise(res => {
     try { chrome.storage.sync.get(LEARN_KEY, d => res((d && d[LEARN_KEY]) || {})); }
     catch (e) { res({}); }
@@ -586,40 +623,6 @@ async function fillCoverageInputs(target, out) {
     }
     if (foundInfo) { usedCbs.add(foundInfo.cb); t._found = foundInfo; }
   });
-  // 금액 input 찾기 헬퍼 (3단계 + 감시에서 공용)
-  const _amtInputOf = (cb) => {
-    const cd = cb.getAttribute('data-cd') || cb.id.replace(/^chk_/, '');
-    return document.getElementById(`input_${cd}`)
-      || document.querySelector(`input[data-cd="${cd}"][type="text"], input[data-cd="${cd}"][type="number"]`);
-  };
-
-  // 🆕 실제 키보드 타이핑 모방 — mmlfcp 금액칸은 키 입력 이벤트로만 내부 state 갱신/재계산됨.
-  //   (setInputVal 네이티브 setter 로는 DOM value 만 바뀌고 화면/보험료 미반영. 수동 입력은 반영됨이 확인됨)
-  //   focus → 기존값 전체삭제 → 숫자 한 글자씩 keydown/input/keyup → blur
-  const typeAmount = (el, value) => {
-    if (!el) return;
-    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-    el.focus();
-    el.click();
-    // 기존 값 전체선택 → 삭제
-    try { el.setSelectionRange(0, (el.value || '').length); } catch (e) {}
-    nativeSetter.call(el, '');
-    el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'deleteContentBackward' }));
-    // 한 글자씩 타이핑
-    let cur = '';
-    for (const ch of String(value)) {
-      const kc = 48 + (Number(ch) || 0);
-      el.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: ch, code: 'Digit' + ch, keyCode: kc, which: kc }));
-      el.dispatchEvent(new KeyboardEvent('keypress', { bubbles: true, key: ch, code: 'Digit' + ch, keyCode: kc, which: kc }));
-      cur += ch;
-      nativeSetter.call(el, cur);
-      el.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: ch }));
-      el.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true, key: ch, code: 'Digit' + ch, keyCode: kc, which: kc }));
-    }
-    el.dispatchEvent(new Event('change', { bubbles: true }));
-    el.dispatchEvent(new Event('blur', { bubbles: true }));
-    try { if (window.jQuery) window.jQuery(el).trigger('input').trigger('change').trigger('blur'); } catch (e) {}
-  };
 
   // 3단계: 체크와 금액입력을 분리 — 체크할 때마다 mmlfcp 가 전체 재계산을 돌려 직전 입력 금액을
   //   리셋하므로(마지막 담보만 살아남는 증상), '모든 체크 먼저 → 안정대기 → 금액 일괄 입력' 순서로 처리.
@@ -657,202 +660,10 @@ async function fillCoverageInputs(target, out) {
   if (unmatched.length > 0) out.applied['미매칭 담보'] = unmatched.slice(0, 5).join(', ') + (unmatched.length > 5 ? ` 외 ${unmatched.length-5}개` : '');
   console.log('[Toss Extractor] ✅ 담보 체크:', matched, '/', target.length, '/ 금액:', amountsFilled);
 
-  // 🆕 담보 매칭 확인·수정 패널 — 추출담보(전)가 비교폼의 어떤 담보(후)로 이어졌는지 보여주고,
-  //   드롭다운으로 매칭을 바꾸면 chrome.storage.sync 에 학습되어 같은 계정의 모든 컴퓨터에서 동일 적용된다.
-  (function _renderMatchPanel(){
-    try {
-      const oldP = document.getElementById('__toss_match_panel');
-      if (oldP) oldP.remove();
-      // 폼 담보 목록(중복 제거) — 재매핑 드롭다운 옵션
-      const formCovs = [];
-      const _seen = new Set();
-      checkInfo.forEach(ci => { if (ci.cname && !_seen.has(ci.cname)) { _seen.add(ci.cname); formCovs.push(ci.cname); } });
+  renderCoverageMatchPanel(target, checkInfo, learnMap);
 
-      const p = document.createElement('div');
-      p.id = '__toss_match_panel';
-      p.style.cssText = 'position:fixed;top:60px;right:18px;width:440px;max-height:82vh;overflow:auto;background:#fff;border:2px solid #2563eb;border-radius:12px;box-shadow:0 10px 36px rgba(0,0,0,.22);z-index:2147483646;font-family:"Malgun Gothic",sans-serif;font-size:13px;';
-
-      const head = document.createElement('div');
-      head.style.cssText = 'background:#2563eb;color:#fff;padding:11px 14px;font-weight:700;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;';
-      head.innerHTML = '<span>📋 담보 매칭 확인·수정&nbsp; <span style="font-weight:400;font-size:11px;opacity:.85;">추출(전) → 비교폼(후)</span></span>';
-      const closeBtn = document.createElement('span');
-      closeBtn.textContent = '×';
-      closeBtn.style.cssText = 'cursor:pointer;font-size:20px;line-height:1;';
-      closeBtn.addEventListener('click', () => p.remove());
-      head.appendChild(closeBtn);
-      p.appendChild(head);
-
-      const tip = document.createElement('div');
-      tip.style.cssText = 'padding:7px 14px;background:#f8fafc;color:#475569;font-size:11px;border-bottom:1px solid #e2e8f0;';
-      tip.innerHTML = '💡 매칭이 틀리면 드롭다운에서 올바른 담보를 고르세요. 선택은 <b>자동 저장·동기화</b>되어 다음에도(다른 컴퓨터에서도) 그대로 적용됩니다.';
-      p.appendChild(tip);
-
-      const bodyEl = document.createElement('div');
-      bodyEl.style.cssText = 'padding:6px 0;';
-      p.appendChild(bodyEl);
-
-      target.forEach(t => {
-        const row = document.createElement('div');
-        row.style.cssText = 'padding:8px 14px;border-bottom:1px solid #f1f5f9;';
-
-        const top = document.createElement('div');
-        top.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:5px;';
-        const fromEl = document.createElement('span');
-        fromEl.textContent = t.name || t.standardName;
-        fromEl.style.cssText = 'color:#0f172a;font-weight:700;';
-        const arrow = document.createElement('span');
-        arrow.textContent = '→';
-        arrow.style.cssText = 'color:#94a3b8;';
-        top.appendChild(fromEl);
-        top.appendChild(arrow);
-        if (t.amount != null) {
-          const amtEl = document.createElement('span');
-          amtEl.textContent = t.amount + '만원';
-          amtEl.style.cssText = 'margin-left:auto;background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;';
-          top.appendChild(amtEl);
-        }
-        row.appendChild(top);
-
-        const sel = document.createElement('select');
-        sel.style.cssText = 'width:100%;padding:5px 7px;border:1px solid #cbd5e1;border-radius:7px;font-size:12px;background:#fff;';
-        const optNone = document.createElement('option');
-        optNone.value = ''; optNone.textContent = '— 연결 안 함 —';
-        sel.appendChild(optNone);
-        formCovs.forEach(cn => {
-          const o = document.createElement('option');
-          o.value = cn; o.textContent = cn;
-          if (t._found && t._found.cname === cn) o.selected = true;
-          sel.appendChild(o);
-        });
-        if (!t._found) optNone.selected = true;
-        row.appendChild(sel);
-
-        const status = document.createElement('div');
-        status.style.cssText = 'margin-top:4px;font-size:11px;';
-        if (t._found) { status.textContent = t._byLearn ? '✅ 학습된 연결' : '✅ 자동 연결'; status.style.color = '#16a34a'; }
-        else if (t._skip) { status.textContent = '⏭️ 연결 안 함(학습됨)'; status.style.color = '#94a3b8'; }
-        else { status.textContent = '❌ 자동 연결 실패 — 직접 선택하세요'; status.style.color = '#ef4444'; }
-        row.appendChild(status);
-
-        sel.addEventListener('change', () => {
-          const newCname = sel.value;
-          // 학습 저장 (sync — 모든 컴퓨터 공유)
-          learnMap[t.standardName] = newCname || '__SKIP__';
-          try { chrome.storage.sync.set({ [LEARN_KEY]: learnMap }); } catch (e) {}
-          // 이전 매칭 해제 (금액 비우고 체크 해제)
-          if (t._found && t._found.cb) {
-            try { const oi = _amtInputOf(t._found.cb); if (oi) typeAmount(oi, ''); } catch (e) {}
-            if (t._found.cb.checked) t._found.cb.click();
-          }
-          // 새 매칭 적용 (체크 + 금액 입력)
-          if (newCname) {
-            const ci = checkInfo.find(c => c.cname === newCname);
-            if (ci) {
-              t._found = ci; t._skip = false;
-              if (!ci.cb.checked) ci.cb.click();
-              if (t.amount != null) {
-                const inp = _amtInputOf(ci.cb);
-                if (inp) setTimeout(() => { try { typeAmount(inp, String(t.amount)); } catch (e) {} }, 500);
-              }
-            }
-            status.textContent = '✅ 변경 저장됨 — 다음에도 자동 적용'; status.style.color = '#16a34a';
-          } else {
-            t._found = null; t._skip = true;
-            status.textContent = '⏭️ 연결 안 함(저장됨)'; status.style.color = '#94a3b8';
-          }
-        });
-
-        bodyEl.appendChild(row);
-      });
-
-      document.body.appendChild(p);
-    } catch (e) { console.warn('[Toss Extractor] 매칭 패널 표시 실패', e); }
-  })();
-
-  // 🆕 지속 감시 재입력 — mmlfcp 가 조회 직후 자동 재계산으로 금액을 '진단수술' 플랜 기본값으로
-  //   되돌리는 현상 대응. 되돌림은 확장 완료보다 늦게(수 초 후) 일어남.
-  //   (수동 입력은 유지되므로 = mmlfcp 는 100 을 허용. 되돌림 이벤트가 끝난 뒤의 '마지막' 입력이 살아남는다)
-  //   → 어긋난 칸을 주기적으로 재입력하며 감시. 일정시간 되돌림이 멈추면(안정) 종료.
-  //   (_amtInputOf 는 3단계에서 이미 정의됨)
-  const _toCorrect = target.filter(t => t._found && t.amount != null);
-  if (_toCorrect.length > 0) {
-    const MAX_MS = 9000;     // 최대 감시 시간
-    const STEP = 700;        // 점검 주기
-    const STABLE_MS = 2800;  // 이 시간 동안 되돌림 없으면 안정으로 판단하고 종료
-    const t0 = Date.now();
-    let lastFix = Date.now(), totalFix = 0, rounds = 0;
-    while (Date.now() - t0 < MAX_MS) {
-      let fixed = 0;
-      _toCorrect.forEach(t => {
-        const inp = _amtInputOf(t._found.cb);
-        if (!inp) return;
-        const cur = String(inp.value || '').replace(/[^\d]/g, '');
-        if (cur !== String(t.amount)) {
-          if (!t._found.cb.checked) t._found.cb.click();
-          typeAmount(inp, String(t.amount));
-          fixed++;
-        }
-      });
-      rounds++;
-      if (fixed > 0) {
-        lastFix = Date.now();
-        totalFix += fixed;
-        console.log(`[Toss Extractor] 🔁 감시 재입력(round ${rounds}): ${fixed}건 교정`);
-      }
-      if (Date.now() - lastFix >= STABLE_MS) break;  // 안정 → 종료
-      await new Promise(r => setTimeout(r, STEP));
-    }
-    out.applied['금액 감시교정'] = `${totalFix}회 / ${rounds}라운드 / ${Math.round((Date.now() - t0) / 1000)}s`;
-    // 🔍 최종 검증
-    const finalReport = _toCorrect.map(t => {
-      const inp = _amtInputOf(t._found.cb);
-      const cur = String(inp?.value || '').replace(/[^\d]/g, '');
-      return `${cur === String(t.amount) ? '✅' : '❌'} ${t.standardName}: 원함=${t.amount} 현재=${inp?.value}`;
-    });
-    console.log('[Toss Extractor] 🔍 최종 금액 검증:\n  ' + finalReport.join('\n  '));
-    const stillWrong = _toCorrect.filter(t => {
-      const inp = _amtInputOf(t._found.cb);
-      return String(inp?.value || '').replace(/[^\d]/g, '') !== String(t.amount);
-    });
-    if (stillWrong.length > 0) {
-      out.applied['⚠️미교정'] = stillWrong.map(t => `${t.standardName}(원함${t.amount})`).join(', ');
-    }
-
-    // 🛡️ 조회하기 버튼 금액 가드 — 사용자가 보험료 보려고 '조회하기'를 누르면 mmlfcp 가
-    //   금액을 '진단수술' 플랜 기본값으로 리셋함. 조회 클릭을 감지해 재계산 후 금액을 자동 복원.
-    //   (확장 메시지 핸들러가 끝나도 리스너는 페이지에 남아, 사용자가 조회를 누를 때마다 동작)
-    try {
-      let searchBtn = document.getElementById('btn_search');
-      if (!searchBtn) {
-        searchBtn = Array.from(document.querySelectorAll('button, a, input[type=button], input[type=submit]'))
-          .find(el => /조회|검색/i.test((el.innerText || el.textContent || el.value || '').trim()));
-      }
-      if (searchBtn && !searchBtn._tossAmtGuard) {
-        searchBtn._tossAmtGuard = true;
-        const _guardTargets = _toCorrect.map(t => ({ cb: t._found.cb, amount: t.amount, name: t.standardName }));
-        searchBtn.addEventListener('click', () => {
-          let tries = 0;
-          const restore = () => {
-            let fixed = 0;
-            _guardTargets.forEach(g => {
-              const inp = _amtInputOf(g.cb);
-              if (!inp) return;
-              const cur = String(inp.value || '').replace(/[^\d]/g, '');
-              if (cur !== String(g.amount)) {
-                if (!g.cb.checked) g.cb.click();
-                typeAmount(inp, String(g.amount));
-                fixed++;
-              }
-            });
-            if (fixed > 0) console.log(`[Toss Extractor] 🛡️ 조회 후 금액 복원: ${fixed}건`);
-            if (++tries < 7) setTimeout(restore, 800);  // 재계산이 늦게 끝나도 잡도록 반복 점검
-          };
-          setTimeout(restore, 1500);  // 재조회 재계산이 끝난 뒤부터 복원 시작
-        });
-        console.log('[Toss Extractor] 🛡️ 조회하기 버튼 금액 가드 설치됨 — 이후 조회를 눌러도 금액이 유지됩니다');
-      }
-    } catch (e) { console.warn('[Toss Extractor] 금액 가드 설치 실패:', e); }
-  }
+  // 🆕 조회 직후 mmlfcp 자동 재계산이 금액을 되돌리는 현상 대응 (상세는 함수 주석)
+  await correctAmountsUntilStable(target, out);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -862,4 +673,207 @@ async function fillCoverageInputs(target, out) {
 async function applyCoverageSection(payload, cfg, out) {
   const target = buildCoverageTargets(payload, cfg, out);
   if (target.length > 0) await fillCoverageInputs(target, out);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 담보 매칭 확인·수정 패널 — 추출담보(전)가 비교폼의 어떤 담보(후)로 이어졌는지 보여주고,
+//   드롭다운으로 매칭을 바꾸면 chrome.storage.sync 에 학습되어 같은 계정의 모든 컴퓨터에서 동일 적용된다.
+// ─────────────────────────────────────────────────────────────
+function renderCoverageMatchPanel(target, checkInfo, learnMap) {
+  try {
+    const oldP = document.getElementById('__toss_match_panel');
+    if (oldP) oldP.remove();
+    // 폼 담보 목록(중복 제거) — 재매핑 드롭다운 옵션
+    const formCovs = [];
+    const _seen = new Set();
+    checkInfo.forEach(ci => { if (ci.cname && !_seen.has(ci.cname)) { _seen.add(ci.cname); formCovs.push(ci.cname); } });
+
+    const p = document.createElement('div');
+    p.id = '__toss_match_panel';
+    p.style.cssText = 'position:fixed;top:60px;right:18px;width:440px;max-height:82vh;overflow:auto;background:#fff;border:2px solid #2563eb;border-radius:12px;box-shadow:0 10px 36px rgba(0,0,0,.22);z-index:2147483646;font-family:"Malgun Gothic",sans-serif;font-size:13px;';
+
+    const head = document.createElement('div');
+    head.style.cssText = 'background:#2563eb;color:#fff;padding:11px 14px;font-weight:700;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:1;';
+    head.innerHTML = '<span>📋 담보 매칭 확인·수정&nbsp; <span style="font-weight:400;font-size:11px;opacity:.85;">추출(전) → 비교폼(후)</span></span>';
+    const closeBtn = document.createElement('span');
+    closeBtn.textContent = '×';
+    closeBtn.style.cssText = 'cursor:pointer;font-size:20px;line-height:1;';
+    closeBtn.addEventListener('click', () => p.remove());
+    head.appendChild(closeBtn);
+    p.appendChild(head);
+
+    const tip = document.createElement('div');
+    tip.style.cssText = 'padding:7px 14px;background:#f8fafc;color:#475569;font-size:11px;border-bottom:1px solid #e2e8f0;';
+    tip.innerHTML = '💡 매칭이 틀리면 드롭다운에서 올바른 담보를 고르세요. 선택은 <b>자동 저장·동기화</b>되어 다음에도(다른 컴퓨터에서도) 그대로 적용됩니다.';
+    p.appendChild(tip);
+
+    const bodyEl = document.createElement('div');
+    bodyEl.style.cssText = 'padding:6px 0;';
+    p.appendChild(bodyEl);
+
+    target.forEach(t => {
+      const row = document.createElement('div');
+      row.style.cssText = 'padding:8px 14px;border-bottom:1px solid #f1f5f9;';
+
+      const top = document.createElement('div');
+      top.style.cssText = 'display:flex;align-items:center;gap:6px;margin-bottom:5px;';
+      const fromEl = document.createElement('span');
+      fromEl.textContent = t.name || t.standardName;
+      fromEl.style.cssText = 'color:#0f172a;font-weight:700;';
+      const arrow = document.createElement('span');
+      arrow.textContent = '→';
+      arrow.style.cssText = 'color:#94a3b8;';
+      top.appendChild(fromEl);
+      top.appendChild(arrow);
+      if (t.amount != null) {
+        const amtEl = document.createElement('span');
+        amtEl.textContent = t.amount + '만원';
+        amtEl.style.cssText = 'margin-left:auto;background:#eff6ff;color:#1d4ed8;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;';
+        top.appendChild(amtEl);
+      }
+      row.appendChild(top);
+
+      const sel = document.createElement('select');
+      sel.style.cssText = 'width:100%;padding:5px 7px;border:1px solid #cbd5e1;border-radius:7px;font-size:12px;background:#fff;';
+      const optNone = document.createElement('option');
+      optNone.value = ''; optNone.textContent = '— 연결 안 함 —';
+      sel.appendChild(optNone);
+      formCovs.forEach(cn => {
+        const o = document.createElement('option');
+        o.value = cn; o.textContent = cn;
+        if (t._found && t._found.cname === cn) o.selected = true;
+        sel.appendChild(o);
+      });
+      if (!t._found) optNone.selected = true;
+      row.appendChild(sel);
+
+      const status = document.createElement('div');
+      status.style.cssText = 'margin-top:4px;font-size:11px;';
+      if (t._found) { status.textContent = t._byLearn ? '✅ 학습된 연결' : '✅ 자동 연결'; status.style.color = '#16a34a'; }
+      else if (t._skip) { status.textContent = '⏭️ 연결 안 함(학습됨)'; status.style.color = '#94a3b8'; }
+      else { status.textContent = '❌ 자동 연결 실패 — 직접 선택하세요'; status.style.color = '#ef4444'; }
+      row.appendChild(status);
+
+      sel.addEventListener('change', () => {
+        const newCname = sel.value;
+        // 학습 저장 (sync — 모든 컴퓨터 공유)
+        learnMap[t.standardName] = newCname || '__SKIP__';
+        try { chrome.storage.sync.set({ [LEARN_KEY]: learnMap }); } catch (e) {}
+        // 이전 매칭 해제 (금액 비우고 체크 해제)
+        if (t._found && t._found.cb) {
+          try { const oi = _amtInputOf(t._found.cb); if (oi) typeAmount(oi, ''); } catch (e) {}
+          if (t._found.cb.checked) t._found.cb.click();
+        }
+        // 새 매칭 적용 (체크 + 금액 입력)
+        if (newCname) {
+          const ci = checkInfo.find(c => c.cname === newCname);
+          if (ci) {
+            t._found = ci; t._skip = false;
+            if (!ci.cb.checked) ci.cb.click();
+            if (t.amount != null) {
+              const inp = _amtInputOf(ci.cb);
+              if (inp) setTimeout(() => { try { typeAmount(inp, String(t.amount)); } catch (e) {} }, 500);
+            }
+          }
+          status.textContent = '✅ 변경 저장됨 — 다음에도 자동 적용'; status.style.color = '#16a34a';
+        } else {
+          t._found = null; t._skip = true;
+          status.textContent = '⏭️ 연결 안 함(저장됨)'; status.style.color = '#94a3b8';
+        }
+      });
+
+      bodyEl.appendChild(row);
+    });
+
+    document.body.appendChild(p);
+  } catch (e) { console.warn('[Toss Extractor] 매칭 패널 표시 실패', e); }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 지속 감시 재입력 — mmlfcp 가 조회 직후 자동 재계산으로 금액을 '진단수술' 플랜 기본값으로
+//   되돌리는 현상 대응. 되돌림은 확장 완료보다 늦게(수 초 후) 일어남.
+//   (수동 입력은 유지되므로 = mmlfcp 는 100 을 허용. 되돌림 이벤트가 끝난 뒤의 '마지막' 입력이 살아남는다)
+//   → 어긋난 칸을 주기적으로 재입력하며 감시. 일정시간 되돌림이 멈추면(안정) 종료.
+// ─────────────────────────────────────────────────────────────
+async function correctAmountsUntilStable(target, out) {
+  const _toCorrect = target.filter(t => t._found && t.amount != null);
+  if (_toCorrect.length === 0) return;
+if (_toCorrect.length > 0) {
+  const MAX_MS = 9000;     // 최대 감시 시간
+  const STEP = 700;        // 점검 주기
+  const STABLE_MS = 2800;  // 이 시간 동안 되돌림 없으면 안정으로 판단하고 종료
+  const t0 = Date.now();
+  let lastFix = Date.now(), totalFix = 0, rounds = 0;
+  while (Date.now() - t0 < MAX_MS) {
+    let fixed = 0;
+    _toCorrect.forEach(t => {
+      const inp = _amtInputOf(t._found.cb);
+      if (!inp) return;
+      const cur = String(inp.value || '').replace(/[^\d]/g, '');
+      if (cur !== String(t.amount)) {
+        if (!t._found.cb.checked) t._found.cb.click();
+        typeAmount(inp, String(t.amount));
+        fixed++;
+      }
+    });
+    rounds++;
+    if (fixed > 0) {
+      lastFix = Date.now();
+      totalFix += fixed;
+      console.log(`[Toss Extractor] 🔁 감시 재입력(round ${rounds}): ${fixed}건 교정`);
+    }
+    if (Date.now() - lastFix >= STABLE_MS) break;  // 안정 → 종료
+    await new Promise(r => setTimeout(r, STEP));
+  }
+  out.applied['금액 감시교정'] = `${totalFix}회 / ${rounds}라운드 / ${Math.round((Date.now() - t0) / 1000)}s`;
+  // 🔍 최종 검증
+  const finalReport = _toCorrect.map(t => {
+    const inp = _amtInputOf(t._found.cb);
+    const cur = String(inp?.value || '').replace(/[^\d]/g, '');
+    return `${cur === String(t.amount) ? '✅' : '❌'} ${t.standardName}: 원함=${t.amount} 현재=${inp?.value}`;
+  });
+  console.log('[Toss Extractor] 🔍 최종 금액 검증:\n  ' + finalReport.join('\n  '));
+  const stillWrong = _toCorrect.filter(t => {
+    const inp = _amtInputOf(t._found.cb);
+    return String(inp?.value || '').replace(/[^\d]/g, '') !== String(t.amount);
+  });
+  if (stillWrong.length > 0) {
+    out.applied['⚠️미교정'] = stillWrong.map(t => `${t.standardName}(원함${t.amount})`).join(', ');
+  }
+
+  // 🛡️ 조회하기 버튼 금액 가드 — 사용자가 보험료 보려고 '조회하기'를 누르면 mmlfcp 가
+  //   금액을 '진단수술' 플랜 기본값으로 리셋함. 조회 클릭을 감지해 재계산 후 금액을 자동 복원.
+  //   (확장 메시지 핸들러가 끝나도 리스너는 페이지에 남아, 사용자가 조회를 누를 때마다 동작)
+  try {
+    let searchBtn = document.getElementById('btn_search');
+    if (!searchBtn) {
+      searchBtn = Array.from(document.querySelectorAll('button, a, input[type=button], input[type=submit]'))
+        .find(el => /조회|검색/i.test((el.innerText || el.textContent || el.value || '').trim()));
+    }
+    if (searchBtn && !searchBtn._tossAmtGuard) {
+      searchBtn._tossAmtGuard = true;
+      const _guardTargets = _toCorrect.map(t => ({ cb: t._found.cb, amount: t.amount, name: t.standardName }));
+      searchBtn.addEventListener('click', () => {
+        let tries = 0;
+        const restore = () => {
+          let fixed = 0;
+          _guardTargets.forEach(g => {
+            const inp = _amtInputOf(g.cb);
+            if (!inp) return;
+            const cur = String(inp.value || '').replace(/[^\d]/g, '');
+            if (cur !== String(g.amount)) {
+              if (!g.cb.checked) g.cb.click();
+              typeAmount(inp, String(g.amount));
+              fixed++;
+            }
+          });
+          if (fixed > 0) console.log(`[Toss Extractor] 🛡️ 조회 후 금액 복원: ${fixed}건`);
+          if (++tries < 7) setTimeout(restore, 800);  // 재계산이 늦게 끝나도 잡도록 반복 점검
+        };
+        setTimeout(restore, 1500);  // 재조회 재계산이 끝난 뒤부터 복원 시작
+      });
+      console.log('[Toss Extractor] 🛡️ 조회하기 버튼 금액 가드 설치됨 — 이후 조회를 눌러도 금액이 유지됩니다');
+    }
+  } catch (e) { console.warn('[Toss Extractor] 금액 가드 설치 실패:', e); }
+}
 }
