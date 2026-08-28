@@ -110,6 +110,67 @@ const _applyPremiumDataToPlan = async (target, dataJson, opts = {}) => {
   return { ok: false, frameResults, error: lastError || 'receiver 없음' };
 };
 
+// 🤖 전송 대상 자동 감지 — 활성 탭 "주소" 로 어디에 보낼지 정한다.
+//   · CRM 고객정보 페이지(/customers/)          → consult      (📝 상담등록)
+//   · CRM 보장 페이지(/cover/)                   → standard     (📊 표준 보장분석)
+//   · 보험료 비교 페이지(mmlfcp / premium_plan)  → premium-page (📋 보험료 비교 폼)
+//   · 상담등록 CRM(page_*.html)                  → consult
+// 주소로 못 정하면 추출 데이터 종류로 폴백한다.
+async function resolveAutoTarget({ isPremiumCompare, isCustomer }) {
+  let resolved = null;
+  let detectedUrl = '';
+  try {
+    const [_at] = await chrome.tabs.query({ active: true, currentWindow: true });
+    const u = (_at && _at.url) || '';
+    detectedUrl = u;
+    const uDec = (() => { try { return decodeURIComponent(u); } catch { return u; } })();
+    const isPremiumUrl  = /mmlfcp\.ohmymanager\.com/i.test(u) || /ohmymanager\.com/i.test(u) || /premium_plan\.html/i.test(u) || /보험료\s*비교/.test(uDec);
+    const isConsultUrl  = /ympaint-86457\.(web\.app|firebaseapp\.com)\/page_/i.test(u) || /page_(jmin|leader|manager|member|rookie|admin)\.html/i.test(u);
+    const isCoverUrl    = /\/cover\/\d+/i.test(u) || /crm\.tossinsu\.com\/.*cover\b/i.test(u);
+    const isCustomerUrl = /\/customers\/\d+/i.test(u) || /crm\.tossinsu\.com\/.*customers\b/i.test(u);
+    // 우선순위: 보험료비교 → 상담등록CRM → 보장(/cover) → 고객(/customers)
+    if (isPremiumUrl && !isPremiumCompare) resolved = 'premium-page';
+    else if (isConsultUrl) resolved = 'consult';
+    else if (isCoverUrl)   resolved = 'standard';
+    else if (isCustomerUrl) resolved = 'consult';
+  } catch (e) { console.warn('[btnApply] auto 페이지 감지 실패:', e); }
+  // 주소로 판단 못하면 추출 데이터 종류로 폴백 (3개 대상 한정)
+  if (!resolved) {
+    if (isPremiumCompare) resolved = 'plan';         // mmlfcp 추출 비교 데이터 → 보장분석 가설계
+    else if (isCustomer)  resolved = 'consult';      // 고객 데이터 → 상담등록
+    else                  resolved = 'standard';     // 보장(coverage) 등 → 표준 보장분석
+  }
+  const _routeLabel = { consult: '📝 상담등록', standard: '📊 표준 보장분석', 'premium-page': '📋 보험료 비교 폼', plan: '📐 가설계 탭' }[resolved] || resolved;
+  console.log('[btnApply] 🤖 자동 감지 — 주소:', detectedUrl, '→ 대상:', resolved);
+  try { showToast('🤖 자동 감지 → ' + _routeLabel); } catch {}
+  return resolved;
+}
+
+// 🛡 호환성 가드 — 데이터 type 과 맞지 않는 대상이면 사용자에게 물어 보정한다.
+//   반환: 진행할 대상 문자열 / 사용자가 거절하면 null
+const COMPAT_MATRIX = {
+  coverage:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
+  customer:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
+  premium_compare: { auto: true, consult: false, standard: false, plan: true,  'premium-page': true }
+};
+function applyCompatGuard(targetMode, dataType) {
+  const compat = COMPAT_MATRIX[dataType];
+  if (!compat || compat[targetMode] !== false) return targetMode;
+
+  const fallback = ['auto', 'consult', 'standard', 'plan', 'premium-page'].find(k => compat[k]);
+  const proceed = confirm(
+    `⚠️ 호환되지 않는 전송 대상\n\n` +
+    `추출 데이터: ${dataType}\n` +
+    `선택한 대상: ${targetMode}\n\n` +
+    `→ "${fallback}" 으로 변경해서 진행할까요?`
+  );
+  if (!proceed) return null;
+
+  setTargetMode(fallback);
+  try { chrome.storage.local.set({ [TARGET_MODE_KEY]: fallback }); } catch {}
+  return fallback;
+}
+
 document.getElementById('btnApply').addEventListener('click', async () => {
   console.log('[btnApply] click — extractedData:', extractedData);
   const btn = document.getElementById('btnApply');
@@ -142,62 +203,19 @@ document.getElementById('btnApply').addEventListener('click', async () => {
     //   · CRM 보장 페이지(/cover/)                      → standard      (📊 표준 보장분석)
     //   · 보험료 비교 페이지(mmlfcp / premium_plan)     → premium-page  (📋 보험료 비교 폼)
     //   · 상담등록 CRM(page_*.html)                     → consult
-    if (targetMode === 'auto') {
-      let resolved = null;
-      let detectedUrl = '';
-      try {
-        const [_at] = await chrome.tabs.query({ active: true, currentWindow: true });
-        const u = (_at && _at.url) || '';
-        detectedUrl = u;
-        const uDec = (() => { try { return decodeURIComponent(u); } catch { return u; } })();
-        const isPremiumUrl  = /mmlfcp\.ohmymanager\.com/i.test(u) || /ohmymanager\.com/i.test(u) || /premium_plan\.html/i.test(u) || /보험료\s*비교/.test(uDec);
-        const isConsultUrl  = /ympaint-86457\.(web\.app|firebaseapp\.com)\/page_/i.test(u) || /page_(jmin|leader|manager|member|rookie|admin)\.html/i.test(u);
-        const isCoverUrl    = /\/cover\/\d+/i.test(u) || /crm\.tossinsu\.com\/.*cover\b/i.test(u);
-        const isCustomerUrl = /\/customers\/\d+/i.test(u) || /crm\.tossinsu\.com\/.*customers\b/i.test(u);
-        // 우선순위: 보험료비교 → 상담등록CRM → 보장(/cover) → 고객(/customers)
-        if (isPremiumUrl && !isPremiumCompare) resolved = 'premium-page';
-        else if (isConsultUrl) resolved = 'consult';
-        else if (isCoverUrl)   resolved = 'standard';
-        else if (isCustomerUrl) resolved = 'consult';
-      } catch (e) { console.warn('[btnApply] auto 페이지 감지 실패:', e); }
-      // 주소로 판단 못하면 추출 데이터 종류로 폴백 (3개 대상 한정)
-      if (!resolved) {
-        if (isPremiumCompare) resolved = 'plan';         // mmlfcp 추출 비교 데이터 → 보장분석 가설계
-        else if (isCustomer)  resolved = 'consult';      // 고객 데이터 → 상담등록
-        else                  resolved = 'standard';     // 보장(coverage) 등 → 표준 보장분석
-      }
-      const _routeLabel = { consult: '📝 상담등록', standard: '📊 표준 보장분석', 'premium-page': '📋 보험료 비교 폼', plan: '📐 가설계 탭' }[resolved] || resolved;
-      console.log('[btnApply] 🤖 자동 감지 — 주소:', detectedUrl, '→ 대상:', resolved);
-      try { showToast('🤖 자동 감지 → ' + _routeLabel); } catch {}
-      targetMode = resolved;
-    }
+    if (targetMode === 'auto') targetMode = await resolveAutoTarget({ isPremiumCompare, isCustomer });
     // 🆕 페인트 프로 / 부재고객[경고] — 선택 후 '프로그램 적용' 으로 실행 (다른 대상과 동일한 흐름)
     if (targetMode === 'paintpro') { await _execPaintProRoute(btn, safetyTimer); return; }
     if (targetMode === 'absence')  { await _execAbsenceRoute(btn, safetyTimer); return; }
     // 🛡 호환성 가드 — 데이터 type 과 맞지 않는 전송 대상이면 자동 보정 + 안내
-    const _compatGuard = {
-      coverage:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
-      customer:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
-      premium_compare: { auto: true, consult: false, standard: false, plan: true,  'premium-page': true }
-    }[extractedData.type] || null;
-    if (_compatGuard && _compatGuard[targetMode] === false) {
-      const fallback = ['auto', 'consult', 'standard', 'plan', 'premium-page'].find(k => _compatGuard[k]);
-      const proceed = confirm(
-        `⚠️ 호환되지 않는 전송 대상\n\n` +
-        `추출 데이터: ${extractedData.type}\n` +
-        `선택한 대상: ${targetMode}\n\n` +
-        `→ "${fallback}" 으로 변경해서 진행할까요?`
-      );
-      if (!proceed) {
-        btn.textContent = '📤 프로그램 적용';
-        btn.disabled = false;
-        clearTimeout(safetyTimer);
-        return;
-      }
-      targetMode = fallback;
-      setTargetMode(fallback);
-      try { chrome.storage.local.set({ [TARGET_MODE_KEY]: fallback }); } catch {}
+    const guardedMode = applyCompatGuard(targetMode, extractedData.type);
+    if (guardedMode === null) {   // 사용자가 대상 변경을 거절 — 아무것도 하지 않고 종료
+      btn.textContent = '📤 프로그램 적용';
+      btn.disabled = false;
+      clearTimeout(safetyTimer);
+      return;
     }
+    targetMode = guardedMode;
     const allTabs = await chrome.tabs.query({});
     console.log('[btnApply] 모든 탭:', allTabs.length, '개');
 
