@@ -13,7 +13,7 @@ RELAY-STATUS: CONTINUE
 # 계획 (순서)
 1. ✅ popup.js → `popup/*.js` 7개 모듈 분리
 2. ✅ content.js → `content/*.js` 10개 모듈 분리 + `tools/verify.js`
-3. ⬜ 거대 함수 분해: `content/premium-apply.js applyToPremiumFormUnified`(~840줄),
+3. 🔶 거대 함수 분해: `content/premium-apply.js applyToPremiumFormUnified`(~840줄),
       `popup/apply.js` btnApply 핸들러(~1,389줄)
 4. ⬜ popup.html 인라인 CSS(9~508줄) → `popup.css` 추출
 5. ⬜ `alert`/`confirm` 제거 → showToast/showNotice + 커스텀 확인 다이얼로그 (총 54곳)
@@ -35,6 +35,11 @@ RELAY-STATUS: CONTINUE
 - **커밋 (auto/guard)** — `resolveAutoTarget()` / `applyCompatGuard()` + `COMPAT_MATRIX` 분리.
 - **커밋 `0cac7a1`** — apply.js 도달 불가 코드 404줄 삭제 (1,406 → 1,003줄).
   코드에 '실행되지 않음'이라고 적혀 있던 구 executeScript 경로.
+
+- **커밋 `a1a26f8`** — btnApply 라우트 5개를 `routeConsult`/`routeStandard`/`routePlan`/
+  `routePremiumPage`/`routePremiumCompareToPlan` 함수로 분해. 공유 변수는 `ctx` 객체로 전달.
+  `routePremiumPage` 만 boolean 반환(원래 fall-through 하던 블록이라).
+  핸들러 본문 길이: ~1,389줄 → ~120줄. 남은 것은 `content/premium-apply.js` 쪽.
 
 # 바로 다음에 할 일
 계획 3번 계속 — btnApply 핸들러의 라우트 블록을 함수로 뽑는다.
