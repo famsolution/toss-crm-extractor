@@ -1,3 +1,115 @@
+// ─────────────────────────────────────────────────────────────
+// '📤 프로그램 적용' — 대상 탭 판별과 데이터 주입 헬퍼.
+//   원래 btnApply 핸들러 안의 클로저였다. 핸들러 밖에서도 읽히도록 끌어올렸다.
+// ─────────────────────────────────────────────────────────────
+// 🆕 보장분석 프로그램 탭 찾기 헬퍼
+function findProgramTab(allTabs) { return allTabs.find(t => t.url && (
+  /toss_insu\d*_?\d*\.html/i.test(t.url) ||                        // 로컬 파일
+  (/tossinssu-pro\.vercel\.app/i.test(t.url) && !/(plan|editor|index)\.html/i.test(t.url)) // Vercel 메인
+)); }
+// 🆕 mmlfcp 페이지 식별 헬퍼 (premium_plan.html iframe 도 포함)
+const isPremiumComparePageUrl = (u) => u && (
+  /mmlfcp\.ohmymanager\.com/i.test(u) ||
+  /ohmymanager\.com/i.test(u) ||
+  /보험료\s*비교/i.test(decodeURIComponent(u || '')) ||
+  /premium_plan\.html/i.test(u) ||
+  /tossinssu-pro\.vercel\.app\/plan\.html/i.test(u)
+);
+const PLAN_APP_DEFAULT_URL = 'https://tossinssu-pro.vercel.app/app.html';
+const isPlanReceiverUrl = (u) => !!u && (
+  /premium_plan\.html/i.test(u) ||
+  /tossinssu-pro\.vercel\.app\/plan\.html/i.test(u)
+);
+const isProgramAppUrl = (u) => !!u && (
+  /toss_insu\d*_?\d*\.html/i.test(u) ||
+  (/tossinssu-pro\.vercel\.app/i.test(u) && !/(editor|index)\.html/i.test(u))
+);
+const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const _switchToPlanView = async (tab, opts = {}) => {
+  if (!tab || isPlanReceiverUrl(tab.url)) return true;
+  const tries = opts.quick ? 1 : 4;
+  for (let i = 0; i < tries; i++) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        world: 'MAIN',
+        func: () => {
+          const norm = (s) => String(s || '').replace(/\s+/g, '');
+          const isVisible = (el) => {
+            try {
+              const r = el.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            } catch { return true; }
+          };
+          const controls = Array.from(document.querySelectorAll('button, [role="button"], [role="tab"], a'))
+            .filter(isVisible);
+          const byText = (re) => controls.find(el => re.test(norm(el.textContent || el.innerText || el.value || '')));
+          const compareBtn = byText(/보험사(별)?비교|보험사비교|보험료비교|비교표/);
+          if (compareBtn) compareBtn.click();
+          setTimeout(() => {
+            const controls2 = Array.from(document.querySelectorAll('button, [role="button"], [role="tab"], a'));
+            const planBtn = controls2.find(el => /가설계/.test(norm(el.textContent || el.innerText || el.value || '')));
+            if (planBtn) planBtn.click();
+          }, 180);
+          return { compareClicked: !!compareBtn };
+        }
+      });
+    } catch (e) {
+      console.warn('[btnApply/plan] 가설계 화면 전환 스크립트 실패:', e);
+    }
+    await _sleep(opts.quick ? 500 : 900);
+    try {
+      const probe = await chrome.scripting.executeScript({
+        target: { tabId: tab.id, allFrames: true },
+        world: 'MAIN',
+        func: () => ({
+          ok: typeof window.__applyPremiumDataFromExtension === 'function',
+          location: location.href
+        })
+      });
+      if (probe.some(r => r?.result?.ok)) return true;
+    } catch {}
+  }
+  return false;
+};
+const _applyPremiumDataToPlan = async (target, dataJson, opts = {}) => {
+  const started = Date.now();
+  const maxMs = opts.maxMs || 35000;
+  let frameResults = [];
+  let lastError = '';
+  while (Date.now() - started < maxMs) {
+    if (opts.switchPlan) await _switchToPlanView(target, { quick: true });
+    try {
+      frameResults = await chrome.scripting.executeScript({
+        target: { tabId: target.id, allFrames: true },
+        world: 'MAIN',
+        args: [dataJson],
+        func: async (json) => {
+          try {
+            const data = JSON.parse(json);
+            if (typeof window.__applyPremiumDataFromExtension === 'function') {
+              const ret = window.__applyPremiumDataFromExtension(data);
+              if (ret && typeof ret.then === 'function') await ret;
+              return { ok: true, location: location.href };
+            }
+            return { ok: false, error: 'receiver 없음', location: location.href };
+          } catch (e) {
+            return { ok: false, error: e.message, location: location.href };
+          }
+        }
+      });
+      const okFrame = frameResults.find(r => r?.result?.ok);
+      if (okFrame) return { ok: true, okFrame, frameResults };
+      lastError = frameResults.map(r => r?.result?.error).filter(Boolean).join(' / ') || lastError;
+    } catch (e) {
+      lastError = e.message || String(e);
+      console.warn('[btnApply/plan] 가설계 데이터 주입 재시도:', lastError);
+    }
+    await _sleep(900);
+  }
+  return { ok: false, frameResults, error: lastError || 'receiver 없음' };
+};
+
 document.getElementById('btnApply').addEventListener('click', async () => {
   console.log('[btnApply] click — extractedData:', extractedData);
   const btn = document.getElementById('btnApply');
@@ -89,105 +201,6 @@ document.getElementById('btnApply').addEventListener('click', async () => {
     const allTabs = await chrome.tabs.query({});
     console.log('[btnApply] 모든 탭:', allTabs.length, '개');
 
-    // 🆕 보장분석 프로그램 탭 찾기 헬퍼
-    const findProgramTab = () => allTabs.find(t => t.url && (
-      /toss_insu\d*_?\d*\.html/i.test(t.url) ||                        // 로컬 파일
-      (/tossinssu-pro\.vercel\.app/i.test(t.url) && !/(plan|editor|index)\.html/i.test(t.url)) // Vercel 메인
-    ));
-    const PLAN_APP_DEFAULT_URL = 'https://tossinssu-pro.vercel.app/app.html';
-    const isPlanReceiverUrl = (u) => !!u && (
-      /premium_plan\.html/i.test(u) ||
-      /tossinssu-pro\.vercel\.app\/plan\.html/i.test(u)
-    );
-    const isProgramAppUrl = (u) => !!u && (
-      /toss_insu\d*_?\d*\.html/i.test(u) ||
-      (/tossinssu-pro\.vercel\.app/i.test(u) && !/(editor|index)\.html/i.test(u))
-    );
-    const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
-    const _switchToPlanView = async (tab, opts = {}) => {
-      if (!tab || isPlanReceiverUrl(tab.url)) return true;
-      const tries = opts.quick ? 1 : 4;
-      for (let i = 0; i < tries; i++) {
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            world: 'MAIN',
-            func: () => {
-              const norm = (s) => String(s || '').replace(/\s+/g, '');
-              const isVisible = (el) => {
-                try {
-                  const r = el.getBoundingClientRect();
-                  return r.width > 0 && r.height > 0;
-                } catch { return true; }
-              };
-              const controls = Array.from(document.querySelectorAll('button, [role="button"], [role="tab"], a'))
-                .filter(isVisible);
-              const byText = (re) => controls.find(el => re.test(norm(el.textContent || el.innerText || el.value || '')));
-              const compareBtn = byText(/보험사(별)?비교|보험사비교|보험료비교|비교표/);
-              if (compareBtn) compareBtn.click();
-              setTimeout(() => {
-                const controls2 = Array.from(document.querySelectorAll('button, [role="button"], [role="tab"], a'));
-                const planBtn = controls2.find(el => /가설계/.test(norm(el.textContent || el.innerText || el.value || '')));
-                if (planBtn) planBtn.click();
-              }, 180);
-              return { compareClicked: !!compareBtn };
-            }
-          });
-        } catch (e) {
-          console.warn('[btnApply/plan] 가설계 화면 전환 스크립트 실패:', e);
-        }
-        await _sleep(opts.quick ? 500 : 900);
-        try {
-          const probe = await chrome.scripting.executeScript({
-            target: { tabId: tab.id, allFrames: true },
-            world: 'MAIN',
-            func: () => ({
-              ok: typeof window.__applyPremiumDataFromExtension === 'function',
-              location: location.href
-            })
-          });
-          if (probe.some(r => r?.result?.ok)) return true;
-        } catch {}
-      }
-      return false;
-    };
-    const _applyPremiumDataToPlan = async (target, dataJson, opts = {}) => {
-      const started = Date.now();
-      const maxMs = opts.maxMs || 35000;
-      let frameResults = [];
-      let lastError = '';
-      while (Date.now() - started < maxMs) {
-        if (opts.switchPlan) await _switchToPlanView(target, { quick: true });
-        try {
-          frameResults = await chrome.scripting.executeScript({
-            target: { tabId: target.id, allFrames: true },
-            world: 'MAIN',
-            args: [dataJson],
-            func: async (json) => {
-              try {
-                const data = JSON.parse(json);
-                if (typeof window.__applyPremiumDataFromExtension === 'function') {
-                  const ret = window.__applyPremiumDataFromExtension(data);
-                  if (ret && typeof ret.then === 'function') await ret;
-                  return { ok: true, location: location.href };
-                }
-                return { ok: false, error: 'receiver 없음', location: location.href };
-              } catch (e) {
-                return { ok: false, error: e.message, location: location.href };
-              }
-            }
-          });
-          const okFrame = frameResults.find(r => r?.result?.ok);
-          if (okFrame) return { ok: true, okFrame, frameResults };
-          lastError = frameResults.map(r => r?.result?.error).filter(Boolean).join(' / ') || lastError;
-        } catch (e) {
-          lastError = e.message || String(e);
-          console.warn('[btnApply/plan] 가설계 데이터 주입 재시도:', lastError);
-        }
-        await _sleep(900);
-      }
-      return { ok: false, frameResults, error: lastError || 'receiver 없음' };
-    };
 
     // 🆕 강제 라우팅 — 상담등록 (CRM page_*.html). 추출한 고객정보를 상담등록 페이지로 전송
     if (targetMode === 'consult') {
@@ -361,7 +374,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       //   (탭 열림/로그인/렌더 타이밍에 의존하지 않음 — 새로 열려도 준비되면 스스로 가져감)
       await new Promise(r => { try { chrome.storage.local.set({ __tossPendingApply: { text: textData, ts: Date.now() } }, r); } catch { r(); } });
 
-      let programTab = findProgramTab();
+      let programTab = findProgramTab(allTabs);
       if (!programTab) {
         const stored = await new Promise(r => { try { chrome.storage.local.get(['lastProgramUrl'], v => r(v?.lastProgramUrl || null)); } catch { r(null); } });
         // 🆕 stored 가 로그인/가설계/에디터 페이지면 무시 — 표준분석 receiver 가 없는 화면이라 적용이 안 됨
@@ -383,7 +396,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
 
     // 🆕 강제 라우팅 - 가설계 탭 (사용자가 명시 선택 시)
     if (targetMode === 'plan') {
-      let programTab = findProgramTab();
+      let programTab = findProgramTab(allTabs);
       const planTab = allTabs.find(t => t.url && (
         /premium_plan\.html/i.test(t.url) ||
         /tossinssu-pro\.vercel\.app\/plan\.html/i.test(t.url)
@@ -477,14 +490,6 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       return;
     }
 
-    // 🆕 mmlfcp 페이지 식별 헬퍼 (premium_plan.html iframe 도 포함)
-    const isPremiumComparePageUrl = (u) => u && (
-      /mmlfcp\.ohmymanager\.com/i.test(u) ||
-      /ohmymanager\.com/i.test(u) ||
-      /보험료\s*비교/i.test(decodeURIComponent(u || '')) ||
-      /premium_plan\.html/i.test(u) ||
-      /tossinssu-pro\.vercel\.app\/plan\.html/i.test(u)
-    );
     // 자동 라우팅 보조 — 사용자가 mmlfcp 탭에 있고 auto 모드면 premium 으로 보냄
     const [_activeTab0] = await chrome.tabs.query({ active: true, currentWindow: true });
     const _userOnPremium = _activeTab0 && isPremiumComparePageUrl(_activeTab0.url);
