@@ -240,6 +240,28 @@ document.querySelectorAll('.tab').forEach(tab => {
 });
 
 // content script 주입 (없으면 강제 주입)
+// content 스크립트 파일 목록 — manifest.json content_scripts[0].js 와 항상 같아야 한다.
+// (로드 순서 = 의존 순서. 수동 주입도 같은 순서로 넣는다.)
+const CONTENT_SCRIPT_FILES = [
+  'content/boot.js',
+  'content/util.js',
+  'content/privacy.js',
+  'content/customer.js',
+  'content/insurance.js',
+  'content/coverage-excel.js',
+  'content/premium.js',
+  'content/premium-apply.js',
+  'content/messages.js',
+  'content/paint-pro.js'
+];
+
+// content 스크립트 수동 주입 (manifest 자동 주입이 안 걸린 탭/재주입용)
+function injectContentScripts(tabId, allFrames = undefined) {
+  const target = { tabId };
+  if (allFrames !== undefined) target.allFrames = allFrames;
+  return chrome.scripting.executeScript({ target, files: CONTENT_SCRIPT_FILES });
+}
+
 async function ensureContentScript(tabId) {
   try {
     // 우선 핑 시도
@@ -248,10 +270,7 @@ async function ensureContentScript(tabId) {
   } catch {
     // 없으면 주입
     try {
-      await chrome.scripting.executeScript({
-        target: { tabId },
-        files: ['content.js']
-      });
+      await injectContentScripts(tabId);
       // 주입 후 약간의 대기
       await new Promise(r => setTimeout(r, 100));
       return true;

@@ -672,10 +672,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
           if (needsReinject) {
             console.warn('[btnApply] content.js 미로드/오래된 버전 → 강제 재인젝션');
             try {
-              await chrome.scripting.executeScript({
-                target: { tabId: activeTab.id, allFrames: false },
-                files: ['content.js']
-              });
+              await injectContentScripts(activeTab.id, false);
               await new Promise(r => setTimeout(r, 800));
               console.log('[btnApply] 강제 재인젝션 완료');
             } catch (e) {
@@ -729,10 +726,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
           if (!unifiedRes?.ok && /Could not establish connection|Receiving end does not exist/i.test(unifiedRes?.error || '')) {
             console.warn('[btnApply] content.js 미로드 감지 — 수동 인젝션 시도');
             try {
-              await chrome.scripting.executeScript({
-                target: { tabId: activeTab.id, allFrames: false },
-                files: ['content.js']
-              });
+              await injectContentScripts(activeTab.id, false);
               console.log('[btnApply] content.js 인젝션 완료, 1초 대기 후 재시도');
               await new Promise(r => setTimeout(r, 1000));
               unifiedRes = await trySendMessage();

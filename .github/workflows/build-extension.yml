@@ -17,6 +17,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Verify (문법·참조 정합성)
+        run: node tools/verify.js
+
       - name: Read manifest version
         id: ver
         run: echo "version=$(node -p "require('./manifest.json').version")" >> "$GITHUB_OUTPUT"
@@ -24,7 +27,8 @@ jobs:
       - name: Create zip (vendor 포함, 개발 파일 제외)
         run: |
           zip -r toss-crm-extractor.zip . \
-            -x ".git/*" -x ".github/*" -x "*.zip" -x ".gitignore" -x "README.md"
+            -x ".git/*" -x ".github/*" -x "tools/*" -x "*.zip" -x ".gitignore" \
+            -x "README.md" -x "CLAUDE.md" -x "RELAY_HANDOFF.md"
           echo "---- zip 내용 확인 ----"
           unzip -l toss-crm-extractor.zip | head -40
 

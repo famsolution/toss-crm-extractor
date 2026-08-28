@@ -44,7 +44,16 @@
         "https://tossinssu-pro.vercel.app/*"
       ],
       "js": [
-        "content.js"
+        "content/boot.js",
+        "content/util.js",
+        "content/privacy.js",
+        "content/customer.js",
+        "content/insurance.js",
+        "content/coverage-excel.js",
+        "content/premium.js",
+        "content/premium-apply.js",
+        "content/messages.js",
+        "content/paint-pro.js"
       ],
       "run_at": "document_idle"
     },
