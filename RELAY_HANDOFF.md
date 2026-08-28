@@ -13,9 +13,8 @@ RELAY-STATUS: CONTINUE
 # 계획 (순서)
 1. ✅ popup.js → `popup/*.js` 7개 모듈 분리
 2. ✅ content.js → `content/*.js` 10개 모듈 분리 + `tools/verify.js`
-3. 🔶 거대 함수 분해: `content/premium-apply.js applyToPremiumFormUnified`(~840줄),
-      `popup/apply.js` btnApply 핸들러(~1,389줄)
-4. ⬜ popup.html 인라인 CSS(9~508줄) → `popup.css` 추출
+3. ✅ 거대 함수 분해 — 남은 최대 함수는 `applyToPremiumFormUnified` 333줄
+4. ✅ popup.html 인라인 CSS(9~508줄) → `popup.css` 추출 (커밋 74b92f6)
 5. ⬜ `alert`/`confirm` 제거 → showToast/showNotice + 커스텀 확인 다이얼로그 (총 54곳)
 6. ⬜ manifest version 올리고 마무리
 
@@ -42,17 +41,18 @@ RELAY-STATUS: CONTINUE
   핸들러 본문 길이: ~1,389줄 → ~120줄. 남은 것은 `content/premium-apply.js` 쪽.
 
 # 바로 다음에 할 일
-계획 3번 계속 — btnApply 핸들러의 라우트 블록을 함수로 뽑는다.
-현재 apply.js 핸들러 구조 (줄번호는 바뀌므로 `grep -n "targetMode === "` 로 다시 찾을 것):
-  · `if (targetMode === 'consult')`  ~160줄 — 끝에서 항상 `return;`
-  · `if (targetMode === 'standard')` ~27줄  — 항상 `return;`
-  · `if (targetMode === 'plan')`     ~93줄  — 항상 `return;`
-  · `if (_shouldRouteToPremium)`     ~295줄 — 안쪽 `if (isPremiumComparePage)` 가
-     참일 때만 return, 거짓이면 **아래로 흘러내려간다** → 뽑을 때 handled 여부를 반환해야 함
-  · `if (isPremiumCompare)`          ~60줄  — 항상 `return;`
-  · 마지막 프로그램 탭 라우팅        ~110줄
-공유 변수: btn / safetyTimer / allTabs / extractedData / isPremiumCompare / isCustomer / isCoverage.
-ctx 객체 하나로 넘기는 방식을 권장.
+계획 5번 — `alert`/`confirm` 제거. CLAUDE.md 가 명시적으로 금지한 항목이다.
+`node tools/verify.js` 가 파일별 개수를 그대로 찍어준다 (현재 총 50곳):
+  content/paint-pro.js 8 · popup/actions.js 2 · popup/apply.js 28 ·
+  popup/boot.js 4 · popup/config.js 1 · popup/products.js 4 · popup/xlsx.js 3
+주의:
+  · popup 쪽에는 이미 `showToast` 가 있다 (popup/render.js 확인). 안내성 alert 은 그걸로.
+  · `confirm()` 은 반환값을 쓰므로 단순 치환 불가 — Promise 를 돌려주는
+    커스텀 다이얼로그(showConfirm)를 popup.html/popup.css 에 하나 만들고
+    호출부를 `await showConfirm(...)` 로 바꿔야 한다. 호출 함수가 async 인지 먼저 확인.
+  · `content/paint-pro.js` 는 popup 의 showToast 를 못 쓴다 — 페이지에 직접
+    띄우는 별도 토스트가 필요하다 (premium-apply.js 의 statusBox 방식 참고).
+그 다음 계획 6번 — `manifest.json` version 올리기.
 
 # 검증 방법 (테스트가 없으므로)
 - **`node tools/verify.js`** — 매 변경 후 반드시 실행 (문법 + 참조 정합성 + 주입목록 일치)
