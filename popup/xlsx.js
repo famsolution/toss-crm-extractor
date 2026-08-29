@@ -397,7 +397,7 @@ async function downloadCoverageExcelFromActiveTab(btn) {
     console.log('[Coverage Excel] extract response:', resp);
     const rows = Array.isArray(resp && resp.rows) ? resp.rows : [];
     if (!resp || !resp.ok || rows.length === 0) {
-      alert('보장분석 탭에서 담보 데이터를 찾을 수 없습니다. 페이지를 확인한 뒤 다시 시도해주세요.');
+      showAlert('보장분석 탭에서 담보 데이터를 찾을 수 없습니다. 페이지를 확인한 뒤 다시 시도해주세요.');
       return;
     }
 
@@ -406,7 +406,7 @@ async function downloadCoverageExcelFromActiveTab(btn) {
       blob = buildCoverageWorkbookBlob(rows);
     } catch (e) {
       console.error('[Coverage Excel] workbook build failed:', e);
-      alert('엑셀 파일 생성 중 오류가 발생했습니다.');
+      showAlert('엑셀 파일 생성 중 오류가 발생했습니다.');
       return;
     }
     const fileName = _coverageExcelFileName();
@@ -414,7 +414,7 @@ async function downloadCoverageExcelFromActiveTab(btn) {
     showToast(`✅ 엑셀 다운로드 준비 완료 (${rows.length}건)`);
   } catch (e) {
     console.error('[Coverage Excel] download failed:', e);
-    alert('엑셀 파일 생성 중 오류가 발생했습니다.');
+    showAlert('엑셀 파일 생성 중 오류가 발생했습니다.');
   } finally {
     if (btn) { btn.textContent = old; btn.disabled = false; }
   }

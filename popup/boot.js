@@ -42,7 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (_absBtn) {
     _absBtn.addEventListener('click', async () => {
       const data = extractedData;
-      if (!data) { alert('먼저 데이터 추출 버튼을 눌러 데이터를 추출해 주세요.'); return; }
+      if (!data) { showAlert('먼저 데이터 추출 버튼을 눌러 데이터를 추출해 주세요.'); return; }
       _openAbsenceStudio(data);
     });
   }
@@ -60,7 +60,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         hasAnchor = !!(r && r[0] && r[0].result);
       } catch {}
-      if (!hasAnchor) { alert('토스 보장분석 페이지에서 실행해 주세요.'); return; }
+      if (!hasAnchor) { showAlert('토스 보장분석 페이지에서 실행해 주세요.'); return; }
       // 🔑 popup 을 닫아 페이지 focus 복귀 → content.js 가 clipboard.read() 실행 가능
       //    (popup 이 떠 있으면 페이지에 focus 가 없어 클립보드 읽기가 브라우저 보안으로 차단됨)
       try { chrome.tabs.sendMessage(tab.id, { action: 'triggerPaintPro' }, () => { void chrome.runtime.lastError; }); } catch {}
@@ -208,8 +208,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cfgDelTpl')?.addEventListener('click', async () => {
     const sel = document.getElementById('cfgLoadTpl');
     const name = sel.value;
-    if (!name) { alert('삭제할 템플릿을 먼저 선택하세요.'); return; }
-    if (!confirm(`템플릿 "${name}" 을 삭제할까요?`)) return;
+    if (!name) { showAlert('삭제할 템플릿을 먼저 선택하세요.'); return; }
+    if (!await showConfirm(`템플릿 "${name}" 을 삭제할까요?`, '템플릿 삭제')) return;
     await deleteTemplate(name);
     await refreshTemplateDropdown();
     showToast(`🗑️ "${name}" 삭제됨`);

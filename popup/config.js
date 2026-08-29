@@ -36,7 +36,7 @@ function _requestUiMode(mode, openNow) {
         return;
       }
       if (res && res.ok === false) {
-        alert(res.error || '표시 방식을 변경하지 못했습니다.');
+        showAlert(res.error || '표시 방식을 변경하지 못했습니다.');
         return;
       }
       if (next === 'sidepanel') {

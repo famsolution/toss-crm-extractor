@@ -83,7 +83,7 @@ async function _execPaintProRoute(btn, safetyTimer) {
     const r = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => !!document.getElementById('__paintpro_send') });
     hasAnchor = !!(r && r[0] && r[0].result);
   } catch {}
-  if (!hasAnchor) { alert('토스 보장분석 페이지에서 실행해 주세요.'); _restore(); return; }
+  if (!hasAnchor) { showAlert('토스 보장분석 페이지에서 실행해 주세요.'); _restore(); return; }
   // 🔑 popup 을 닫아 페이지 focus 복귀 → content.js 가 clipboard.read() 실행 가능
   try { chrome.tabs.sendMessage(tab.id, { action: 'triggerPaintPro' }, () => { void chrome.runtime.lastError; }); } catch {}
   try { clearTimeout(safetyTimer); } catch {}
@@ -94,7 +94,7 @@ async function _execPaintProRoute(btn, safetyTimer) {
 async function _execAbsenceRoute(btn, safetyTimer) {
   const _restore = () => { try { clearTimeout(safetyTimer); } catch {} if (btn) { btn.textContent = '프로그램 적용'; btn.disabled = false; } };
   const data = extractedData;
-  if (!data) { alert('먼저 데이터 추출 버튼을 눌러 데이터를 추출해 주세요.'); _restore(); return; }
+  if (!data) { showAlert('먼저 데이터 추출 버튼을 눌러 데이터를 추출해 주세요.'); _restore(); return; }
   _openAbsenceStudio(data);
   _restore();
 }

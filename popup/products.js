@@ -245,7 +245,7 @@ function sendToRenewalAnalyzer(prod) {
       window.open(url, '_blank');
     }
   } catch (err) {
-    alert('갱신분석 전송 실패: ' + (err && err.message ? err.message : err));
+    showAlert('갱신분석 전송 실패: ' + (err && err.message ? err.message : err));
   }
 }
 
@@ -284,7 +284,7 @@ function sendMultiToRenewalAnalyzer(prods) {
       });
     } else { window.open(url, '_blank'); }
   } catch (err) {
-    alert('다중 갱신분석 전송 실패: ' + (err && err.message ? err.message : err));
+    showAlert('다중 갱신분석 전송 실패: ' + (err && err.message ? err.message : err));
   }
 }
 
@@ -357,7 +357,7 @@ function _renderProductPreview() {
   if (addBtn) addBtn.addEventListener('click', () => {
     const nm = (preview.querySelector('#newCovName').value || '').trim();
     const amt = parseInt((preview.querySelector('#newCovAmt').value || '').replace(/[^0-9]/g, '')) || 0;
-    if (!nm) { alert('담보명을 입력하세요.'); return; }
+    if (!nm) { showAlert('담보명을 입력하세요.'); return; }
     const learn = _loadCovLearn();
     learn.added = learn.added || [];
     learn.added.push({ name: nm, amountMan: amt });
@@ -367,8 +367,8 @@ function _renderProductPreview() {
   });
   // 학습 초기화
   const resetBtn = preview.querySelector('#resetCovLearn');
-  if (resetBtn) resetBtn.addEventListener('click', () => {
-    if (confirm('담보 학습(수정·삭제·추가)을 모두 초기화할까요?')) {
+  if (resetBtn) resetBtn.addEventListener('click', async () => {
+    if (await showConfirm('담보 학습(수정·삭제·추가)을 모두 초기화할까요?', '학습 초기화')) {
       _saveCovLearn({ overrides: {}, deleted: [], added: [] });
       _renderProductPreview();
     }
