@@ -156,7 +156,7 @@
         추출시각: new Date().toISOString()
       };
       if (!payload.고객명 && insurances.length === 0) {
-        alert('추출할 보장분석 데이터를 찾지 못했습니다.\n토스 보장분석(보장내역) 페이지에서 사용해 주세요.');
+        pageAlert('추출할 보장분석 데이터를 찾지 못했습니다.\n토스 보장분석(보장내역) 페이지에서 사용해 주세요.');
         return;
       }
       const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
@@ -174,9 +174,63 @@
         }, 800);
       }
     } catch (e) {
-      alert('스튜디오 전송 실패: ' + (e.message || e));
+      pageAlert('스튜디오 전송 실패: ' + (e.message || e));
     } finally { btn.textContent = old; btn.disabled = false; }
   }
+
+  // ───────── 페이지 내 알림/확인 다이얼로그 (alert/confirm 대체) ─────────
+  //   content script 는 popup 의 showAlert/showConfirm 을 쓸 수 없으므로 페이지에 직접 띄운다.
+  //   토스 페이지 CSS 가 섞이지 않도록 Shadow DOM 안에 그린다.
+  //     · pageAlert(msg, title)   → Promise<void>    (확인 1개)
+  //     · pageConfirm(msg, title) → Promise<boolean> (확인/취소)
+  const _DLG_CSS = `
+    .back { position: fixed; inset: 0; background: rgba(15,23,42,.45);
+            display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .box  { max-width: 420px; width: 100%; background: #fff; border-radius: 12px;
+            box-shadow: 0 12px 40px rgba(15,23,42,.3); padding: 18px 18px 14px;
+            font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif; }
+    .t    { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: #0F172A; }
+    .m    { margin: 0 0 16px; font-size: 13px; line-height: 1.6; color: #475569;
+            white-space: pre-wrap; word-break: break-word; max-height: 50vh; overflow-y: auto; }
+    .a    { display: flex; justify-content: flex-end; gap: 6px; }
+    button { min-width: 68px; padding: 8px 14px; border-radius: 8px; font-size: 13px;
+             font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+    .o    { background: #2563EB; color: #fff; }
+    .c    { background: #fff; color: #475569; border-color: #CBD5E1; }`;
+
+  function _pageDialog(message, title, withCancel) {
+    return new Promise(function (resolve) {
+      const hostEl = document.createElement('div');
+      hostEl.style.cssText = 'position:fixed; inset:0; z-index:2147483647;';
+      const root = hostEl.attachShadow({ mode: 'open' });
+      const style = document.createElement('style');
+      style.textContent = _DLG_CSS;
+      root.appendChild(style);
+      const back = document.createElement('div'); back.className = 'back';
+      const box  = document.createElement('div'); box.className  = 'box';
+      const t    = document.createElement('p');   t.className    = 't';
+      const m    = document.createElement('p');   m.className    = 'm';
+      const acts = document.createElement('div'); acts.className = 'a';
+      const ok   = document.createElement('button'); ok.className = 'o'; ok.textContent = '확인';
+      t.textContent = title || (withCancel ? '확인' : '알림');
+      m.textContent = String(message == null ? '' : message);
+      const finish = function (v) { try { hostEl.remove(); } catch (e) {} resolve(v); };
+      ok.addEventListener('click', function () { finish(true); });
+      if (withCancel) {
+        const cancel = document.createElement('button');
+        cancel.className = 'c'; cancel.textContent = '취소';
+        cancel.addEventListener('click', function () { finish(false); });
+        acts.appendChild(cancel);
+      }
+      acts.appendChild(ok);
+      box.appendChild(t); box.appendChild(m); box.appendChild(acts);
+      back.appendChild(box); root.appendChild(back);
+      document.body.appendChild(hostEl);
+      ok.focus();
+    });
+  }
+  function pageAlert(message, title)   { return _pageDialog(message, title, false); }
+  function pageConfirm(message, title) { return _pageDialog(message, title, true); }
 
   async function sendToPaintPro(fab) {
     const old = fab.textContent;
@@ -188,7 +242,7 @@
         const tab = findTableTab();
         if (tab) { tab.click(); for (let i = 0; i < 12 && !btn; i++) { await sleep(250); btn = findCopyBtn(); } }
       }
-      if (!btn) { alert('표 탭 또는 "이미지 복사" 버튼을 찾지 못했습니다.\n토스 보장분석 페이지에서 사용해 주세요.'); return; }
+      if (!btn) { pageAlert('표 탭 또는 "이미지 복사" 버튼을 찾지 못했습니다.\n토스 보장분석 페이지에서 사용해 주세요.'); return; }
 
       // 2) 가로채기 리셋 후 토스 '이미지 복사' 클릭 → 토스가 clipboard.write 하는 순간
       //    가로채기 스크립트가 dataURL 을 postMessage 로 보내준다(포커스 불필요).
@@ -206,7 +260,7 @@
         for (let i = 0; i < 8 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
       }
       if (!dataURL) {
-        alert('이미지를 읽지 못했습니다.\n\n· 토스 "이미지 복사" 버튼이 정상 동작하는지 확인해 주세요.\n· 확장 새로고침 후 다시 시도해 보세요.' +
+        pageAlert('이미지를 읽지 못했습니다.\n\n· 토스 "이미지 복사" 버튼이 정상 동작하는지 확인해 주세요.\n· 확장 새로고침 후 다시 시도해 보세요.' +
           (_lastClipErr ? '\n\n[오류: ' + _lastClipErr + ']' : ''));
         return;
       }
@@ -451,24 +505,24 @@
       const cols = _silsonScanColumns();
       const hits = _silsonBuildHits(cols);
       console.log('[Toss Extractor] 실손 세대 분석 후보:', hits);
-      if (!hits.length) { alert('실손/실비 보험을 찾지 못했습니다.\n토스 보장분석 표가 보이는 상태에서 사용하세요.'); return; }
+      if (!hits.length) { pageAlert('실손/실비 보험을 찾지 못했습니다.\n토스 보장분석 표가 보이는 상태에서 사용하세요.'); return; }
       const summary = hits.map(h =>
         `· ${(h.name).slice(0, 26)} (${h.date}) → ${h.text}` +
         (h.reason ? ` [${h.reason}]` : '') +
         (h.detailText ? `\n  - ${h.detailText}` : '')
       ).join('\n');
-      if (!confirm(`실손 ${hits.length}건을 분석했습니다. 매니저 코멘트에 입력할까요?\n\n${summary}`)) return;
+      if (!await pageConfirm(`실손 ${hits.length}건을 분석했습니다. 매니저 코멘트에 입력할까요?\n\n${summary}`)) return;
       let written = 0; const failed = [];
       for (const h of hits) {
         if (h.ok && h.cell && await _setCommentCell(h.cell, h.text)) written++;
         else failed.push(`${h.name} → ${h.text} (${h.ok ? '코멘트칸 못찾음' : '계약일 오류'})`);
       }
       try { await navigator.clipboard.writeText(hits.map(h => `${h.name}: ${h.text}${h.detailText ? ' / ' + h.detailText : ''}`).join('\n')); } catch (_) {}
-      alert(`✅ 매니저 코멘트 ${written}건 입력 완료.` +
+      pageAlert(`✅ 매니저 코멘트 ${written}건 입력 완료.` +
         (failed.length ? `\n\n⚠️ 미입력 ${failed.length}건(직접 입력 필요):\n${failed.join('\n')}` : '') +
         `\n\n(결과는 클립보드에도 복사됨)`);
     } catch (e) {
-      alert('실손 분석 실패: ' + (e && e.message || e));
+      pageAlert('실손 분석 실패: ' + (e && e.message || e));
     } finally {
       if (btn) { btn.textContent = old; btn.disabled = false; }
     }

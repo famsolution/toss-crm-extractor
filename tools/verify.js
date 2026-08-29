@@ -87,7 +87,7 @@ if (!listMatch) {
 for (const f of jsFiles) {
   const src = fs.readFileSync(f, 'utf8');
   const n = (src.match(/(?<![\w.])(?:alert|confirm)\s*\(/g) || []).length;
-  if (n) warnings.push(`${rel(f)}: alert/confirm ${n}곳 — showToast/showConfirm 으로 교체 대상`);
+  if (n) errors.push(`${rel(f)}: alert/confirm ${n}곳 — popup 은 showAlert/showConfirm, content 는 pageAlert/pageConfirm 을 쓰세요`);
 }
 
 for (const w of warnings) console.log('⚠️  ' + w);
