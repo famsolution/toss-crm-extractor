@@ -153,16 +153,17 @@ const COMPAT_MATRIX = {
   customer:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
   premium_compare: { auto: true, consult: false, standard: false, plan: true,  'premium-page': true }
 };
-function applyCompatGuard(targetMode, dataType) {
+async function applyCompatGuard(targetMode, dataType) {
   const compat = COMPAT_MATRIX[dataType];
   if (!compat || compat[targetMode] !== false) return targetMode;
 
   const fallback = ['auto', 'consult', 'standard', 'plan', 'premium-page'].find(k => compat[k]);
-  const proceed = confirm(
+  const proceed = await showConfirm(
     `⚠️ 호환되지 않는 전송 대상\n\n` +
     `추출 데이터: ${dataType}\n` +
     `선택한 대상: ${targetMode}\n\n` +
-    `→ "${fallback}" 으로 변경해서 진행할까요?`
+    `→ "${fallback}" 으로 변경해서 진행할까요?`,
+    '호환되지 않는 전송 대상'
   );
   if (!proceed) return null;
 
@@ -279,7 +280,7 @@ async function routeConsult(ctx) {
         clearTimeout(safetyTimer);
         btn.textContent = '📤 프로그램 적용';
         btn.disabled = false;
-        alert('상담등록 페이지 자동 오픈 실패: ' + (e.message || e));
+        showAlert('상담등록 페이지 자동 오픈 실패: ' + (e.message || e));
         return;
       }
     }
@@ -326,7 +327,7 @@ async function routeConsult(ctx) {
         await chrome.tabs.update(consultTab.id, { active: true });
         await chrome.windows.update(consultTab.windowId, { focused: true });
       } else {
-        alert('상담등록 적용 실패: ' + (r?.result?.error || 'unknown') +
+        showAlert('상담등록 적용 실패: ' + (r?.result?.error || 'unknown') +
               '\n\n대상 탭: ' + (r?.result?.location || consultTab.url || '(알 수 없음)') +
               '\n\n· 그 탭에서 로그인이 되어 있는지 확인\n· Ctrl+Shift+R 로 새로고침 후 재시도');
       }
@@ -334,7 +335,7 @@ async function routeConsult(ctx) {
       clearTimeout(safetyTimer);
       btn.textContent = '📤 프로그램 적용';
       btn.disabled = false;
-      alert('상담등록 실행 실패: ' + (e.message || e));
+      showAlert('상담등록 실행 실패: ' + (e.message || e));
     }
     return;
 }
@@ -355,7 +356,7 @@ async function routeStandard(ctx) {
       // 🆕 stored 가 로그인/가설계/에디터 페이지면 무시 — 표준분석 receiver 가 없는 화면이라 적용이 안 됨
       const openUrl = (stored && !/(plan|editor|index)\.html/i.test(stored)) ? stored : STD_DEFAULT_URL;
       try { programTab = await chrome.tabs.create({ url: openUrl, active: true }); }
-      catch (e) { clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false; alert('탭 자동 오픈 실패: ' + (e.message || e)); return; }
+      catch (e) { clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false; showAlert('탭 자동 오픈 실패: ' + (e.message || e)); return; }
     } else {
       try {
         await chrome.tabs.update(programTab.id, { active: true, highlighted: true });
@@ -408,7 +409,7 @@ async function routePlan(ctx) {
         });
       } catch (e) {
         clearTimeout(safetyTimer); btn.textContent = '📤 프로그램 적용'; btn.disabled = false;
-        alert('보장분석 프로그램 자동 오픈 실패: ' + (e.message || e));
+        showAlert('보장분석 프로그램 자동 오픈 실패: ' + (e.message || e));
         return;
       }
     }
@@ -424,7 +425,7 @@ async function routePlan(ctx) {
         clearTimeout(safetyTimer);
         btn.textContent = '📤 프로그램 적용';
         btn.disabled = false;
-        alert('⚠️ 추출된 데이터가 비어 있습니다.\n\nmmlfcp 페이지에서 [조회하기] 버튼을 먼저 누르고 보험료가 표시된 상태에서 추출해주세요.');
+        showAlert('⚠️ 추출된 데이터가 비어 있습니다.\n\nmmlfcp 페이지에서 [조회하기] 버튼을 먼저 누르고 보험료가 표시된 상태에서 추출해주세요.');
         return;
       }
       const dataJson = JSON.stringify(extractedData);
@@ -440,20 +441,20 @@ async function routePlan(ctx) {
           btn.textContent = '📤 프로그램 적용';
           btn.disabled = false;
           showToast('✅ 가설계 탭에 적용 완료');
-          setTimeout(() => alert(`✅ 가설계 탭 적용 완료\n\n• 보험사: ${extractedData.companies?.length || 0}개\n• 담보: ${extractedData.coverages?.length || 0}개`), 100);
+          setTimeout(() => showAlert(`✅ 가설계 탭 적용 완료\n\n• 보험사: ${extractedData.companies?.length || 0}개\n• 담보: ${extractedData.coverages?.length || 0}개`), 100);
         } else {
           clearTimeout(safetyTimer);
           btn.textContent = '📤 프로그램 적용';
           btn.disabled = false;
           const tried = (applyResult.frameResults || []).map(r => r?.result?.location || '?').join('\n  · ');
-          alert('가설계 탭 적용 실패\n\n원인: ' + (applyResult.error || '알 수 없음') + '\n\n시도한 프레임:\n  · ' + (tried || '(없음)') + '\n\n해결:\n① 보장분석 프로그램을 한 번 새로고침(Ctrl+Shift+R)\n② 보험사별 비교 → 가설계 탭이 노출된 상태인지 확인');
+          showAlert('가설계 탭 적용 실패\n\n원인: ' + (applyResult.error || '알 수 없음') + '\n\n시도한 프레임:\n  · ' + (tried || '(없음)') + '\n\n해결:\n① 보장분석 프로그램을 한 번 새로고침(Ctrl+Shift+R)\n② 보험사별 비교 → 가설계 탭이 노출된 상태인지 확인');
         }
       } catch (e) {
         clearTimeout(safetyTimer);
         btn.textContent = '📤 프로그램 적용';
         btn.disabled = false;
         console.error('[btnApply/plan] 실행 에러:', e);
-        alert('실행 실패: ' + (e.message || e));
+        showAlert('실행 실패: ' + (e.message || e));
       }
     } else {
       // coverage/customer 데이터인 경우: 가설계 모드 전환만 + 안내
@@ -461,7 +462,7 @@ async function routePlan(ctx) {
       clearTimeout(safetyTimer);
       btn.textContent = '📤 프로그램 적용';
       btn.disabled = false;
-      alert('✅ 가설계 탭으로 전환됨\n\n현재 추출한 데이터(' + extractedData.type + ')는 가설계와 형식이 달라 자동 입력은 안 됩니다.\n보험료 비교 데이터를 추출해서 다시 적용해주세요.');
+      showAlert('✅ 가설계 탭으로 전환됨\n\n현재 추출한 데이터(' + extractedData.type + ')는 가설계와 형식이 달라 자동 입력은 안 됩니다.\n보험료 비교 데이터를 추출해서 다시 적용해주세요.');
     }
     return;
 }
@@ -489,7 +490,7 @@ async function routePremiumPage(ctx) {
           clearTimeout(safetyTimer);
           btn.textContent = '📤 프로그램 적용';
           btn.disabled = false;
-          if (stored) alert('mmlfcp URL 형식이 아닙니다. 취소되었습니다.');
+          if (stored) showAlert('mmlfcp URL 형식이 아닙니다. 취소되었습니다.');
           return true;   // 처리 완료 — 호출부는 여기서 끝낸다
         }
         // 영속 저장 (다음 자동 사용)
@@ -502,7 +503,7 @@ async function routePremiumPage(ctx) {
         clearTimeout(safetyTimer);
         btn.textContent = '📤 프로그램 적용';
         btn.disabled = false;
-        alert('탭 자동 오픈 실패: ' + (e.message || e));
+        showAlert('탭 자동 오픈 실패: ' + (e.message || e));
         return true;   // 처리 완료 — 호출부는 여기서 끝낸다
       }
     }
@@ -581,12 +582,13 @@ async function routePremiumPage(ctx) {
       // 추출 데이터가 coverage 타입이고 상품이 있는데 선택 안 했으면 경고
       const products = _getProductsFromExtractedData();
       if (products.length > 0 && !hasProductData) {
-        const proceed = confirm(
+        const proceed = await showConfirm(
           '⚠️ 추출된 보험상품 중 선택된 게 없습니다.\n\n' +
           '📦 상단의 "보험상품 선택" 에서 상품을 선택하면\n' +
           '   그 상품의 담보+금액이 mmlfcp 에 자동 입력됩니다.\n\n' +
           '선택 없이 진행하면 폼 기본정보만 채워집니다.\n' +
-          '계속할까요?'
+          '계속할까요?',
+          '보험상품 미선택'
         );
         if (!proceed) {
           clearTimeout(safetyTimer);
@@ -599,7 +601,7 @@ async function routePremiumPage(ctx) {
         clearTimeout(safetyTimer);
         btn.textContent = '📤 프로그램 적용';
         btn.disabled = false;
-        alert(
+        showAlert(
           '⚠️ 입력할 값이 하나도 없습니다.\n\n' +
           '· 보험상품 선택: 상단 📦 보험상품 선택에서 클릭\n' +
           '· 고객 정보: CRM 고객 페이지에서 데이터 추출 필요\n' +
@@ -728,7 +730,7 @@ async function routePremiumPage(ctx) {
             Object.entries(unifiedRes.applied).forEach(([k, v]) => lines.push(`  • ${k}: ${v}`));
           }
           showToast('✅ 입력 완료 — 해당 탭으로 자동 전환됨');
-          setTimeout(() => alert(
+          setTimeout(() => showAlert(
             '📋 보험료 비교 페이지에 자동 입력 완료\n\n' +
             (lines.join('\n') || '(채울 값 없음)') +
             '\n\n🔗 입력된 탭:\n' + (unifiedRes.location || activeTab.url || '')
@@ -736,7 +738,7 @@ async function routePremiumPage(ctx) {
         } else {
           const err = unifiedRes?.error || '알 수 없음';
           const isConnErr = /Could not establish connection|Receiving end does not exist/i.test(err);
-          alert(
+          showAlert(
             'mmlfcp 보험료 비교 폼 자동 입력 실패\n\n' +
             '원인: ' + err + '\n\n' +
             (isConnErr ? (
@@ -758,7 +760,7 @@ async function routePremiumPage(ctx) {
         clearTimeout(safetyTimer);
         btn.textContent = '📤 프로그램 적용';
         btn.disabled = false;
-        alert('통합 적용 실패: ' + (e.message || e));
+        showAlert('통합 적용 실패: ' + (e.message || e));
         return true;   // 처리 완료 — 호출부는 여기서 끝낸다
       }
     }
@@ -791,7 +793,7 @@ async function routePremiumCompareToPlan(ctx) {
         clearTimeout(safetyTimer);
         btn.textContent = '📤 프로그램 적용';
         btn.disabled = false;
-        alert('보장분석 프로그램 자동 오픈 실패: ' + (e.message || e));
+        showAlert('보장분석 프로그램 자동 오픈 실패: ' + (e.message || e));
         return;
       }
     }
@@ -815,7 +817,7 @@ async function routePremiumCompareToPlan(ctx) {
       const frameResults = applyResult.frameResults || [];
       const tried = frameResults.map(r => r?.result?.location || '(unknown)').join('\n  · ');
       const errMsg = applyResult.error || frameResults.map(r => r?.result?.error).filter(Boolean).join(' / ') || 'receiver 없음';
-      alert(
+      showAlert(
         '적용 실패: window.__applyPremiumDataFromExtension 함수를 찾지 못했습니다.\n\n' +
         '시도한 프레임:\n  · ' + (tried || '(없음)') + '\n\n' +
         '확인사항:\n' +
@@ -833,7 +835,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
   const btn = document.getElementById('btnApply');
   if (!extractedData) {
     console.warn('[btnApply] extractedData 없음 → 추출 먼저 실행');
-    alert('먼저 "데이터 추출" 버튼을 눌러주세요.');
+    showAlert('먼저 "데이터 추출" 버튼을 눌러주세요.');
     return;
   }
   btn.textContent = '적용 중...';
@@ -844,7 +846,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
     console.warn('[btnApply] 60초 타임아웃 — button 강제 복구');
     btn.textContent = '📤 프로그램 적용';
     btn.disabled = false;
-    alert('적용 시간 초과 (60초).\n\n· 대상 페이지가 응답하지 않습니다\n· 페이지를 새로고침(Ctrl+Shift+R) 후 다시 시도');
+    showAlert('적용 시간 초과 (60초).\n\n· 대상 페이지가 응답하지 않습니다\n· 페이지를 새로고침(Ctrl+Shift+R) 후 다시 시도');
   }, 60000);
 
   try {
@@ -865,7 +867,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
     if (targetMode === 'paintpro') { await _execPaintProRoute(btn, safetyTimer); return; }
     if (targetMode === 'absence')  { await _execAbsenceRoute(btn, safetyTimer); return; }
     // 🛡 호환성 가드 — 데이터 type 과 맞지 않는 전송 대상이면 자동 보정 + 안내
-    const guardedMode = applyCompatGuard(targetMode, extractedData.type);
+    const guardedMode = await applyCompatGuard(targetMode, extractedData.type);
     if (guardedMode === null) {   // 사용자가 대상 변경을 거절 — 아무것도 하지 않고 종료
       btn.textContent = '📤 프로그램 적용';
       btn.disabled = false;
@@ -928,7 +930,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       });
       const lastUrl = stored.lastProgramUrl;
       if (!lastUrl) {
-        alert('대상 프로그램이 열려있지 않습니다.\n\n다음 중 하나를 먼저 브라우저에서 열어주세요:\n• 보장분석 프로그램: https://tossinssu-pro.vercel.app\n• 보험료 비교: https://tossinssu-pro.vercel.app/plan.html');
+        showAlert('대상 프로그램이 열려있지 않습니다.\n\n다음 중 하나를 먼저 브라우저에서 열어주세요:\n• 보장분석 프로그램: https://tossinssu-pro.vercel.app\n• 보험료 비교: https://tossinssu-pro.vercel.app/plan.html');
         return;
       }
       console.log('[btnApply] 프로그램 탭 없음 — 마지막 URL 로 자동 오픈:', lastUrl);
@@ -936,7 +938,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       try {
         newTab = await chrome.tabs.create({ url: lastUrl, active: true });
       } catch (e) {
-        alert('탭 자동 오픈 실패: ' + (e.message || e) + '\n\n· file:// URL 권한이 필요합니다.\n· chrome://extensions → 토스인슈 CRM 데이터 추출기 → "파일 URL 액세스 허용" ON');
+        showAlert('탭 자동 오픈 실패: ' + (e.message || e) + '\n\n· file:// URL 권한이 필요합니다.\n· chrome://extensions → 토스인슈 CRM 데이터 추출기 → "파일 URL 액세스 허용" ON');
         return;
       }
       // 페이지가 로드되어 window.__applyTossDataFromExtension 이 정의될 때까지 폴링 (최대 15초)
@@ -956,7 +958,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
         }, 400);
       });
       if (!isReady) {
-        alert('새 탭이 열렸으나 페이지가 응답하지 않습니다.\n\n· 파일 경로가 유효한지 확인\n· 페이지가 완전히 로드된 뒤 다시 적용을 시도해주세요');
+        showAlert('새 탭이 열렸으나 페이지가 응답하지 않습니다.\n\n· 파일 경로가 유효한지 확인\n· 페이지가 완전히 로드된 뒤 다시 적용을 시도해주세요');
         return;
       }
       programTabs = [newTab];
@@ -988,7 +990,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
     } catch (e) {
       // file:// 권한 부족 시
       if (e.message.includes('Cannot access') || e.message.includes('file URLs')) {
-        alert('❌ file:// URL 접근 권한이 필요합니다.\n\n1. chrome://extensions 열기\n2. 토스인슈 CRM 데이터 추출기의 "상세" 클릭\n3. "파일 URL에 대한 액세스 허용" 토글 활성화\n4. 확장프로그램 reload 후 다시 시도');
+        showAlert('❌ file:// URL 접근 권한이 필요합니다.\n\n1. chrome://extensions 열기\n2. 토스인슈 CRM 데이터 추출기의 "상세" 클릭\n3. "파일 URL에 대한 액세스 허용" 토글 활성화\n4. 확장프로그램 reload 후 다시 시도');
         return;
       }
       throw e;
@@ -1010,11 +1012,11 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       await copyToClipboard(textData, '클립보드에 복사됨 — 프로그램에서 Ctrl+V 하세요');
       await chrome.tabs.update(programTab.id, { active: true });
       const reason = result?.error || 'unknown';
-      alert(`자동 적용 실패: ${reason}\n\n프로그램이 최신 버전인지 확인하고 새로고침 후 다시 시도하세요.\n클립보드에 복사되어 있으니 Ctrl+V로 붙여넣을 수도 있습니다.`);
+      showAlert(`자동 적용 실패: ${reason}\n\n프로그램이 최신 버전인지 확인하고 새로고침 후 다시 시도하세요.\n클립보드에 복사되어 있으니 Ctrl+V로 붙여넣을 수도 있습니다.`);
     }
   } catch (e) {
     console.error('[btnApply] Apply error:', e);
-    alert('적용 실패: ' + (e.message || 'unknown'));
+    showAlert('적용 실패: ' + (e.message || 'unknown'));
   } finally {
     clearTimeout(safetyTimer);   // safety timer 정리
     btn.textContent = '📤 프로그램 적용';
