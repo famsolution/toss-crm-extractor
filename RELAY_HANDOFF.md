@@ -1,4 +1,4 @@
-RELAY-STATUS: CONTINUE
+RELAY-STATUS: DONE
 
 # 목표
 리팩터링 끝까지 해줘
@@ -16,7 +16,7 @@ RELAY-STATUS: CONTINUE
 3. ✅ 거대 함수 분해 — 남은 최대 함수는 `applyToPremiumFormUnified` 333줄
 4. ✅ popup.html 인라인 CSS(9~508줄) → `popup.css` 추출 (커밋 74b92f6)
 5. ✅ `alert`/`confirm` 제거 → showToast/showNotice + 커스텀 확인 다이얼로그 (총 54곳)
-6. ⬜ manifest version 올리고 마무리
+6. ✅ manifest version 올리고 마무리
 
 # 지금까지 한 것
 - **커밋 `be231f8`** — popup.js 를 7개로 순차 분할 (products/config/boot/xlsx/actions/apply/render).
@@ -52,8 +52,35 @@ RELAY-STATUS: CONTINUE
   `tools/verify.js` 의 alert/confirm 검사를 **경고 → 오류**로 승격 —
   이제 남아 있으면 릴리스 빌드가 실패한다. **현재 0곳.**
 
-# 바로 다음에 할 일
-계획 6번 — `manifest.json` version 올리고 README/문서 정리 후 마무리.
+- **커밋 `c39409b`** — `manifest.json` 3.22.6 → **3.23.0**.
+  `CLAUDE.md` 구조표 갱신(`content.js`/`popup.js` 는 이제 없다),
+  주입 목록이 manifest 와 `popup/boot.js` 두 곳에 있다는 점,
+  변경 후 `node tools/verify.js` 를 돌려야 한다는 점을 명시.
+- **커밋 `f3098ca`** — `prompt()` 2곳도 제거. `showPrompt(msg, title, value)`
+  → `Promise<string|null>`. 템플릿 이름 입력(boot.js) / mmlfcp URL 입력(apply.js).
+  DOM 이 없을 때의 폴백을 '취소'로 — 동의 없이 진행하지 않는다.
+  verify 의 금지 API 검사에 `prompt` 추가.
+
+# 결과
+
+목표(리팩터링)가 계획 1~6 전부 끝났다.
+
+| 항목 | 전 | 후 |
+| --- | --- | --- |
+| `popup.js` | 3,521줄 단일 | `popup/*.js` 8개 (최대 1,027줄) |
+| `content.js` | 3,231줄 단일 | `content/*.js` 10개 (최대 879줄) |
+| `popup.html` | 743줄 (CSS 498줄 인라인) | 253줄 + `popup.css` |
+| 비대화 다이얼로그 | `alert`/`confirm`/`prompt` 56곳 | **0곳** (verify 가 오류로 잡음) |
+| 검증 | 없음 | `tools/verify.js` + 릴리스 워크플로에서 실행 |
+| 버전 | 3.22.6 | 3.23.0 |
+
+남은 개선 여지(필수 아님, 다음 사람을 위한 메모):
+- `popup/apply.js` 1,027줄 · `content/premium-apply.js` 879줄 — 더 쪼개질 수 있다.
+- `pageAlert`/`pageConfirm` 은 `content/paint-pro.js` IIFE 안에만 있다.
+  다른 content 모듈에서도 필요해지면 `content/dialog.js` 로 띄우고
+  manifest 와 `CONTENT_SCRIPT_FILES` 에 둘 다 등록해야 한다.
+- 브라우저 실젝 검증은 이 세션에서 불가능했다. 모달/입력창은 새 UI 이므로
+  확장을 한 번 로드해 동작을 눈으로 확인하는 것을 권한다.
 
 # 검증 방법 (테스트가 없으므로)
 - **`node tools/verify.js`** — 매 변경 후 반드시 실행 (문법 + 참조 정합성 + 주입목록 일치)
