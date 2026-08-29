@@ -233,12 +233,25 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<!-- 💬 alert/confirm 대체 모달 (popup/dialog.js) -->
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <p class="modal-title" id="modalTitle"></p>
+    <p class="modal-body" id="modalBody"></p>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="modalCancel" hidden>취소</button>
+      <button class="btn-primary" id="modalOk">확인</button>
+    </div>
+  </div>
+</div>
+
 <!-- 🔐 Firebase (로컬 SDK — MV3 원격 스크립트 금지) → 초기화 → 게이트 → 본체 순서 -->
 <script src="vendor/firebase-app-compat.js"></script>
 <script src="vendor/firebase-auth-compat.js"></script>
 <script src="vendor/firebase-firestore-compat.js"></script>
 <script src="firebase-init.js"></script>
 <script src="ext-auth-gate.js"></script>
+<script src="popup/dialog.js"></script>
 <script src="popup/products.js"></script>
 <script src="popup/config.js"></script>
 <script src="popup/boot.js"></script>
