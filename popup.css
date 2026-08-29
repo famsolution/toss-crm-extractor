@@ -545,3 +545,16 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 }
 .modal-actions button { width: auto; min-width: 64px; padding: 7px 14px; }
 .modal-actions button[hidden] { display: none; }
+
+.modal-input {
+  width: 100%;
+  box-sizing: border-box;
+  margin: -6px 0 14px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-2);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-1);
+}
+.modal-input[hidden] { display: none; }
+.modal-input:focus { outline: none; border-color: var(--primary); }

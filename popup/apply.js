@@ -480,10 +480,11 @@ async function routePremiumPage(ctx) {
       });
       // 저장된 URL 이 없으면 사용자에게 입력 받기
       if (!stored) {
-        stored = prompt(
+        stored = await showPrompt(
           '🌐 mmlfcp 보험료 비교 페이지가 열려있지 않습니다.\n\n' +
           '페이지 URL 을 붙여넣으세요 (token 포함):\n' +
           '예: https://mmlfcp.ohmymanager.com/index.html?token=...&path=lifefire&device=WEB',
+          'mmlfcp 페이지 URL',
           ''
         );
         if (!stored || !isPremiumComparePageUrl(stored)) {

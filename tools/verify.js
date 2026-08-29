@@ -7,7 +7,7 @@
 //   2) manifest.json 이 가리키는 파일이 실제로 존재하는지
 //   3) popup.html 의 <script src> 가 실제로 존재하는지
 //   4) popup/boot.js 의 CONTENT_SCRIPT_FILES 가 manifest content_scripts 와 같은지
-//   5) 확장 코드에 alert/confirm 이 남아있는지 (CLAUDE.md 금지)
+//   5) 확장 코드에 alert/confirm/prompt 가 남아있는지 (CLAUDE.md 금지)
 
 const fs = require('fs');
 const path = require('path');
@@ -83,11 +83,11 @@ if (!listMatch) {
   }
 }
 
-// 5) alert / confirm (CLAUDE.md 금지)
+// 5) alert / confirm / prompt — 블로킹 네이티브 다이얼로그 (CLAUDE.md 금지)
 for (const f of jsFiles) {
   const src = fs.readFileSync(f, 'utf8');
-  const n = (src.match(/(?<![\w.])(?:alert|confirm)\s*\(/g) || []).length;
-  if (n) errors.push(`${rel(f)}: alert/confirm ${n}곳 — popup 은 showAlert/showConfirm, content 는 pageAlert/pageConfirm 을 쓰세요`);
+  const n = (src.match(/(?<![\w.])(?:alert|confirm|prompt)\s*\(/g) || []).length;
+  if (n) errors.push(`${rel(f)}: alert/confirm/prompt ${n}곳 — popup 은 showAlert/showConfirm/showPrompt, content 는 pageAlert/pageConfirm 을 쓰세요`);
 }
 
 for (const w of warnings) console.log('⚠️  ' + w);

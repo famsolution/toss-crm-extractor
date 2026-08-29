@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await refreshTemplateDropdown();
   // 템플릿 저장
   document.getElementById('cfgSaveTpl')?.addEventListener('click', async () => {
-    const name = prompt('템플릿 이름을 입력하세요:', '');
+    const name = await showPrompt('템플릿 이름을 입력하세요:', '템플릿 저장', '');
     if (!name || !name.trim()) return;
     await saveTemplate(name.trim(), getCfgFromUI());
     await refreshTemplateDropdown();
