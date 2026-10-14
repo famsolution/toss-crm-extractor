@@ -9,3 +9,6 @@ Thumbs.db
 *.bak-*
 *.backup-*
 *.orig
+
+# 테스트베드가 만드는 확장 사본
+tools/testbed/.out/

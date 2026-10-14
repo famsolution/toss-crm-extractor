@@ -1,0 +1,81 @@
+<!doctype html><meta charset="utf-8">
+<title>[픽스처] 보험료 비교</title>
+<style>
+ body{font:13px/1.7 "Malgun Gothic",sans-serif;padding:24px;background:#f8fafc}
+ .row{margin:7px 0} label{display:inline-block;width:110px;color:#475569}
+ input,select{padding:5px 8px;border:1px solid #cbd5e1;border-radius:5px}
+ #btn_search{padding:7px 18px;background:#2563eb;color:#fff;border:0;border-radius:6px;cursor:pointer;font-weight:700}
+ table{border-collapse:collapse;margin-top:18px;background:#fff}
+ th,td{border:1px solid #cbd5e1;padding:6px 10px}
+ .note{background:#fff7ed;border:1px solid #fed7aa;padding:10px 14px;border-radius:8px;margin-bottom:18px}
+ #log{margin-top:18px;background:#0f172a;color:#bbf7d0;padding:12px;border-radius:8px;font:11px/1.6 monospace;max-height:230px;overflow:auto;white-space:pre-wrap}
+</style>
+<div class="note">⚠️ 테스트 픽스처 — 실제 mmlfcp 가 아닙니다. 생손보 전환 시 상품유형을 비동기로 리셋하는 <b>실제 버그 상황</b>을 재현합니다.</div>
+
+<div class="row"><label>고객명</label><input id="cust_name"></div>
+<div class="row"><label>생년월일</label><input id="birth_date"></div>
+<div class="row"><label>성별</label><select id="gender"><option value="">선택</option><option value="M">남성</option><option value="F">여성</option></select></div>
+<div class="row"><label>생손보 유형</label><select id="selInsuranceType"><option value="F">손해보험</option><option value="LF">생손보</option></select></div>
+<div class="row"><label>상품 유형</label><select id="selProductsGroupCD"></select></div>
+<div class="row"><label>만기</label><select id="selPaymentExpirationCD"></select></div>
+<div class="row"><button id="btn_search">조회하기</button> <span id="searchMsg"></span></div>
+
+<table id="covTable">
+  <tr><th>선택</th><th>담보명</th><th>가입금액(만원)</th><th>키보드입력 감지</th></tr>
+</table>
+<div id="log"></div>
+
+<script>
+const LOG = (m)=>{const l=document.getElementById('log');l.textContent += m+'\n';l.scrollTop=l.scrollHeight;};
+
+// ── 코드 체계가 손보(F)/생손보(LF) 로 완전히 다름 — 실제와 동일 ──
+const PRODUCTS = {
+  F:  [['06','종합무해지'],['15','간편3.3.5'],['23','실손의료비'],['28','운전자']],
+  LF: [['01','건강무해지'],['02','종신'],['03','CI건강']]
+};
+const MATURITY = {
+  F:  [['01','20년납 100세만기'],['03','20년납 80세만기'],['04','20년납 90세만기'],['02','갱신형']],
+  LF: [['06','20년납 100세만기,종신'],['07','30년납 100세만기']]
+};
+function fill(sel, list){ sel.innerHTML=''; list.forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;sel.appendChild(o);}); }
+const insSel=document.getElementById('selInsuranceType');
+const prodSel=document.getElementById('selProductsGroupCD');
+const matSel=document.getElementById('selPaymentExpirationCD');
+fill(prodSel,PRODUCTS.F); fill(matSel,MATURITY.F);
+
+// 🐞 재현: 생손보 변경 → 300ms 뒤 상품유형/만기 옵션을 비동기로 갈아끼우고 첫 옵션으로 리셋
+insSel.addEventListener('change',()=>{
+  const k=insSel.value; LOG('[페이지] 생손보 변경='+k+' → 300ms 뒤 상품/만기 리셋 예정');
+  setTimeout(()=>{ fill(prodSel,PRODUCTS[k]); fill(matSel,MATURITY[k]); prodSel.selectedIndex=0; matSel.selectedIndex=0;
+    LOG('[페이지] ↻ 상품/만기 옵션 재생성 + 첫 옵션으로 리셋'); },300);
+});
+prodSel.addEventListener('change',()=>LOG('[페이지] 상품유형 선택='+prodSel.value+' ('+prodSel.selectedOptions[0].textContent+')'));
+matSel.addEventListener('change',()=>LOG('[페이지] 만기 선택='+matSel.value+' ('+matSel.selectedOptions[0].textContent+')'));
+document.getElementById('btn_search').addEventListener('click',()=>{
+  document.getElementById('searchMsg').textContent='✅ 조회 실행됨 '+new Date().toLocaleTimeString();
+  LOG('[페이지] 🔎 조회하기 클릭됨');
+});
+
+// ── 담보 행 ── (실제 폼과 같은 속성: coverage_name + data-cd, 금액칸 id=input_<cd>)
+const COVS=[['C001','일반암진단비'],['C002','뇌혈관질환진단비'],['C003','허혈성심장질환진단비'],
+            ['C004','질병후유장해80%이상'],['C005','상해사망'],['C006','수술비(1~5종)']];
+const t=document.getElementById('covTable');
+COVS.forEach(([cd,name])=>{
+  const tr=t.insertRow();
+  tr.innerHTML='<td><input type="checkbox" data-cd="'+cd+'" coverage_name="'+name+'" id="chk_'+cd+'"></td>'+
+               '<td>'+name+'</td><td><input type="text" id="input_'+cd+'" data-cd="'+cd+'" value=""></td>'+
+               '<td id="kb_'+cd+'" style="color:#94a3b8">-</td>';
+  const cb=tr.querySelector('input[type=checkbox]');
+  cb.addEventListener('change',()=>LOG('[페이지] 담보 '+(cb.checked?'체크':'해제')+': '+name));
+  // 실제 mmlfcp 처럼 '키 입력' 이 있어야만 내부 state 갱신으로 간주
+  const amt=tr.querySelector('#input_'+cd); let sawKey=false;
+  amt.addEventListener('keydown',()=>{sawKey=true;});
+  amt.addEventListener('change',()=>{
+    document.getElementById('kb_'+cd).innerHTML = sawKey
+      ? '<b style="color:#15803d">✅ 키입력 감지 → 내부반영</b>'
+      : '<b style="color:#dc2626">❌ 값만 바뀜(미반영)</b>';
+    LOG('[페이지] 금액 '+name+'='+amt.value+' / 키입력감지='+sawKey);
+  });
+});
+LOG('[페이지] 픽스처 준비 완료');
+</script>
