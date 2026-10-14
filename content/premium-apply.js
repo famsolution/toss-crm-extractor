@@ -121,7 +121,11 @@ async function applyToPremiumFormUnified(payload) {
     }
     // ── 생년월일 — 다양한 키 시도 ──
     const birthEl = document.getElementById('birth_date');
-    let birthRaw = cust['생년월일'] || cust['birthDate'] || cust['birth'] || cust['주민번호'] || '';
+    // 🐛 FIX: 추출기가 만드는 키는 '주민등록번호'(content/customer.js) 인데 여기서는
+    //   '주민번호' 만 보고 있었다 → CRM 에 생년월일이 따로 없으면 생년월일·성별이
+    //   영영 안 채워졌다. 두 표기를 모두 받는다.
+    const _ssnRaw = cust['주민등록번호'] || cust['주민번호'] || '';
+    let birthRaw = cust['생년월일'] || cust['birthDate'] || cust['birth'] || _ssnRaw || '';
     // 주민번호에서 생년월일 추출 — 앞 6자리
     if (birthRaw && birthRaw.length >= 6 && /^\d/.test(birthRaw)) {
       const justDigits = String(birthRaw).replace(/[^\d]/g, '');
@@ -153,8 +157,8 @@ async function applyToPremiumFormUnified(payload) {
     const genderEl = document.getElementById('gender');
     let gender = cust['성별'] || cust['gender'] || '';
     // 주민번호에서 성별 추출 (7번째 자리)
-    if (!gender && cust['주민번호']) {
-      const ssn = String(cust['주민번호']).replace(/[^\d]/g, '');
+    if (!gender && _ssnRaw) {
+      const ssn = String(_ssnRaw).replace(/[^\d]/g, '');
       if (ssn.length >= 7) {
         const code = ssn[6];
         if (['1','3','5','7'].includes(code)) gender = '남성';
