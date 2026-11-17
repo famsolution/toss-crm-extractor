@@ -5,7 +5,7 @@
 //   → 클립보드를 "다시 읽지" 않으므로 document 포커스가 필요 없다(팝업 실행 OK).
 // ──────────────────────────────────────────────────────────────────────────
 (function () {
-  if (window.__tossClipPatched) return;
+  const _clipAlready = !!window.__tossClipPatched;
   window.__tossClipPatched = true;
 
   function emit(blob) {
@@ -19,7 +19,7 @@
   }
 
   // 1) navigator.clipboard.write 가로채기 (이미지 복사의 표준 경로)
-  try {
+  if (!_clipAlready) try {
     const cb = navigator.clipboard;
     if (cb && typeof cb.write === 'function') {
       const orig = cb.write.bind(cb);
@@ -39,7 +39,7 @@
   } catch (e) {}
 
   // 2) ClipboardItem 생성 가로채기 (write 전에 blob 을 미리 확보 — 더 이른 시점)
-  try {
+  if (!_clipAlready) try {
     if (typeof window.ClipboardItem === 'function') {
       const OrigCI = window.ClipboardItem;
       const Patched = function (data) {

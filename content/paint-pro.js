@@ -7,6 +7,8 @@
   // 재주입되면 setInterval 이 겹쳐 돌고 버튼이 두 번 붙으므로 한 번만 실행한다.
   if (window.__tossCrmPaintProBound) return;
   window.__tossCrmPaintProBound = true;
+  // 이 스크립트 인스턴스 표식 — 확장 새로고침 후 남은 옛 앵커를 구분하는 데 쓴다
+  const _OWNER = (chrome.runtime.getManifest().version || '') + ':' + Math.random().toString(36).slice(2);
 
   const EDITOR_URL = 'https://tossinssu-pro.vercel.app/editor.html';
   const STORAGE_KEY = '__paintProImg_v1';
@@ -232,6 +234,21 @@
   function pageAlert(message, title)   { return _pageDialog(message, title, false); }
   function pageConfirm(message, title) { return _pageDialog(message, title, true); }
 
+  // 🆕 탭 배율을 100% 로 (background 가 chrome.tabs.setZoom 수행). 이전 배율을 돌려준다. 실패하면 0.
+  function _setTabZoom100() {
+    return new Promise(function (res) {
+      try {
+        chrome.runtime.sendMessage({ action: 'paintProZoom', op: 'set100' }, function (r) {
+          void chrome.runtime.lastError; res((r && r.ok && r.prev) || 0);
+        });
+      } catch (e) { res(0); }
+    });
+  }
+  function _restoreTabZoom(prev) {
+    if (!prev || Math.abs(prev - 1) < 0.001) return;
+    try { chrome.runtime.sendMessage({ action: 'paintProZoom', op: 'restore', zoom: prev }, function () { void chrome.runtime.lastError; }); } catch (e) {}
+  }
+
   async function sendToPaintPro(fab) {
     const old = fab.textContent;
     fab.textContent = '⏳ 이미지 준비 중…'; fab.disabled = true;
@@ -244,20 +261,37 @@
       }
       if (!btn) { pageAlert('표 탭 또는 "이미지 복사" 버튼을 찾지 못했습니다.\n토스 보장분석 페이지에서 사용해 주세요.'); return; }
 
+      // 2) 🆕 브라우저 확대/축소를 100% 로 맞춘 뒤 캡처한다 (근본 원인 수정, 2026-11).
+      //    토스 '이미지 복사'는 화면 배치를 재서 글자를 다시 그리는데, 탭 배율이 100% 가 아니면
+      //    배치는 줄어든 크기로 재고 글자는 원래 크기로 그려 글자가 커지고 겹치고 잘린다.
+      //    (예전에 이미지가 약 99% 크기로 들어오던 것도 같은 원인.) 캡처가 끝나면 원래 배율로 되돌린다.
+      let dataURL = null;
+      const zoomBefore = await _setTabZoom100();
+      if (zoomBefore && Math.abs(zoomBefore - 1) > 0.001) {
+        await sleep(400);
+        try { await document.fonts.ready; } catch (e) {}
+        await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
+      }
+      try {
+
       // 2) 가로채기 리셋 후 토스 '이미지 복사' 클릭 → 토스가 clipboard.write 하는 순간
       //    가로채기 스크립트가 dataURL 을 postMessage 로 보내준다(포커스 불필요).
-      _capturedImageURL = null;
-      const clickedAt = Date.now();
-      btn.click();
+      if (!dataURL) {
+        _capturedImageURL = null;
+        const clickedAt = Date.now();
+        btn.click();
 
-      // 3) 가로챈 이미지를 우선 대기(최대 ~3.5초). 실패 시 클립보드 읽기로 폴백.
-      let dataURL = null;
-      for (let i = 0; i < 20 && !dataURL; i++) {
-        await sleep(180);
-        if (_capturedImageURL && _capturedAt >= clickedAt) { dataURL = _capturedImageURL; break; }
+        // 3) 가로챈 이미지를 우선 대기(최대 ~3.5초). 실패 시 클립보드 읽기로 폴백.
+        for (let i = 0; i < 20 && !dataURL; i++) {
+          await sleep(180);
+          if (_capturedImageURL && _capturedAt >= clickedAt) { dataURL = _capturedImageURL; break; }
+        }
+        if (!dataURL) {   // 폴백: 클립보드 직접 읽기(포커스 있을 때만 성공)
+          for (let i = 0; i < 8 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
+        }
       }
-      if (!dataURL) {   // 폴백: 클립보드 직접 읽기(포커스 있을 때만 성공)
-        for (let i = 0; i < 8 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
+      } finally {
+        if (zoomBefore) _restoreTabZoom(zoomBefore);
       }
       if (!dataURL) {
         pageAlert('이미지를 읽지 못했습니다.\n\n· 토스 "이미지 복사" 버튼이 정상 동작하는지 확인해 주세요.\n· 확장 새로고침 후 다시 시도해 보세요.' +
@@ -557,9 +591,14 @@
     }
     // 🆕 페인트 프로·부재고객[경고] 모두 확장 팝업으로 이동.
     //   __paintpro_send 는 팝업의 '🎨 페인트 프로' 버튼이 scripting으로 click() 하는 앵커 — 화면엔 안 보이게 숨김.
+    //   🆕 확장을 새로고침하면 옛 버전 스크립트가 만든 앵커가 페이지에 남는다. 그 앵커를 누르면
+    //      죽은 옛 코드가 돌아 아무 일도 안 일어나므로, 이 스크립트가 만든 앵커가 아니면 갈아끼운다.
+    const _old = document.getElementById('__paintpro_send');
+    if (_old && _old.dataset.owner !== _OWNER) _old.remove();
     if (!document.getElementById('__paintpro_send')) {
       const _anchor = document.createElement('button');
       _anchor.id = '__paintpro_send';
+      _anchor.dataset.owner = _OWNER;
       _anchor.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;overflow:hidden;pointer-events:none;';
       _anchor.onclick = function () { sendToPaintPro(_anchor); };
       document.body.appendChild(_anchor);

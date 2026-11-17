@@ -72,3 +72,24 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
     .catch(e => sendResponse({ ok: false, error: String(e && e.message || e) }));
   return true;
 });
+
+// 🆕 페인트프로 전송용 — 토스 '이미지 복사'는 탭 배율이 100% 가 아니면 글자가 겹친 이미지를 만든다.
+//   content/paint-pro.js 가 캡처 직전 100% 로 맞추고(op:set100), 끝나면 원래 배율로 되돌린다(op:restore).
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+  if (!req || req.action !== 'paintProZoom') return;
+  const tabId = sender && sender.tab && sender.tab.id;
+  if (tabId == null) { sendResponse({ ok: false }); return; }
+  (async () => {
+    if (req.op === 'set100') {
+      const prev = await chrome.tabs.getZoom(tabId);
+      if (Math.abs(prev - 1) > 0.001) await chrome.tabs.setZoom(tabId, 1);
+      return { ok: true, prev };
+    }
+    if (req.op === 'restore' && req.zoom > 0) {
+      await chrome.tabs.setZoom(tabId, req.zoom);
+      return { ok: true };
+    }
+    return { ok: false };
+  })().then(sendResponse).catch(e => sendResponse({ ok: false, error: String(e && e.message || e) }));
+  return true;
+});
