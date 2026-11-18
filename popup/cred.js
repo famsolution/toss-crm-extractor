@@ -3,29 +3,8 @@
 //   · 지금 열린 탭이 보험사 사이트면 그 보험사의 ID/비번을 맨 위에 보여준다 (탭도 자동 전환)
 //   · 전체 목록 확인 · 검색 · 등록 · 수정 · 삭제
 //   필드는 워크스페이스 비번 탭과 같은 이름(구분/보험사/ID/비밀번호/생년월일/년월일/순서/비고)을 쓴다.
-//   ⚠️ 서버(Firestore)로 보내지 않고, 웹페이지에 주입하지도 않는다.
+//   ⚠️ 서버(Firestore)로 보내지 않는다. 보험사 목록·주소 판별은 insurer-sites.js.
 // ═══════════════════════════════════════════════════════════════════
-
-// 보험사 GA/설계사 포털 — CRM js/jmin.js 의 INSURER_SITES 와 같은 목록 (바뀌면 둘 다 고칠 것)
-const CRED_INSURER_SITES = {
-  '삼성화재':'https://erp.samsungfire.com','현대해상':'https://sp.hi.co.kr',
-  'DB손해보험':'https://www.mdbins.com','DB손보':'https://www.mdbins.com',
-  '메리츠화재':'https://nsso.meritzfire.com','메리츠':'https://nsso.meritzfire.com',
-  'KB손해보험':'http://sales.kbinsure.co.kr','KB손보':'http://sales.kbinsure.co.kr',
-  '한화손해보험':'http://portal.hwgeneralins.com','한화손보':'http://portal.hwgeneralins.com',
-  '흥국화재':'https://sales.heungkukfire.co.kr','롯데손해보험':'https://lottero.lotteins.co.kr','롯데손보':'https://lottero.lotteins.co.kr',
-  'NH농협손해보험':'https://ss.nhfire.co.kr','농협손해보험':'https://ss.nhfire.co.kr','NH손보':'https://ss.nhfire.co.kr',
-  'MG손해보험':'https://mganet.mggeneralins.com','MG손보':'https://mganet.mggeneralins.com',
-  '신한EZ손해보험':'https://ga.shinhanez.co.kr','신한EZ':'https://ga.shinhanez.co.kr',
-  'AIG손해보험':'https://ga.aig.co.kr','AIG':'https://ga.aig.co.kr','하나손해보험':'https://sfa.saleshana.com',
-  '삼성생명':'https://ga.samsunglife.com','한화생명':'https://hmp.hanwhalife.com','교보생명':'https://ga.kyobo.com',
-  '신한라이프':'https://ga.shinhanlife.co.kr','라이나생명':'https://ga.lina.co.kr','ABL생명':'https://ga.abllife.co.kr',
-  '하나생명':'https://ga.hanalife.co.kr','메트라이프':'https://brand.metlife.co.kr','메트라이프생명':'https://brand.metlife.co.kr',
-  'KB라이프':'https://sfa.kblife.co.kr','KB라이프생명':'https://sfa.kblife.co.kr','NH농협생명':'https://sfa.nhlife.co.kr','농협생명':'https://sfa.nhlife.co.kr',
-  '흥국생명':'https://sales.heungkuklife.co.kr','푸본현대생명':'https://ez.fubonhyundai.com',
-  'DB생명':'http://etopia.dongbulife.com','동부생명':'http://etopia.dongbulife.com',
-  'KDB생명':'http://kss.kdblife.co.kr','카디프생명':'http://ga.cardif.co.kr','IM라이프':'https://fgs.imlifeins.co.kr','IM라이프생명':'https://fgs.imlifeins.co.kr'
-};
 
 let _credList = [];          // [{doc_id, 구분, 보험사, ID, 비밀번호, ...}]
 let _credFilter = 'all';     // all | loss | life
@@ -36,35 +15,6 @@ const _credShown = new Set();   // 비번을 펼쳐 보인 doc_id
 
 function _credEsc(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-function _credNorm(s) { return String(s || '').replace(/\s/g, '').toLowerCase(); }
-
-// sales.meritzfire.com · nsso.meritzfire.com → meritzfire.com / ga.hi.co.kr → hi.co.kr
-function _credBaseDomain(host) {
-  const p = String(host || '').toLowerCase().replace(/^www\./, '').split('.');
-  const n = /^(co|or|go|ac|ne|re)$/.test(p[p.length - 2] || '') ? 3 : 2;
-  return p.slice(-n).join('.');
-}
-
-// 탭 주소 → 해당 보험사 이름 목록
-function _credInsurersForUrl(url) {
-  let host = '';
-  try { host = new URL(url).hostname; } catch (e) { return []; }
-  if (!host) return [];
-  const base = _credBaseDomain(host);
-  const out = [];
-  Object.keys(CRED_INSURER_SITES).forEach(name => {
-    let h = '';
-    try { h = new URL(CRED_INSURER_SITES[name]).hostname; } catch (e) { return; }
-    if (h === host || _credBaseDomain(h) === base) out.push(name);
-  });
-  return out;
-}
-
-function _credMatchesNames(c, names) {
-  const k = _credNorm(c['보험사']);
-  if (!k) return false;
-  return names.some(n => { const nn = _credNorm(n); return nn === k || nn.includes(k) || k.includes(nn); });
 }
 
 function _credNewId() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
@@ -247,6 +197,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     _credSiteNames = _credInsurersForUrl(tab && tab.url);
   } catch (e) { _credSiteNames = []; }
   if (_credSiteNames.length) _credSwitchToTab();
-  document.addEventListener('vault-unlocked', credLoad);
+  // 🔑 사이트 자동 표시 설정 (insurer-card.js) — 비밀이 아니라 그냥 저장
+  const auto = document.getElementById('credAutoChk');
+  if (auto) {
+    chrome.storage.local.get('credCardAuto', st => { auto.checked = st.credCardAuto !== false; });
+    auto.addEventListener('change', () => chrome.storage.local.set({ credCardAuto: auto.checked }));
+  }
+  // 금고를 풀면 지금 보고 있는 보험사 탭에 계정 카드를 바로 다시 띄운다
+  document.addEventListener('vault-unlocked', async () => {
+    credLoad();
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && _credInsurersForUrl(tab.url).length) chrome.tabs.sendMessage(tab.id, { action: 'credCardRetry' }, () => { void chrome.runtime.lastError; });
+    } catch (e) {}
+  });
   if (vaultIsUnlocked()) credLoad();
 });

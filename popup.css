@@ -626,3 +626,4 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .cu-row-foot { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
 .cu-hbadge { background: #FEF3C7; color: #92400E; }
 .cu-act { position: sticky; bottom: 0; background: var(--bg); padding: 8px 0 2px; }
+.cred-auto { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-2); margin-top: 6px; cursor: pointer; }

@@ -58,7 +58,10 @@ function vaultIsUnlocked() { return !!_vaultKey; }
 
 async function _vRememberSession() {
   try {
-    const raw = await crypto.subtle.exportKey('raw', _vaultKey);
+    const key = _vaultKey;
+    if (!key) return;
+    const raw = await crypto.subtle.exportKey('raw', key);
+    if (_vaultKey !== key) return;   // 그 사이 잠겼으면 세션 키를 되살리지 않는다
     await _vStoreSet('session', { [VAULT_SESSION_KEY]: { k: _vb64.enc(raw), exp: Date.now() + VAULT_IDLE_MS } });
   } catch (e) { /* session 저장소가 없으면 팝업을 열 때마다 PIN 을 묻는다 */ }
 }
@@ -114,7 +117,7 @@ async function vaultGet(name) {
 async function vaultPut(name, arr) {
   if (!_vaultKey) throw new Error('잠겨 있습니다');
   await _vStoreSet('local', { ['vault_' + name]: await _vEncrypt(_vaultKey, JSON.stringify(arr || [])) });
-  _vRememberSession();
+  await _vRememberSession();
 }
 
 // PIN 변경 — 모든 항목을 새 키로 다시 암호화

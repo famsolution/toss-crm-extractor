@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "토스인슈 CRM 데이터 추출기",
-  "version": "3.26.0",
+  "version": "3.27.0",
   "description": "토스인슈 CRM 데이터 추출 — 마스킹 자동 복원 + 로그인/관리자 승인 권한 게이트.",
   "permissions": [
     "activeTab",
@@ -95,6 +95,42 @@
       ],
       "run_at": "document_idle",
       "all_frames": true
+    },
+    {
+      "_comment": "보험사 사이트에 들어가면 PC 금고의 해당 계정을 40초 표시 — 도메인 목록은 insurer-sites.js 와 같게 유지",
+      "matches": [
+        "*://*.abllife.co.kr/*",
+        "*://*.aig.co.kr/*",
+        "*://*.cardif.co.kr/*",
+        "*://*.dongbulife.com/*",
+        "*://*.fubonhyundai.com/*",
+        "*://*.hanalife.co.kr/*",
+        "*://*.hanwhalife.com/*",
+        "*://*.heungkukfire.co.kr/*",
+        "*://*.heungkuklife.co.kr/*",
+        "*://*.hi.co.kr/*",
+        "*://*.hwgeneralins.com/*",
+        "*://*.imlifeins.co.kr/*",
+        "*://*.kbinsure.co.kr/*",
+        "*://*.kblife.co.kr/*",
+        "*://*.kdblife.co.kr/*",
+        "*://*.kyobo.com/*",
+        "*://*.lina.co.kr/*",
+        "*://*.lotteins.co.kr/*",
+        "*://*.mdbins.com/*",
+        "*://*.meritzfire.com/*",
+        "*://*.metlife.co.kr/*",
+        "*://*.mggeneralins.com/*",
+        "*://*.nhfire.co.kr/*",
+        "*://*.nhlife.co.kr/*",
+        "*://*.saleshana.com/*",
+        "*://*.samsungfire.com/*",
+        "*://*.samsunglife.com/*",
+        "*://*.shinhanez.co.kr/*",
+        "*://*.shinhanlife.co.kr/*"
+      ],
+      "js": ["insurer-card.js"],
+      "run_at": "document_idle"
     }
   ],
   "icons": {

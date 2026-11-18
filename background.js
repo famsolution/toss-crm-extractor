@@ -12,6 +12,9 @@
 // ─────────────────────────────────────────────────────────────
 'use strict';
 
+// 보험사 주소 목록·판별 (popup 과 공용)
+try { importScripts('insurer-sites.js'); } catch (e) { console.warn('[bg] insurer-sites.js 로드 실패', e); }
+
 const EXT_UI_MODE_KEY = 'ext_ui_mode_v1';
 
 async function _activeWindowId(sender) {
@@ -93,3 +96,77 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   })().then(sendResponse).catch(e => sendResponse({ ok: false, error: String(e && e.message || e) }));
   return true;
 });
+
+// ═══════════════════════════════════════════════════════════════════
+// 🔑 보험사 사이트 자동 표시 (insurer-card.js) — PC 금고에서 이 사이트 계정만 꺼내 준다
+//   · 금고 키는 popup/vault.js 가 잠금 해제 때 chrome.storage.session 에 30분 넣어 둔 것.
+//     없거나 만료면 잠김으로 응답한다(PIN 은 페이지에서 받지 않는다).
+//   · 요청한 페이지 주소(sender.url)에 해당하는 보험사 계정만 돌려준다.
+//   · 같은 탭·같은 보험사 도메인은 자동으로 한 번만 띄운다(이후엔 🔑 버튼만).
+// ═══════════════════════════════════════════════════════════════════
+const CRED_CARD_SHOWN_KEY = 'credCardShown';
+
+function _bgB64(str) { const s = atob(str); const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i); return b; }
+
+async function _bgVaultCreds() {
+  const sess = await chrome.storage.session.get('vault_session');
+  const v = sess && sess.vault_session;
+  if (!v || !v.k || !(v.exp > Date.now())) return null;   // 잠김
+  const st = await chrome.storage.local.get('vault_creds');
+  if (!st.vault_creds) return [];
+  const key = await crypto.subtle.importKey('raw', _bgB64(v.k), { name: 'AES-GCM' }, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: _bgB64(st.vault_creds.iv) }, key, _bgB64(st.vault_creds.ct));
+  const arr = JSON.parse(new TextDecoder().decode(pt));
+  return Array.isArray(arr) ? arr : [];
+}
+
+async function _bgCredCardLookup(req, sender) {
+  const url = (sender && (sender.url || (sender.tab && sender.tab.url))) || '';
+  const tabId = sender && sender.tab && sender.tab.id;
+  const names = (typeof _credInsurersForUrl === 'function') ? _credInsurersForUrl(url) : [];
+  if (!names.length) return { ok: true, show: false };
+  const local = await chrome.storage.local.get(['credCardAuto', 'vault_meta']);
+  if (!local.vault_meta) return { ok: true, show: false };                  // 금고를 아직 안 만듦
+  if (local.credCardAuto === false && !req.force) return { ok: true, show: false };
+
+  let host = '';
+  try { host = new URL(url).hostname; } catch (e) {}
+  const base = _credBaseDomain(host);
+  const sess = await chrome.storage.session.get(CRED_CARD_SHOWN_KEY);
+  const shown = (sess && sess[CRED_CARD_SHOWN_KEY]) || {};
+  const already = tabId != null && Array.isArray(shown[tabId]) && shown[tabId].includes(base);
+
+  let creds;
+  try { creds = await _bgVaultCreds(); } catch (e) { creds = null; }
+  const markShown = async () => {
+    if (tabId == null) return;
+    shown[tabId] = Array.from(new Set((shown[tabId] || []).concat(base)));
+    await chrome.storage.session.set({ [CRED_CARD_SHOWN_KEY]: shown });
+  };
+  if (creds === null) {                                                     // 잠김
+    if (already && !req.force) return { ok: true, show: false, pill: true };
+    await markShown();
+    return { ok: true, show: true, locked: true, names };
+  }
+  const items = creds.filter(c => _credMatchesNames(c, names))
+    .map(c => ({ 보험사: c['보험사'] || '', ID: c['ID'] || '', 비밀번호: c['비밀번호'] || '', 생년월일: c['생년월일'] || '', 년월일: c['년월일'] || '', 비고: c['비고'] || '' }));
+  if (!items.length) return { ok: true, show: false };
+  if (already && !req.force) return { ok: true, show: false, pill: true };
+  await markShown();
+  return { ok: true, show: true, names, items };
+}
+
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+  if (!req || req.action !== 'credCardLookup') return;
+  _bgCredCardLookup(req, sender).then(sendResponse).catch(e => sendResponse({ ok: false, error: String(e && e.message || e) }));
+  return true;
+});
+
+chrome.tabs.onRemoved.addListener(async (tabId) => {
+  try {
+    const sess = await chrome.storage.session.get(CRED_CARD_SHOWN_KEY);
+    const shown = (sess && sess[CRED_CARD_SHOWN_KEY]) || {};
+    if (shown[tabId]) { delete shown[tabId]; await chrome.storage.session.set({ [CRED_CARD_SHOWN_KEY]: shown }); }
+  } catch (e) {}
+});
+
