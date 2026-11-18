@@ -645,3 +645,8 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .is-full #cuFields { grid-template-columns: 1fr 1fr 1fr; }
 .is-full .cu-hq-t, .is-full .cred-grid label { font-size: 12.5px; }
 .is-full #cuList { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+
+/* 고객 입력 화면 버튼 — PC에 저장(주 버튼)을 크게, 저장+워크스페이스는 작게 */
+.cu-act { align-items: center; }
+.cu-act #cuSave.cu-save-lg { padding: 10px 26px; font-size: 14px; font-weight: 800; min-width: 150px; }
+.cu-act #cuSaveSend.cu-send-sm { padding: 4px 9px; font-size: 11px; font-weight: 600; }
