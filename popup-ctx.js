@@ -22,6 +22,8 @@
   var root = document.documentElement;
   var mark = function () { root.classList.add('is-sidepanel'); };
 
+  // ⛶ 크게 보기 창(popup.html?full=1) — 실제 창 폭이 있으므로 사이드패널처럼 100% 폭 + 큰 화면 배치
+  if (/[?&]full=1\b/.test(location.search)) { mark(); root.classList.add('is-full'); return; }
   if (/[?&]sp=1\b/.test(location.search)) { mark(); return; }
 
   // 안전망 — ?sp=1 이 유실된 경우(구버전 설정 잔존 등)에도 사이드패널이면 잡는다.

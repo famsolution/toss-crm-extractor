@@ -66,6 +66,7 @@ function syncTargetCompatibility() {
   const radios = {
     auto:        document.querySelector('input[name="targetMode"][value="auto"]'),
     consult:     document.querySelector('input[name="targetMode"][value="consult"]'),
+    vault:       document.querySelector('input[name="targetMode"][value="vault"]'),
     standard:    document.querySelector('input[name="targetMode"][value="standard"]'),
     plan:        document.querySelector('input[name="targetMode"][value="plan"]'),
     'premium-page': document.querySelector('input[name="targetMode"][value="premium-page"]')
@@ -73,14 +74,14 @@ function syncTargetCompatibility() {
   // mmlfcp 폼은 cust 정보를 lastCustomer (이전 추출) 로도 채울 수 있으므로
   // coverage / premium_compare 도 premium-page 허용 (cfg.coverages + lastCustomer 사용)
   const compatMap = {
-    coverage:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
-    customer:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
-    premium_compare: { auto: true, consult: false, standard: false, plan: true,  'premium-page': true }
+    coverage:        { auto: true, consult: true,  vault: false, standard: true,  plan: false, 'premium-page': true },
+    customer:        { auto: true, consult: true,  vault: true,  standard: true,  plan: false, 'premium-page': true },
+    premium_compare: { auto: true, consult: false, vault: false, standard: false, plan: true,  'premium-page': true }
   };
-  const compat = compatMap[type] || { auto: true, consult: true, standard: true, plan: true, 'premium-page': true };
+  const compat = compatMap[type] || { auto: true, consult: true, vault: true, standard: true, plan: true, 'premium-page': true };
   Object.entries(radios).forEach(([key, el]) => {
     if (!el) return;
-    const label = el.closest('label');
+    const label = el.closest('label') || document.querySelector(`label[for="${el.id}"]`);
     const ok = compat[key];
     el.disabled = !ok;
     if (label) {
@@ -116,6 +117,7 @@ function updateTargetHint() {
   const map = {
     'auto': '데이터 종류에 따라 자동으로 적절한 페이지로 전송됩니다',
     'consult': '고객 상담등록 페이지(page_jmin.html)로 전송 — 추출한 고객정보를 상담등록 폼에 자동 입력',
+    'vault': '추출한 고객정보를 이 PC 금고(👤 고객 탭)에 암호화 저장 — 워크스페이스로는 보내지 않음',
     'standard': '보장분석 프로그램의 표준 보장분석 모드로 전송 — 보험상품/담보 매트릭스 채우기',
     'plan': '보장분석 프로그램의 가설계 탭 (premium_plan iframe) 으로 전송',
     'premium-page': '현재 활성 탭(보험료 비교 페이지) 의 폼을 자동 입력 — 이름/생년월일/성별/유형/만기/담보',

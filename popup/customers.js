@@ -7,6 +7,11 @@
 //   · 보내기는 워크스페이스 화면의 등록/수정 창을 '채우기만' 한다. 저장은 워크스페이스에서
 //     [저장] 을 눌러야 된다 — 기존 고객 병합·중복 방지 로직을 워크스페이스 쪽이 그대로 맡는다.
 //   · 받는 함수 window.__applyExtCustomerFromExtension 는 워크스페이스 js/shared.js 에 있다.
+//   · 건강상태 질문은 [✏️ 질문 편집] 으로 카테고리·질문을 추가/이름변경/삭제/순서변경 할 수 있다
+//     (이 PC 의 chrome.storage.local 'cu_health_tpl' — 질문 문구는 개인정보가 아니라 암호화 안 함).
+//     질문을 지우거나 순서를 바꾸면 저장된 모든 고객의 답변 위치도 함께 옮긴다.
+//   · 토스 CRM 추출 → [📤 프로그램 적용] 에서 '🔐 내 확장에 저장' 을 고르면 routeVault 로 여기 저장된다.
+//   · [⛶ 크게 보기] — 같은 화면을 큰 창(popup.html?full=1&tab=cust)으로 연다.
 // ═══════════════════════════════════════════════════════════════════
 
 // 워크스페이스 js/jmin.js 의 HEALTH_TPL·DRV_OPTS·MOTO_OPTS 와 같은 내용 (바뀌면 둘 다 고칠 것)
@@ -39,6 +44,10 @@ const CU_HEALTH_TPL = {
 const CU_DRV_OPTS = ['운전 안함', '자가용', '영업용', '용달', '버스', '트럭', '기타(직접입력)'];
 const CU_MOTO_OPTS = ['운전 안함', '오토바이', '전기자전거', '전기킥보드', '기타(직접입력)'];
 const CU_TELCO = ['', 'SKT', 'KT', 'LGU+', '알뜰폰'];
+const CU_TPL_KEY = 'cu_health_tpl';
+let _cuTpl = JSON.parse(JSON.stringify(CU_HEALTH_TPL));   // 지금 쓰는 질문 템플릿 (편집 가능)
+let _cuTplEdit = false;                                   // 질문 편집 모드
+let _cuPendingImport = null;                              // 금고가 잠겨 있을 때 받은 추출 데이터
 
 // 개인정보 칸 — key 는 워크스페이스 고객 필드명과 같다
 const CU_FIELDS = [
@@ -73,12 +82,23 @@ function _cuNow() {
 function _cuNewId() { return 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
 // 질문 형식 — 워크스페이스 renderHealthQuestions 와 같은 판정
+//   (질문을 지우거나 옮기면 번호가 바뀌므로 번호 대신 문구로 판정)
+function _cuQText(q) { return String(q || '').replace(/^\s*\d+\s*[.)]\s*/, '').trim(); }
 function _cuQType(q) {
-  if (q.startsWith('1.') && q.includes('운전')) return 'drv';
-  if (q.startsWith('2.') && q.includes('원동기')) return 'moto';
-  if (q.includes('발급일자') || q.includes('면허 번호') || q.includes('이름/품종')) return 'single';
+  const t = _cuQText(q);
+  if (/^운전\s*여부/.test(t)) return 'drv';
+  if (/^원동기/.test(t)) return 'moto';
+  if (t.includes('발급일자') || t.includes('면허 번호') || t.includes('이름/품종')) return 'single';
   return 'list';
 }
+function _cuQs(cat) { return (_cuTpl.questions && _cuTpl.questions[cat]) || []; }
+
+async function _cuLoadTpl() {
+  const st = await new Promise(r => { try { chrome.storage.local.get(CU_TPL_KEY, v => r(v || {})); } catch (e) { r({}); } });
+  const t = st[CU_TPL_KEY];
+  if (t && Array.isArray(t.categories) && t.questions) _cuTpl = t;
+}
+function _cuSaveTpl() { try { chrome.storage.local.set({ [CU_TPL_KEY]: _cuTpl }); } catch (e) {} }
 
 // 실제 답변이 몇 개인지 (워크스페이스 healthHasAnswers 와 같은 기준)
 function _cuHealthCount(h) {
@@ -136,7 +156,8 @@ function cuOpenForm(c) {
   _cuEdit = c ? JSON.parse(JSON.stringify(c)) : { id: '', health: { cat: '일반체', state: {} } };
   if (!_cuEdit.health) _cuEdit.health = { cat: '일반체', state: {} };
   if (!_cuEdit.health.state) _cuEdit.health.state = {};
-  _cuHealthCat = _cuEdit.health.cat || '일반체';
+  _cuHealthCat = _cuEdit.health.cat || _cuTpl.categories[0] || '일반체';
+  _cuTplEdit = false;
   document.getElementById('cuFormTit').textContent = c ? `✏️ ${c['고객명'] || ''} 수정` : '➕ 새 고객';
   document.getElementById('cuFields').innerHTML = CU_FIELDS.map(f => {
     const v = _cuEsc(_cuEdit[f.k] || '');
@@ -154,12 +175,17 @@ function cuOpenForm(c) {
 
 function cuRenderHealth() {
   const st = _cuEdit.health.state;
-  document.getElementById('cuHealthCats').innerHTML = CU_HEALTH_TPL.categories.map(cat =>
-    `<button type="button" class="cred-filter${cat === _cuHealthCat ? ' on' : ''}" data-act="hcat" data-cat="${_cuEsc(cat)}">${_cuEsc(cat)}</button>`).join('');
-  const qs = CU_HEALTH_TPL.questions[_cuHealthCat] || [];
+  if (_cuTplEdit) { cuRenderTplEditor(); return; }
+  const cats = _cuTpl.categories.slice();
+  Object.keys(st).forEach(c => { if (!cats.includes(c) && Object.keys(st[c] || {}).length) cats.push(c); });
+  document.getElementById('cuHealthCats').innerHTML = cats.map(cat =>
+    `<button type="button" class="cred-filter${cat === _cuHealthCat ? ' on' : ''}" data-act="hcat" data-cat="${_cuEsc(cat)}">${_cuEsc(cat)}</button>`).join('') +
+    `<span class="cred-sp"></span><button type="button" class="cred-copy" data-act="tpl-edit">✏️ 질문 편집</button>`;
+  const qs = _cuQs(_cuHealthCat);
+  if (!qs.length) { document.getElementById('cuHealthQs').innerHTML = '<div class="cred-empty">이 카테고리에 질문이 없습니다. [✏️ 질문 편집] 에서 추가하세요.</div>'; return; }
   const cs = st[_cuHealthCat] || {};
   document.getElementById('cuHealthQs').innerHTML = qs.map((q, i) => {
-    const t = _cuQType(q), v = cs[i], txt = _cuEsc(q.replace(/^\d+\.\s*/, ''));
+    const t = _cuQType(q), v = cs[i], txt = _cuEsc(_cuQText(q));
     let body;
     if (t === 'drv' || t === 'moto') {
       const cur = (v && v.value) || '', etc = (v && v.etc) || '';
@@ -172,7 +198,7 @@ function cuRenderHealth() {
     } else {
       const ans = Array.isArray(v) ? v : [];
       body = `<div class="cu-hadd"><input data-act="hinp" data-i="${i}" placeholder="답변 입력 후 Enter 또는 추가"><button type="button" class="cred-copy" data-act="hadd" data-i="${i}">추가</button></div>` +
-        (ans.length ? `<div class="cu-hans">${ans.map((a, j) => `<span>${_cuEsc(a)}<button type="button" data-act="hdel" data-i="${i}" data-j="${j}" title="삭제">×</button></span>`).join('')}</div>` : '');
+        (ans.length ? `<div class="cu-hans">${ans.map((a, j) => `<span><em data-act="hedit" data-i="${i}" data-j="${j}" title="눌러서 고치기">${_cuEsc(a)}</em><button type="button" data-act="hdel" data-i="${i}" data-j="${j}" title="삭제">×</button></span>`).join('')}</div>` : '');
     }
     return `<div class="cu-hq"><div class="cu-hq-t"><b>${i + 1}</b> ${txt}</div>${body}</div>`;
   }).join('');
@@ -261,7 +287,11 @@ function _cuPayload(c) {
   const fields = {};
   CU_FIELDS.forEach(f => { if (f.k !== '메모' && c[f.k]) fields[f.k] = c[f.k]; });
   if (c['메모']) fields['상담이력'] = c['메모'];
-  return { fields, health: { cat: (c.health && c.health.cat) || '일반체', state: (c.health && c.health.state) || {} } };
+  const state = (c.health && c.health.state) || {};
+  // 질문 목록도 보낸다 — 질문을 편집했으면 워크스페이스가 같은 번호를 다른 질문으로 읽지 않도록
+  const qs = {};
+  Object.keys(state).forEach(cat => { qs[cat] = _cuQs(cat).map((q, i) => `${i + 1}. ${_cuQText(q)}`); });
+  return { fields, health: { cat: (c.health && c.health.cat) || '일반체', state, qs } };
 }
 
 async function cuSend(c) {
@@ -299,12 +329,204 @@ async function cuSend(c) {
   try { await chrome.windows.update(tab.windowId, { focused: true }); } catch (e) {}
 }
 
+// ── ✏️ 질문 편집 (카테고리·질문 추가/이름변경/삭제/순서) ──
+function cuRenderTplEditor() {
+  const cats = _cuTpl.categories;
+  if (!cats.includes(_cuHealthCat)) _cuHealthCat = cats[0] || '';
+  document.getElementById('cuHealthCats').innerHTML = cats.map(cat =>
+    `<button type="button" class="cred-filter${cat === _cuHealthCat ? ' on' : ''}" data-act="hcat" data-cat="${_cuEsc(cat)}">${_cuEsc(cat)}</button>`).join('') +
+    `<button type="button" class="cred-copy" data-act="tpl-cat-add">＋ 카테고리</button><span class="cred-sp"></span>` +
+    `<button type="button" class="btn-primary cu-tpl-done" data-act="tpl-done">✔ 편집 끝</button>`;
+  const qs = _cuQs(_cuHealthCat);
+  document.getElementById('cuHealthQs').innerHTML = (_cuHealthCat ? `
+    <div class="cu-tpl-cat">
+      <b>[${_cuEsc(_cuHealthCat)}]</b>
+      <button type="button" class="cred-copy" data-act="tpl-cat-ren">이름 변경</button>
+      <button type="button" class="cred-copy cu-danger" data-act="tpl-cat-del">카테고리 삭제</button>
+    </div>` : '<div class="cred-empty">카테고리가 없습니다. [＋ 카테고리] 로 만드세요.</div>') +
+    qs.map((q, i) => `
+    <div class="cu-tpl-q">
+      <span class="cu-tpl-n">${i + 1}</span>
+      <input data-act="tpl-q" data-i="${i}" value="${_cuEsc(_cuQText(q))}">
+      <button type="button" class="cred-ic" data-act="tpl-up" data-i="${i}" title="위로"${i === 0 ? ' disabled' : ''}>▲</button>
+      <button type="button" class="cred-ic" data-act="tpl-down" data-i="${i}" title="아래로"${i === qs.length - 1 ? ' disabled' : ''}>▼</button>
+      <button type="button" class="cred-ic" data-act="tpl-del" data-i="${i}" title="질문 삭제">🗑</button>
+    </div>`).join('') +
+    (_cuHealthCat ? `<div class="cu-hadd"><input id="cuTplNewQ" placeholder="새 질문 입력 후 Enter 또는 추가"><button type="button" class="cred-copy" data-act="tpl-add">＋ 질문 추가</button></div>
+    <div class="cred-extra">· '운전여부'로 시작하면 운전 선택, '원동기'로 시작하면 원동기 선택, '발급일자/면허 번호' 가 들어가면 한 줄 답, 그 외는 여러 답변 칸이 됩니다.<br>· 질문을 지우거나 옮기면 저장된 모든 고객의 답변도 함께 옮겨집니다.</div>` : '');
+}
+
+// 모든 고객(+ 지금 편집 중인 고객)의 해당 카테고리 답변 위치를 바꾼다. mapFn(oldIndex) → newIndex 또는 -1(삭제)
+function _cuRemapAll(cat, mapFn) {
+  const fix = c => {
+    const st = c && c.health && c.health.state;
+    if (!st || !st[cat]) return;
+    const out = {};
+    Object.keys(st[cat]).forEach(k => { const n = mapFn(Number(k)); if (n >= 0) out[n] = st[cat][k]; });
+    st[cat] = out;
+  };
+  _cuList.forEach(fix);
+  if (_cuEdit) fix(_cuEdit);
+}
+function _cuRenameCatAll(from, to) {
+  const fix = c => { const st = c && c.health && c.health.state; if (st && st[from]) { st[to] = st[from]; delete st[from]; } if (c && c.health && c.health.cat === from) c.health.cat = to; };
+  _cuList.forEach(fix); if (_cuEdit) fix(_cuEdit);
+}
+function _cuCountAnswered(cat, idx) {
+  return _cuList.filter(c => {
+    const m = c.health && c.health.state && c.health.state[cat];
+    if (!m) return false;
+    if (idx == null) return _cuHealthCount({ state: { [cat]: m } }) > 0;
+    return _cuHealthCount({ state: { [cat]: { 0: m[idx] } } }) > 0;
+  }).length;
+}
+async function _cuTplCommit() {
+  _cuSaveTpl();
+  try { await _cuPersist(); } catch (e) { await showAlert('고객 답변 위치 저장 실패: ' + (e.message || e)); }
+  cuRenderHealth();
+}
+
+async function _cuTplAction(act, b) {
+  const cat = _cuHealthCat;
+  const qs = _cuQs(cat);
+  const i = Number(b && b.dataset.i);
+  if (act === 'tpl-edit') { _cuCapturePending(); _cuTplEdit = true; cuRenderHealth(); return; }
+  if (act === 'tpl-done') { _cuTplEdit = false; cuRenderHealth(); return; }
+  if (act === 'tpl-cat-add') {
+    const name = String((await showPrompt('새 카테고리 이름 (예: 치아보험)', '카테고리 추가')) || '').trim();
+    if (!name) return;
+    if (_cuTpl.categories.includes(name)) { await showAlert('같은 이름의 카테고리가 있습니다.'); return; }
+    _cuTpl.categories.push(name); _cuTpl.questions[name] = []; _cuHealthCat = name;
+    return _cuTplCommit();
+  }
+  if (act === 'tpl-cat-ren') {
+    const name = String((await showPrompt('카테고리 새 이름', '이름 변경', cat)) || '').trim();
+    if (!name || name === cat) return;
+    if (_cuTpl.categories.includes(name)) { await showAlert('같은 이름의 카테고리가 있습니다.'); return; }
+    _cuTpl.categories = _cuTpl.categories.map(c => c === cat ? name : c);
+    _cuTpl.questions[name] = _cuTpl.questions[cat] || []; delete _cuTpl.questions[cat];
+    _cuRenameCatAll(cat, name); _cuHealthCat = name;
+    return _cuTplCommit();
+  }
+  if (act === 'tpl-cat-del') {
+    const n = _cuCountAnswered(cat);
+    const ok = await showConfirm(`[${cat}] 카테고리를 삭제할까요?` + (n ? `\n이 카테고리에 답한 고객 ${n}명의 답변도 함께 지워집니다.` : ''), '카테고리 삭제');
+    if (!ok) return;
+    _cuTpl.categories = _cuTpl.categories.filter(c => c !== cat); delete _cuTpl.questions[cat];
+    const drop = c => { const st = c && c.health && c.health.state; if (st) delete st[cat]; if (c && c.health && c.health.cat === cat) c.health.cat = _cuTpl.categories[0] || ''; };
+    _cuList.forEach(drop); if (_cuEdit) drop(_cuEdit);
+    _cuHealthCat = _cuTpl.categories[0] || '';
+    return _cuTplCommit();
+  }
+  if (act === 'tpl-add') {
+    const inp = document.getElementById('cuTplNewQ');
+    const t = (inp && inp.value || '').trim();
+    if (!t) return;
+    _cuTpl.questions[cat] = qs.concat(t);
+    return _cuTplCommit();
+  }
+  if (act === 'tpl-del') {
+    const n = _cuCountAnswered(cat, i);
+    const ok = await showConfirm(`이 질문을 삭제할까요?\n"${_cuQText(qs[i])}"` + (n ? `\n이 질문에 답한 고객 ${n}명의 답변도 함께 지워집니다.` : ''), '질문 삭제');
+    if (!ok) return;
+    _cuTpl.questions[cat] = qs.filter((_, k) => k !== i);
+    _cuRemapAll(cat, k => k === i ? -1 : (k > i ? k - 1 : k));
+    return _cuTplCommit();
+  }
+  if (act === 'tpl-up' || act === 'tpl-down') {
+    const j = act === 'tpl-up' ? i - 1 : i + 1;
+    if (j < 0 || j >= qs.length) return;
+    const arr = qs.slice(); const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    _cuTpl.questions[cat] = arr;
+    _cuRemapAll(cat, k => k === i ? j : (k === j ? i : k));
+    return _cuTplCommit();
+  }
+}
+
+// ── 🔐 토스 CRM 추출 데이터 → 이 PC 금고에 저장 (📤 프로그램 적용 · '내 확장에 저장') ──
+const _cuIsMasked = v => /[\*●·]/.test(String(v || ''));
+const _cuDigits = v => String(v || '').replace(/[^0-9]/g, '');
+
+async function cuImportExtracted(raw) {
+  const src = raw || {};
+  const pick = {};
+  ['고객명', '연락처', '생년월일', '주민등록번호', '주소', '이메일', '직업', '하는일', '통신사', '운전여부'].forEach(k => {
+    const v = String(src[k] == null ? '' : src[k]).trim(); if (v) pick[k] = v;
+  });
+  ['키', '몸무게'].forEach(k => { const v = String(src[k] == null ? '' : src[k]).replace(/[^\d.]/g, ''); if (v) pick[k] = v; });
+  const g = String(src['성별'] || ''); if (/여/.test(g)) pick['성별'] = '여'; else if (/남/.test(g)) pick['성별'] = '남';
+  if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. 토스 CRM 고객정보 화면에서 다시 추출해 주세요.'); return null; }
+  // 같은 사람: 이름 같음 + (전화 숫자 같음 / 끝 4자리 같음 / 주민 앞 6자리 같음)
+  const pd = _cuDigits(pick['연락처']), rr = _cuDigits(pick['주민등록번호']).slice(0, 6);
+  const hit = _cuList.find(c => {
+    if ((c['고객명'] || '') !== pick['고객명']) return false;
+    const cp = _cuDigits(c['연락처']);
+    if (pd && cp && (cp === pd || (pd.length >= 4 && cp.slice(-4) === pd.slice(-4)))) return true;
+    const cr = _cuDigits(c['주민등록번호']).slice(0, 6);
+    return !!(rr && cr && rr === cr);
+  });
+  const before = _cuList.slice();
+  const target = hit ? Object.assign({}, hit) : { id: _cuNewId(), health: { cat: _cuTpl.categories[0] || '일반체', state: {} } };
+  const masked = [];
+  Object.keys(pick).forEach(k => {
+    const v = pick[k];
+    if (_cuIsMasked(v)) { if (String(target[k] || '').trim()) return; masked.push(k); }   // 마스킹 값으로 온전한 값을 덮지 않음
+    target[k] = v;
+  });
+  target['수정일'] = _cuNow();
+  if (hit) _cuList[_cuList.indexOf(hit)] = target; else _cuList.push(target);
+  try { await _cuPersist(); }
+  catch (e) { _cuList = before; await showAlert('저장 실패: ' + (e.message || e)); return null; }
+  showToast((hit ? '🔐 기존 고객 정보를 갱신했습니다' : '🔐 새 고객으로 저장했습니다') + (masked.length ? ` — ⚠ 마스킹 남음: ${masked.join(', ')}` : ''));
+  cuOpenForm(target);   // 바로 확인·건강상태 입력
+  return target;
+}
+
+function _cuShowTab() { const t = document.querySelector('.tab[data-tab="cust"]'); if (t) t.click(); }
+
+// apply.js 의 📤 프로그램 적용 → targetMode 'vault'
+async function routeVault(ctx) {
+  const { btn, safetyTimer } = ctx || {};
+  try { clearTimeout(safetyTimer); } catch (e) {}
+  if (btn) { btn.textContent = '📤 프로그램 적용'; btn.disabled = false; }
+  const cust = (typeof extractedData !== 'undefined' && extractedData && extractedData.type === 'customer') ? extractedData.customer : null;
+  if (!cust) { await showAlert('토스 CRM 고객정보 화면에서 추출한 데이터만 내 확장에 저장할 수 있습니다.'); return; }
+  _cuShowTab();
+  if (!vaultIsUnlocked()) { _cuPendingImport = cust; showToast('🔒 PIN 을 입력하면 바로 저장됩니다'); return; }
+  await cuImportExtracted(cust);
+}
+
+// ── ⛶ 크게 보기 ──
+async function cuOpenBigView() {
+  const url = chrome.runtime.getURL('popup.html?full=1&tab=cust');
+  try {
+    const existing = await chrome.tabs.query({ url: chrome.runtime.getURL('popup.html') + '*' });
+    const big = (existing || []).find(t => /[?&]full=1/.test(t.url || ''));
+    if (big) { await chrome.windows.update(big.windowId, { focused: true }); await chrome.tabs.update(big.id, { active: true }); return; }
+  } catch (e) {}
+  try { await chrome.windows.create({ url, type: 'popup', width: 1180, height: 900 }); }
+  catch (e) { await chrome.tabs.create({ url }); }
+}
+
 // ── 이벤트 ──
 function _cuOnClick(e) {
   const b = e.target.closest('[data-act]');
   if (!b) return;
   const act = b.dataset.act;
-  if (act === 'hcat') { _cuCapturePending(); _cuHealthCat = b.dataset.cat; cuRenderHealth(); return; }
+  if (act === 'hcat') { if (!_cuTplEdit) _cuCapturePending(); _cuHealthCat = b.dataset.cat; cuRenderHealth(); return; }
+  if (act.startsWith('tpl-')) { if (act !== 'tpl-q') _cuTplAction(act, b); return; }
+  if (act === 'hedit') {
+    const st = _cuEdit.health.state[_cuHealthCat] || {};
+    const arr = Array.isArray(st[b.dataset.i]) ? st[b.dataset.i] : [];
+    const j = Number(b.dataset.j);
+    showPrompt('답변 고치기 (비우면 삭제)', '답변 수정', arr[j]).then(v => {
+      if (v == null) return;
+      const t = String(v).trim();
+      if (t) arr[j] = t; else arr.splice(j, 1);
+      cuRenderHealth();
+    });
+    return;
+  }
   if (act === 'hadd') { _cuHAdd(Number(b.dataset.i)); return; }
   if (act === 'hdel') {
     const st = _cuEdit.health.state[_cuHealthCat] || {};
@@ -323,13 +545,19 @@ function _cuOnClick(e) {
 }
 function _cuOnChange(e) {
   const el = e.target;
+  if (el.dataset && el.dataset.act === 'tpl-q') {
+    const t = el.value.trim(), i = Number(el.dataset.i), qs = _cuQs(_cuHealthCat);
+    if (!t) { el.value = _cuQText(qs[i]); return; }   // 비우기 = 삭제가 아님 (삭제는 🗑)
+    qs[i] = t; _cuSaveTpl();
+    return;
+  }
   if (!_cuEdit || !el.dataset) return;
   const i = Number(el.dataset.i);
   if (el.dataset.act === 'hsel') {
     const prev = (_cuEdit.health.state[_cuHealthCat] || {})[i] || {};
     _cuHSet(i, { value: el.value, etc: el.value === '기타(직접입력)' ? (prev.etc || '') : '' });
     // 일반체·간편 1번(운전) 을 고르면 개인정보 '운전여부' 도 맞춘다 (워크스페이스와 같은 동작)
-    const q = (CU_HEALTH_TPL.questions[_cuHealthCat] || [])[i] || '';
+    const q = _cuQs(_cuHealthCat)[i] || '';
     if (_cuQType(q) === 'drv' && el.value && el.value !== '기타(직접입력)') {
       const dv = document.querySelector('#cuFields [data-k="운전여부"]');
       if (dv && Array.from(dv.options).some(o => o.value === el.value)) dv.value = el.value;
@@ -345,7 +573,10 @@ function _cuOnInput(e) {
   if (el.dataset.act === 'hsingle') _cuHSet(i, { value: el.value });
 }
 function _cuOnKey(e) {
-  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.act === 'hinp') { e.preventDefault(); _cuHAdd(Number(e.target.dataset.i)); }
+  if (e.key !== 'Enter') return;
+  if (e.target.dataset && e.target.dataset.act === 'hinp') { e.preventDefault(); _cuHAdd(Number(e.target.dataset.i)); }
+  else if (e.target.id === 'cuTplNewQ') { e.preventDefault(); _cuTplAction('tpl-add'); }
+  else if (e.target.dataset && e.target.dataset.act === 'tpl-q') { e.preventDefault(); e.target.blur(); }
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -361,6 +592,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cuCancel')?.addEventListener('click', () => { _cuEdit = null; cuRenderList(); });
   document.getElementById('cuSave')?.addEventListener('click', () => cuSave());
   document.getElementById('cuSaveSend')?.addEventListener('click', async () => { const c = await cuSave(); if (c) cuSend(c); });
-  document.addEventListener('vault-unlocked', cuLoad);
+  document.getElementById('cuBigBtn')?.addEventListener('click', cuOpenBigView);
+  await _cuLoadTpl();
+  document.addEventListener('vault-unlocked', async () => {
+    await cuLoad();
+    if (_cuPendingImport) { const p = _cuPendingImport; _cuPendingImport = null; cuImportExtracted(p); }
+  });
   if (vaultIsUnlocked()) cuLoad();
+  // 크게 보기 창(popup.html?full=1&tab=cust) — 고객 탭으로 바로
+  if (/[?&]tab=cust\b/.test(location.search)) _cuShowTab();
 });

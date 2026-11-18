@@ -149,9 +149,9 @@ async function resolveAutoTarget({ isPremiumCompare, isCustomer }) {
 // 🛡 호환성 가드 — 데이터 type 과 맞지 않는 대상이면 사용자에게 물어 보정한다.
 //   반환: 진행할 대상 문자열 / 사용자가 거절하면 null
 const COMPAT_MATRIX = {
-  coverage:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
-  customer:        { auto: true, consult: true,  standard: true,  plan: false, 'premium-page': true },
-  premium_compare: { auto: true, consult: false, standard: false, plan: true,  'premium-page': true }
+  coverage:        { auto: true, consult: true,  vault: false, standard: true,  plan: false, 'premium-page': true },
+  customer:        { auto: true, consult: true,  vault: true,  standard: true,  plan: false, 'premium-page': true },
+  premium_compare: { auto: true, consult: false, vault: false, standard: false, plan: true,  'premium-page': true }
 };
 async function applyCompatGuard(targetMode, dataType) {
   const compat = COMPAT_MATRIX[dataType];
@@ -883,6 +883,9 @@ document.getElementById('btnApply').addEventListener('click', async () => {
 
 
     if (targetMode === 'consult')  { await routeConsult(ctx);  return; }
+
+    // 🔐 내 확장(PC 금고)에 저장 — 워크스페이스로 보내지 않고 👤 고객 탭에 저장 (popup/customers.js)
+    if (targetMode === 'vault')    { await routeVault(ctx);    return; }
 
     if (targetMode === 'standard') { await routeStandard(ctx); return; }
 

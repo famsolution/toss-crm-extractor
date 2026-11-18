@@ -627,3 +627,21 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .cu-hbadge { background: #FEF3C7; color: #92400E; }
 .cu-act { position: sticky; bottom: 0; background: var(--bg); padding: 8px 0 2px; }
 .cred-auto { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-2); margin-top: 6px; cursor: pointer; }
+
+/* ═══ ✏️ 질문 편집 · ⛶ 크게 보기 (popup/customers.js) ═══ */
+.cu-tpl-cat { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 2px; }
+.cu-tpl-q { display: flex; align-items: center; gap: 4px; }
+.cu-tpl-q input { flex: 1; min-width: 0; padding: 6px 8px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 12.5px; }
+.cu-tpl-n { width: 18px; text-align: right; font-size: 11px; font-weight: 800; color: var(--primary); }
+.cu-tpl-q .cred-ic:disabled { opacity: .3; cursor: default; }
+.cu-tpl-done { padding: 4px 10px; font-size: 11.5px; }
+.cu-danger { color: var(--danger); border-color: #FECACA; }
+.cu-hans em { font-style: normal; cursor: pointer; }
+.cu-hans em:hover { text-decoration: underline; }
+.is-full .cu-big-btn { display: none; }
+.is-full body { max-width: 1400px; margin: 0 auto; }
+.is-full #tab-cust .cred-wrap { padding: 16px 24px 24px; }
+.is-full .cu-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 0 28px; align-items: start; }
+.is-full #cuFields { grid-template-columns: 1fr 1fr 1fr; }
+.is-full .cu-hq-t, .is-full .cred-grid label { font-size: 12.5px; }
+.is-full #cuList { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }

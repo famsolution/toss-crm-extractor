@@ -72,6 +72,7 @@
     <!-- 라디오 인풋(숨김) — 기존 JS 로직 유지 -->
     <input type="radio" name="targetMode" value="auto"         id="tm_auto"    style="display:none" checked>
     <input type="radio" name="targetMode" value="consult"      id="tm_consult" style="display:none">
+    <input type="radio" name="targetMode" value="vault"        id="tm_vault"   style="display:none">
     <input type="radio" name="targetMode" value="standard"     id="tm_std"     style="display:none">
     <input type="radio" name="targetMode" value="plan"         id="tm_plan"    style="display:none">
     <input type="radio" name="targetMode" value="premium-page" id="tm_prem"    style="display:none">
@@ -80,7 +81,8 @@
     <!-- 텍스트 버튼 스타일 (선택 시 배경 강조) — 모든 대상은 '선택'만 하고 📤 프로그램 적용 으로 실행 -->
     <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
       <label for="tm_auto"     class="tm-btn">🤖 자동 감지</label>
-      <label for="tm_consult"  class="tm-btn">📝 상담등록</label>
+      <label for="tm_consult"  class="tm-btn">📝 워크스페이스(상담등록)</label>
+      <label for="tm_vault"    class="tm-btn">🔐 내 확장에 저장</label>
       <label for="tm_std"      class="tm-btn">📊 표준 보장분석</label>
       <label for="tm_plan"     class="tm-btn">📐 가설계 탭</label>
       <label for="tm_prem"     class="tm-btn">OK마이보험비교</label>
@@ -276,6 +278,7 @@
       <div class="cred-bar">
         <input id="cuSearch" class="cred-search" type="search" placeholder="이름·전화번호 검색">
         <button id="cuNewBtn" class="btn-primary cred-new">＋ 새 고객</button>
+        <button id="cuBigBtn" class="btn-secondary cred-new cu-big-btn" title="큰 창으로 열기">⛶ 크게 보기</button>
       </div>
       <div class="cred-bar"><span class="cred-sp"></span><span id="cuCount" class="cred-count"></span></div>
       <div id="cuList" class="cred-list"></div>
@@ -283,11 +286,17 @@
 
     <div id="cuFormView" style="display:none">
       <div id="cuFormTit" class="cred-form-tit">➕ 새 고객</div>
-      <div class="cu-sec">개인정보</div>
-      <div id="cuFields" class="cred-grid"></div>
-      <div class="cu-sec">건강상태 (고지사항)</div>
-      <div id="cuHealthCats" class="cred-bar cu-hcats"></div>
-      <div id="cuHealthQs" class="cu-hqs"></div>
+      <div class="cu-cols">
+        <div class="cu-col">
+          <div class="cu-sec">개인정보</div>
+          <div id="cuFields" class="cred-grid"></div>
+        </div>
+        <div class="cu-col">
+          <div class="cu-sec">건강상태 (고지사항)</div>
+          <div id="cuHealthCats" class="cred-bar cu-hcats"></div>
+          <div id="cuHealthQs" class="cu-hqs"></div>
+        </div>
+      </div>
       <div class="cred-form-act cu-act">
         <button id="cuCancel" class="btn-secondary">취소</button>
         <button id="cuSave" class="btn-secondary">💾 PC에 저장</button>
