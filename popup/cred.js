@@ -1,10 +1,9 @@
 // ═══════════════════════════════════════════════════════════════════
-// 🔑 보험사 전산 비번 — 토스 워크스페이스(CRM)의 'credentials' 컬렉션을 그대로 읽고/쓴다.
+// 🔑 보험사 전산 비번 — 이 PC 의 금고(popup/vault.js, PIN 암호화)에만 저장한다.
 //   · 지금 열린 탭이 보험사 사이트면 그 보험사의 ID/비번을 맨 위에 보여준다 (탭도 자동 전환)
 //   · 전체 목록 확인 · 검색 · 등록 · 수정 · 삭제
-//   CRM 과 같은 문서·같은 필드(구분/보험사/ID/비밀번호/생년월일/년월일/순서/비고/owner_id)를 쓰므로
-//   어느 쪽에서 고쳐도 양쪽에 바로 반영된다.
-//   ⚠️ 비번은 팝업에서만 Firestore 로 읽는다 — chrome.storage 에 캐시하거나 웹페이지에 주입하지 않는다.
+//   필드는 워크스페이스 비번 탭과 같은 이름(구분/보험사/ID/비밀번호/생년월일/년월일/순서/비고)을 쓴다.
+//   ⚠️ 서버(Firestore)로 보내지 않고, 웹페이지에 주입하지도 않는다.
 // ═══════════════════════════════════════════════════════════════════
 
 // 보험사 GA/설계사 포털 — CRM js/jmin.js 의 INSURER_SITES 와 같은 목록 (바뀌면 둘 다 고칠 것)
@@ -28,10 +27,7 @@ const CRED_INSURER_SITES = {
   'KDB생명':'http://kss.kdblife.co.kr','카디프생명':'http://ga.cardif.co.kr','IM라이프':'https://fgs.imlifeins.co.kr','IM라이프생명':'https://fgs.imlifeins.co.kr'
 };
 
-const CRED_OWNER_KEY = 'credOwnerId';   // 워크스페이스 계정 ID (확장 로그인 이메일과 다를 때만 사용자가 지정)
-
 let _credList = [];          // [{doc_id, 구분, 보험사, ID, 비밀번호, ...}]
-let _credOwner = '';         // 저장 시 쓸 owner_id
 let _credFilter = 'all';     // all | loss | life
 let _credQuery = '';
 let _credEditId = null;      // 수정 중인 doc_id ('' = 신규)
@@ -71,44 +67,19 @@ function _credMatchesNames(c, names) {
   return names.some(n => { const nn = _credNorm(n); return nn === k || nn.includes(k) || k.includes(nn); });
 }
 
-// 워크스페이스 owner_id 후보 — CRM 의 OWNER_ID_ALTS 와 같은 규칙 (jmin1318 ↔ jmin1318@naver.com)
-function _credOwnerAlts(id) {
-  const s = new Set();
-  const v = String(id || '').trim();
-  if (!v) return [];
-  s.add(v);
-  if (v.includes('@')) s.add(v.split('@')[0]); else s.add(v + '@naver.com');
-  return Array.from(s);
-}
-
-async function _credResolveOwner() {
-  const st = await new Promise(r => { try { chrome.storage.local.get([CRED_OWNER_KEY, 'extEmail'], r); } catch (e) { r({}); } });
-  const user = window._fbAuth && window._fbAuth.currentUser;
-  return String(st[CRED_OWNER_KEY] || (user && user.email) || st.extEmail || '').trim();
-}
+function _credNewId() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 
 async function credLoad() {
   const box = document.getElementById('credList');
-  if (!window._fbDb) { if (box) box.innerHTML = '<div class="cred-empty">Firebase 연결이 없습니다. 확장을 새로고침하세요.</div>'; return; }
-  if (box) box.innerHTML = '<div class="cred-empty">불러오는 중…</div>';
-  const ownerId = await _credResolveOwner();
-  const alts = _credOwnerAlts(ownerId);
-  document.getElementById('credOwnerLbl').textContent = ownerId || '(미지정)';
-  if (!alts.length) { _credList = []; credRender(); return; }
-  try {
-    const snap = await window._fbDb.collection('credentials').where('owner_id', 'in', alts.slice(0, 10)).get();
-    _credList = snap.docs.map(d => Object.assign({}, d.data(), { doc_id: d.id }));
-    // 저장할 owner_id — 기존 기록이 가장 많이 쓰는 값을 따른다 (CRM 화면과 같은 값 유지)
-    const cnt = {};
-    _credList.forEach(c => { const o = c.owner_id || ''; if (o) cnt[o] = (cnt[o] || 0) + 1; });
-    _credOwner = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || ownerId;
-  } catch (e) {
-    console.warn('[cred] 불러오기 실패', e);
+  if (!vaultIsUnlocked()) return;
+  try { _credList = await vaultGet('creds'); }
+  catch (e) {
     if (box) box.innerHTML = '<div class="cred-empty">불러오기 실패: ' + _credEsc(e.message || e) + '</div>';
     return;
   }
   credRender();
 }
+async function _credPersist() { await vaultPut('creds', _credList); }
 
 function _credRow(c, highlight) {
   const id = c.doc_id;
@@ -190,36 +161,36 @@ async function credSaveForm() {
     순서: Number(g('cf-order')) || 99, 비고: g('cf-note')
   };
   if (!data.보험사) { await showAlert('보험사 이름을 입력하세요.'); return; }
+  if (!vaultIsUnlocked()) { await showAlert('금고가 잠겨 있습니다. PIN 으로 잠금을 풀어 주세요.'); return; }
+  const before = _credList.slice();
   try {
     if (_credEditId) {
-      await window._fbDb.collection('credentials').doc(_credEditId).update(data);
       const i = _credList.findIndex(c => c.doc_id === _credEditId);
       if (i >= 0) _credList[i] = Object.assign({}, _credList[i], data);
-      showToast('✏️ 수정했습니다');
     } else {
-      if (!_credOwner) _credOwner = await _credResolveOwner();
-      if (!_credOwner) { await showAlert('워크스페이스 계정을 먼저 지정하세요 (아래 \'계정 변경\').'); return; }
-      data.owner_id = _credOwner;
-      const ref = await window._fbDb.collection('credentials').add(data);
-      _credList.push(Object.assign({}, data, { doc_id: ref.id }));
-      showToast('➕ 등록했습니다');
+      _credList.push(Object.assign({}, data, { doc_id: _credNewId() }));
     }
+    await _credPersist();
+    showToast(_credEditId ? '✏️ 수정했습니다' : '➕ 등록했습니다');
     credCloseForm();
     credRender();
   } catch (e) {
+    _credList = before;
     await showAlert('저장 실패: ' + (e.message || e));
   }
 }
 
 async function credDelete(c) {
-  const ok = await showConfirm(`${c['보험사'] || ''} (${c['ID'] || 'ID 없음'}) 비번을 삭제할까요?\n토스 워크스페이스에서도 함께 삭제되며 되돌릴 수 없습니다.`, '비번 삭제');
+  const ok = await showConfirm(`${c['보험사'] || ''} (${c['ID'] || 'ID 없음'}) 비번을 삭제할까요?\n되돌릴 수 없습니다.`, '비번 삭제');
   if (!ok) return;
+  const before = _credList.slice();
   try {
-    await window._fbDb.collection('credentials').doc(c.doc_id).delete();
     _credList = _credList.filter(x => x.doc_id !== c.doc_id);
+    await _credPersist();
     credRender();
     showToast('🗑 삭제했습니다');
   } catch (e) {
+    _credList = before;
     await showAlert('삭제 실패: ' + (e.message || e));
   }
 }
@@ -227,15 +198,6 @@ async function credDelete(c) {
 async function credCopy(text, label) {
   try { await navigator.clipboard.writeText(String(text || '')); showToast(`📋 ${label} 복사됨`); }
   catch (e) { await showAlert('복사 실패: ' + (e.message || e)); }
-}
-
-async function credChangeOwner() {
-  const cur = await _credResolveOwner();
-  const v = await showPrompt('토스 워크스페이스 계정 ID (예: jmin1318)\n확장 로그인 이메일과 같으면 비워 두세요.', '워크스페이스 계정', cur);
-  if (v === null || v === undefined || v === false) return;
-  await new Promise(r => { try { chrome.storage.local.set({ [CRED_OWNER_KEY]: String(v).trim() }, r); } catch (e) { r(); } });
-  _credOwner = '';
-  credLoad();
 }
 
 function _credFind(id) { return _credList.find(c => c.doc_id === id); }
@@ -273,7 +235,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }));
   document.getElementById('credNewBtn')?.addEventListener('click', () => credOpenForm(null));
   document.getElementById('credReloadBtn')?.addEventListener('click', () => credLoad());
-  document.getElementById('credOwnerBtn')?.addEventListener('click', credChangeOwner);
   document.getElementById('cf-save')?.addEventListener('click', credSaveForm);
   document.getElementById('cf-cancel')?.addEventListener('click', credCloseForm);
   document.getElementById('cf-pw-toggle')?.addEventListener('click', () => {
@@ -286,5 +247,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     _credSiteNames = _credInsurersForUrl(tab && tab.url);
   } catch (e) { _credSiteNames = []; }
   if (_credSiteNames.length) _credSwitchToTab();
-  credLoad();
+  document.addEventListener('vault-unlocked', credLoad);
+  if (vaultIsUnlocked()) credLoad();
 });

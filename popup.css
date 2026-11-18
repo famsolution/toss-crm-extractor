@@ -597,3 +597,32 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .cred-form-act { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
 .cred-form-act button { padding: 6px 14px; font-size: 12px; }
 .cred-foot { font-size: 11px; color: var(--text-3); text-align: center; margin-top: 4px; }
+
+/* ═══ 🔐 PC 금고 잠금 화면 (popup/vault.js) ═══ */
+.vault-gate { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 28px 18px; text-align: center; }
+.vault-gate .vg-ic { font-size: 30px; }
+.vault-gate .vg-t { font-size: 14px; font-weight: 800; color: var(--text-1); }
+.vault-gate .vg-s { font-size: 11.5px; color: var(--text-2); line-height: 1.6; margin-bottom: 4px; }
+.vault-gate input { width: 100%; max-width: 220px; padding: 9px 11px; border: 1.5px solid var(--border-2); border-radius: 8px; font-size: 14px; text-align: center; letter-spacing: 3px; }
+.vault-gate .vg-ok { width: 100%; max-width: 220px; padding: 9px; }
+.vault-gate .vg-msg { font-size: 11.5px; color: var(--danger); min-height: 14px; }
+
+/* ═══ 👤 고객 탭 (popup/customers.js) ═══ */
+.cu-sec { font-size: 12px; font-weight: 800; color: var(--text-1); margin: 12px 0 6px; padding-top: 8px; border-top: 1px solid var(--border); }
+.cred-grid label.wide { grid-column: 1 / -1; }
+.cred-grid textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 12.5px; font-weight: 400; resize: vertical; font-family: inherit; }
+.cu-eye { float: right; font-size: 11px; padding: 0 2px; }
+.cu-hcats { flex-wrap: wrap; }
+.cu-hqs { display: flex; flex-direction: column; gap: 6px; }
+.cu-hq { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; display: flex; flex-direction: column; gap: 5px; }
+.cu-hq-t { font-size: 11.5px; color: var(--text-1); line-height: 1.45; }
+.cu-hq-t b { display: inline-block; min-width: 16px; color: var(--primary); }
+.cu-hq select, .cu-hq input { width: 100%; padding: 6px 8px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 12.5px; }
+.cu-hadd { display: flex; gap: 4px; }
+.cu-hadd input { flex: 1; min-width: 0; }
+.cu-hans { display: flex; flex-wrap: wrap; gap: 4px; }
+.cu-hans span { display: inline-flex; align-items: center; gap: 3px; background: var(--primary-pale); color: var(--primary-dark); border-radius: 99px; padding: 2px 4px 2px 9px; font-size: 11.5px; }
+.cu-hans button { border: none; background: transparent; color: var(--text-2); cursor: pointer; font-size: 13px; line-height: 1; padding: 0 3px; }
+.cu-row-foot { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+.cu-hbadge { background: #FEF3C7; color: #92400E; }
+.cu-act { position: sticky; bottom: 0; background: var(--bg); padding: 8px 0 2px; }

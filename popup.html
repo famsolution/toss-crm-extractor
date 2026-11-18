@@ -47,6 +47,7 @@
   <div class="tab active" data-tab="current">현재 페이지</div>
   <div class="tab" data-tab="saved">저장된 데이터</div>
   <div class="tab" data-tab="cred">🔑 비번</div>
+  <div class="tab" data-tab="cust">👤 고객</div>
 </div>
 
 <div class="tab-content active" id="tab-current">
@@ -225,9 +226,9 @@
   </div>
 </div>
 
-<!-- 🔑 보험사 전산 비번 — 토스 워크스페이스 'credentials' 와 같은 데이터 (popup/cred.js) -->
+<!-- 🔑 보험사 전산 비번 — 이 PC 금고에 PIN 암호화 저장 (popup/vault.js · popup/cred.js) -->
 <div class="tab-content" id="tab-cred">
-  <div class="cred-wrap">
+  <div class="cred-wrap vault-body">
     <div id="credSite" class="cred-site" style="display:none"></div>
 
     <div class="cred-bar">
@@ -263,7 +264,37 @@
 
     <div id="credList" class="cred-list"></div>
 
-    <div class="cred-foot">워크스페이스 계정: <b id="credOwnerLbl">-</b> <button id="credOwnerBtn" class="cred-link">계정 변경</button></div>
+    <div class="cred-foot">🔐 이 PC 에만 암호화 저장 · <button class="cred-link vault-lock-btn">잠그기</button> · <button class="cred-link vault-pin-btn">PIN 변경</button></div>
+  </div>
+</div>
+
+<!-- 👤 고객 — 개인정보·건강상태를 이 PC 금고에 저장, 워크스페이스로 보내기 (popup/customers.js) -->
+<div class="tab-content" id="tab-cust">
+  <div class="cred-wrap vault-body">
+    <div id="cuListView">
+      <div class="cred-bar">
+        <input id="cuSearch" class="cred-search" type="search" placeholder="이름·전화번호 검색">
+        <button id="cuNewBtn" class="btn-primary cred-new">＋ 새 고객</button>
+      </div>
+      <div class="cred-bar"><span class="cred-sp"></span><span id="cuCount" class="cred-count"></span></div>
+      <div id="cuList" class="cred-list"></div>
+    </div>
+
+    <div id="cuFormView" style="display:none">
+      <div id="cuFormTit" class="cred-form-tit">➕ 새 고객</div>
+      <div class="cu-sec">개인정보</div>
+      <div id="cuFields" class="cred-grid"></div>
+      <div class="cu-sec">건강상태 (고지사항)</div>
+      <div id="cuHealthCats" class="cred-bar cu-hcats"></div>
+      <div id="cuHealthQs" class="cu-hqs"></div>
+      <div class="cred-form-act cu-act">
+        <button id="cuCancel" class="btn-secondary">취소</button>
+        <button id="cuSave" class="btn-secondary">💾 PC에 저장</button>
+        <button id="cuSaveSend" class="btn-primary">저장 + 워크스페이스로</button>
+      </div>
+    </div>
+
+    <div class="cred-foot">🔐 이 PC 에만 암호화 저장 · 워크스페이스에는 [보내기] 할 때만 채워집니다 · <button class="cred-link vault-lock-btn">잠그기</button></div>
   </div>
 </div>
 
@@ -303,6 +334,8 @@
 <script src="popup/actions.js"></script>
 <script src="popup/apply.js"></script>
 <script src="popup/render.js"></script>
+<script src="popup/vault.js"></script>
 <script src="popup/cred.js"></script>
+<script src="popup/customers.js"></script>
 </body>
 </html>
