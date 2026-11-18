@@ -5,8 +5,8 @@
 //   · 계정은 PC 금고(PIN 암호화)에 있다. 이 스크립트는 금고를 직접 못 열고,
 //     background 에 이 페이지 주소의 계정만 달라고 요청한다(credCardLookup).
 //     금고가 잠겨 있으면(30분 지남·브라우저 재시작) '잠김' 안내만 띄운다.
-//   · 사이트 스크립트가 못 읽게 닫힌(closed) Shadow DOM 안에 그린다. 비번은 [보기]를
-//     누를 때만 화면 글자로 들어가고, [복사] 는 화면에 넣지 않고 바로 클립보드로 보낸다.
+//   · 사이트 스크립트가 못 읽게 닫힌(closed) Shadow DOM 안에 그린다. ID·비번은 카드가 떠 있는
+//     동안 바로 보인다([숨김] 으로 가릴 수 있음). [복사] 는 바로 클립보드로 보낸다.
 //   · 같은 탭에서 같은 보험사는 한 번만 자동으로 뜬다(페이지 이동마다 뜨지 않게).
 //     40초가 지나면 작은 🔑 버튼만 남고, 누르면 다시 열린다.
 //   · 끄기: 확장 팝업 🔑 비번 탭 아래 '사이트 자동 표시' 체크.
@@ -105,10 +105,11 @@
         acc.appendChild(r1);
         const pw = String(it.비밀번호 || '');
         const r2 = el('div', 'kv'); r2.appendChild(el('span', 'k', '비번'));
-        const pv = el('span', 'v mono', pw ? '•'.repeat(Math.min(pw.length, 10)) : '-'); r2.appendChild(pv);
+        // 카드가 떠 있는 동안은 비번을 바로 보여준다 — 가리고 싶으면 [숨김]
+        const pv = el('span', 'v mono', pw || '-'); r2.appendChild(pv);
         if (pw) {
-          let shown = false;
-          const sb = el('button', 'b', '보기');
+          let shown = true;
+          const sb = el('button', 'b', '숨김');
           sb.addEventListener('click', () => { shown = !shown; pv.textContent = shown ? pw : '•'.repeat(Math.min(pw.length, 10)); sb.textContent = shown ? '숨김' : '보기'; });
           const cb = el('button', 'b', '복사');
           cb.addEventListener('click', async () => { toast.textContent = (await copyText(pw)) ? '비번 복사됨' : '복사 실패'; });
