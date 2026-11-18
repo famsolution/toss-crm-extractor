@@ -249,6 +249,125 @@
     try { chrome.runtime.sendMessage({ action: 'paintProZoom', op: 'restore', zoom: prev }, function () { void chrome.runtime.lastError; }); } catch (e) {}
   }
 
+
+  // ═══════════════════════════════════════════════════════════════════
+  // 🖼 크롬으로 직접 찍기 (2026-11) — 글자 겹침의 근본 해결
+  //   토스 '이미지 복사'는 화면을 자기 방식으로 다시 그리는데, PC 의 화면 배율(윈도우 125%·150% 등)
+  //   이나 탭 배율에 따라 그리는 크기가 달라지고(예: 기준의 88%), 그때 글자가 칸보다 크게 그려져
+  //   겹치고 잘린다. 탭 배율만 맞춰서는 PC 마다 남는다.
+  //   → 토스 이미지는 '어느 영역·어떤 비율인지' 확인용으로만 쓰고, 같은 영역을 크롬(DevTools 캡처)
+  //     으로 찍는다. 크롬은 화면에 보이는 글자 그대로 찍으므로 어떤 PC 에서도 겹치지 않는다.
+  //   · 크기는 페인트프로 기준(가로 939 + 345 × 상품 수)에 맞춰 찍는다 → 토스적용 배치도 정확.
+  //   · 찍는 1~2초 동안 크롬 위쪽에 '디버깅 중' 노란 줄이 잠깐 보였다 사라진다.
+  //   · 실패하면(개발자도구가 열려 있음 등) 토스 이미지를 그대로 쓴다(종전 동작).
+  // ═══════════════════════════════════════════════════════════════════
+  function _imgFromURL(url) {
+    return new Promise(function (res, rej) { const im = new Image(); im.onload = function () { res(im); }; im.onerror = rej; im.src = url; });
+  }
+  function _leafText(el) { return Array.prototype.map.call(el.childNodes, function (n) { return n.nodeType === 3 ? n.nodeValue : ''; }).join('').trim(); }
+
+  // 토스 이미지와 같은 가로세로비를 가진 보고서 영역(제목 '○○님의 보장분석' 을 품은 가장 안쪽 요소)
+  function _findReportNode(W, H) {
+    const all = document.querySelectorAll('h1,h2,h3,h4,div,span,p,strong');
+    let title = null;
+    for (let i = 0; i < all.length; i++) {
+      const t = (all[i].textContent || '').trim();
+      if (t.length <= 40 && /님의\s*보장\s*분석$/.test(t) && all[i].offsetWidth > 0) { title = all[i]; break; }
+    }
+    if (!title) return null;
+    const want = W / H;
+    for (let el = title.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+      const w = el.offsetWidth, h = el.scrollHeight;
+      if (w < 200 || h < 200) continue;
+      if (Math.abs(w / h - want) / want < 0.015) return { node: el, w: w, h: Math.max(h, el.offsetHeight) };
+    }
+    return null;
+  }
+
+  // 상품(보험) 수 — '보험사명' 줄의 칸 수
+  function _productCount(root) {
+    const cells = root.querySelectorAll('th,td,div,span');
+    for (let i = 0; i < cells.length; i++) {
+      if (_leafText(cells[i]) !== '보험사명') continue;
+      let lab = cells[i];
+      while (lab.parentElement && lab.parentElement !== root && lab.parentElement.children.length === 1) lab = lab.parentElement;
+      let n = 0;
+      for (let sib = lab.nextElementSibling; sib; sib = sib.nextElementSibling) n++;
+      if (n >= 1 && n <= 30) return n;
+    }
+    return 0;
+  }
+
+  // 찍는 동안만 조상들의 스크롤·높이 제한·변형을 풀어 보고서 전체가 펼쳐지게 한다 → 끝나면 원상복구
+  function _unclip(node) {
+    const saved = [];
+    for (let el = node; el && el !== document.documentElement; el = el.parentElement) {
+      const cs = getComputedStyle(el);
+      const fix = {};
+      if (el !== node && cs.overflow !== 'visible') { fix.overflow = 'visible'; }
+      if (el !== node && cs.maxHeight !== 'none') fix['max-height'] = 'none';
+      if (cs.transform !== 'none') fix.transform = 'none';
+      if (cs.zoom && cs.zoom !== '1' && cs.zoom !== 'normal') fix.zoom = '1';   // 미리보기를 축소해 보여주는 경우
+      if (cs.position === 'fixed') { fix.position = 'absolute'; fix.top = (el.getBoundingClientRect().top + window.scrollY) + 'px'; fix.bottom = 'auto'; }
+      if (el !== node && /^(auto|scroll|hidden)$/.test(cs.overflowY) && el.clientHeight < el.scrollHeight) fix.height = 'auto';
+      const keys = Object.keys(fix);
+      if (!keys.length) continue;
+      saved.push([el, el.getAttribute('style')]);
+      keys.forEach(function (k) { el.style.setProperty(k, fix[k], 'important'); });
+    }
+    // 페이지 스크롤바를 숨긴다 — 크롬이 페이지 밖까지 찍을 때 스크롤바가 사라지며 가운데 정렬된
+    //   창이 옆으로 몇 px 밀려 왼쪽에 흰 줄이 생기던 것을 막는다(재는 순간과 찍는 순간의 폭을 같게).
+    const root = document.documentElement;
+    saved.push([root, root.getAttribute('style')]);
+    root.style.setProperty('scrollbar-width', 'none', 'important');
+    return function () { saved.forEach(function (s) { if (s[1] == null) s[0].removeAttribute('style'); else s[0].setAttribute('style', s[1]); }); };
+  }
+
+  // 작은 회색조로 줄여 비교 — 찍은 그림이 토스 그림과 같은 화면인지(엉뚱한 영역·빈 화면 방지)
+  async function _looksSame(urlA, urlB) {
+    try {
+      const a = await _imgFromURL(urlA), b = await _imgFromURL(urlB);
+      if (Math.abs(a.width / a.height - b.width / b.height) / (b.width / b.height) > 0.01) return false;
+      const W = 48, Hh = Math.max(8, Math.round(48 * b.height / b.width));
+      const px = function (im) { const c = document.createElement('canvas'); c.width = W; c.height = Hh; const g = c.getContext('2d'); g.drawImage(im, 0, 0, W, Hh); return g.getImageData(0, 0, W, Hh).data; };
+      const da = px(a), db = px(b);
+      let sum = 0;
+      for (let i = 0; i < da.length; i += 4) sum += Math.abs((da[i] + da[i + 1] + da[i + 2]) - (db[i] + db[i + 1] + db[i + 2])) / 3;
+      return (sum / (da.length / 4) / 255) < 0.08;
+    } catch (e) { return false; }
+  }
+
+  async function _captureWithChrome(tossURL) {
+    let im;
+    try { im = await _imgFromURL(tossURL); } catch (e) { return null; }
+    const found = _findReportNode(im.width, im.height);
+    if (!found) return null;
+    const node = found.node;
+    const restore = _unclip(node);
+    try {
+      await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
+      const rect = node.getBoundingClientRect();
+      const w = node.offsetWidth, h = node.offsetHeight;
+      if (Math.abs(rect.width - w) > 2 || Math.abs(rect.height - h) > 2) return null;   // 펼쳐지지 않음
+      // 페인트프로 기준 폭(939 + 345 × 상품 수)에 맞춘 배율. 상품 수를 못 세면 토스 그림 크기에 맞춤.
+      const n = _productCount(node);
+      let k = n ? (939 + 345 * n) / w : im.width / w;
+      if (!(k > 0.5 && k < 5)) k = im.width / w;
+      const res = await new Promise(function (r) {
+        try {
+          chrome.runtime.sendMessage({
+            action: 'paintProChromeCapture',
+            clip: { x: rect.left + window.scrollX, y: rect.top + window.scrollY, width: w, height: h },
+            scale: k
+          }, function (x) { void chrome.runtime.lastError; r(x); });
+        } catch (e) { r(null); }
+      });
+      if (!res || !res.ok || !res.dataURL) { console.warn('[paint-pro] 크롬 캡처 실패 — 토스 이미지 사용', res && res.error); return null; }
+      if (!(await _looksSame(res.dataURL, tossURL))) { console.warn('[paint-pro] 크롬 캡처가 토스 이미지와 달라 사용 안 함'); return null; }
+      return res.dataURL;
+    } finally { restore(); }
+  }
+
   async function sendToPaintPro(fab) {
     const old = fab.textContent;
     fab.textContent = '⏳ 이미지 준비 중…'; fab.disabled = true;
@@ -289,6 +408,11 @@
         if (!dataURL) {   // 폴백: 클립보드 직접 읽기(포커스 있을 때만 성공)
           for (let i = 0; i < 8 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
         }
+      }
+      // 4) 🖼 같은 영역을 크롬으로 다시 찍어 교체 — 글자 겹침 근본 해결(실패하면 토스 이미지 그대로)
+      if (dataURL) {
+        fab.textContent = '⏳ 선명하게 다시 찍는 중…';
+        try { const better = await _captureWithChrome(dataURL); if (better) dataURL = better; } catch (e) { console.warn('[paint-pro] 크롬 캡처 예외', e); }
       }
       } finally {
         if (zoomBefore) _restoreTabZoom(zoomBefore);
