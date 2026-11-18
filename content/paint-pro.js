@@ -249,6 +249,77 @@
     try { chrome.runtime.sendMessage({ action: 'paintProZoom', op: 'restore', zoom: prev }, function () { void chrome.runtime.lastError; }); } catch (e) {}
   }
 
+
+  // ═══════════════════════════════════════════════════════════════════
+  // ⏳ 미리보기 창이 '완전히 자리 잡은 뒤' 이미지 복사 누르기 (글자 겹침의 근본 원인 수정, 2026-11)
+  //   '표' 를 누르면 '보장분석 표 미리보기' 창이 작게 시작해 커지는 애니메이션으로 열린다.
+  //   그 도중에 '이미지 복사' 를 누르면 토스는 칸 크기를 '줄어든 상태'로 재고 글자는 원래 크기로
+  //   그려서, 글자가 칸보다 커져 겹치고 잘린다(사용자 이미지: 기준의 88% 크기로 나옴).
+  //   사람이 직접 누를 때는 애니메이션이 이미 끝나 있어서 정상이었다.
+  //   → 애니메이션·크기 변화가 멈추고 글꼴이 다 불러와질 때까지 기다린 뒤 누른다.
+  // ═══════════════════════════════════════════════════════════════════
+  function _scaledAncestor(el) {
+    for (let a = el; a && a !== document.documentElement; a = a.parentElement) {
+      const t = getComputedStyle(a).transform;
+      if (t && t !== 'none') {
+        const m = t.match(/matrix\(([^)]+)\)/);
+        if (m) { const v = m[1].split(',').map(Number); if (Math.abs(Math.hypot(v[0], v[1]) - 1) > 0.002) return true; }
+        else if (/matrix3d/.test(t)) return true;
+      }
+    }
+    return false;
+  }
+  function _reportTitle() {
+    const all = document.querySelectorAll('h1,h2,h3,h4,div,span,p,strong');
+    for (let i = 0; i < all.length; i++) {
+      const t = (all[i].textContent || '').trim();
+      if (t.length <= 40 && /님의\s*보장\s*분석$/.test(t) && all[i].offsetWidth > 0) return all[i];
+    }
+    return null;
+  }
+  async function _waitPreviewSettled(btn, maxMs) {
+    const start = Date.now();
+    const box = (btn && (btn.closest('[role="dialog"]') || btn.closest('[aria-modal="true"]'))) || _reportTitle() || btn || document.body;
+    let last = '', stable = 0;
+    while (Date.now() - start < (maxMs || 5000)) {
+      const r = box.getBoundingClientRect();
+      const key = [r.left, r.top, r.width, r.height].map(function (v) { return Math.round(v * 10); }).join(',');
+      let running = 0;
+      try {
+        running = (document.getAnimations ? document.getAnimations() : []).filter(function (a) {
+          if (a.playState !== 'running') return false;
+          try { const tm = a.effect && a.effect.getTiming && a.effect.getTiming(); if (tm && tm.iterations === Infinity) return false; } catch (e) {}   // 로딩 스피너 등 무한 반복은 제외
+          return true;
+        }).length;
+      } catch (e) {}
+      const scaled = _scaledAncestor(box);
+      stable = (key === last && !running && !scaled) ? stable + 1 : 0;
+      last = key;
+      if (stable >= 3) break;
+      await sleep(100);
+    }
+    try { await document.fonts.ready; } catch (e) {}
+    await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
+  }
+  // 토스 이미지가 '줄어든 상태'로 찍혔는지 — 보고서 폭 대비 이미지 폭이 화면 배율의 정수배(1·2·3배)가 아니면 의심
+  async function _tossImageLooksScaled(url) {
+    try {
+      const im = await new Promise(function (res, rej) { const i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = url; });
+      const title = _reportTitle();
+      if (!title) return false;
+      const want = im.width / im.height;
+      for (let el = title.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+        const w = el.offsetWidth, h = el.scrollHeight;
+        if (w < 200 || h < 200) continue;
+        if (Math.abs(w / h - want) / want < 0.015) {
+          const k = im.width / w, d = window.devicePixelRatio || 1;
+          return ![1, 2, 3, d, 2 * d, 3 * d].some(function (c) { return Math.abs(k / c - 1) < 0.02; });
+        }
+      }
+    } catch (e) {}
+    return false;
+  }
+
   async function sendToPaintPro(fab) {
     const old = fab.textContent;
     fab.textContent = '⏳ 이미지 준비 중…'; fab.disabled = true;
@@ -276,7 +347,9 @@
 
       // 2) 가로채기 리셋 후 토스 '이미지 복사' 클릭 → 토스가 clipboard.write 하는 순간
       //    가로채기 스크립트가 dataURL 을 postMessage 로 보내준다(포커스 불필요).
-      if (!dataURL) {
+      // 미리보기 창 애니메이션이 끝나 자리 잡을 때까지 기다린 뒤 누른다 (위 _waitPreviewSettled 설명)
+      for (let attempt = 0; attempt < 2 && !dataURL; attempt++) {
+        await _waitPreviewSettled(btn, attempt ? 6000 : 4000);
         _capturedImageURL = null;
         const clickedAt = Date.now();
         btn.click();
@@ -288,6 +361,12 @@
         }
         if (!dataURL) {   // 폴백: 클립보드 직접 읽기(포커스 있을 때만 성공)
           for (let i = 0; i < 8 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
+        }
+        // 그래도 줄어든 상태로 찍혔으면 한 번 더 기다렸다 다시 누른다
+        if (dataURL && attempt === 0 && await _tossImageLooksScaled(dataURL)) {
+          console.warn('[paint-pro] 토스 이미지가 줄어든 상태로 찍힘 — 기다렸다 다시 복사');
+          dataURL = null;
+          await sleep(800);
         }
       }
       } finally {
