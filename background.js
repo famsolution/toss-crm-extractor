@@ -170,39 +170,3 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   } catch (e) {}
 });
 
-// ═══════════════════════════════════════════════════════════════════
-// 🖼 페인트프로 전송 — 토스 보고서 영역을 크롬이 직접 찍는다 (content/paint-pro.js 참고)
-//   DevTools 프로토콜(chrome.debugger)로 화면 배율을 잠깐 scale 로 고정하고, 지정한 영역을
-//   페이지 밖 부분까지(captureBeyondViewport) PNG 로 찍은 뒤 바로 원상복구·분리한다.
-//   찍는 동안 크롬 위쪽에 '디버깅 중' 노란 줄이 잠깐 보인다.
-// ═══════════════════════════════════════════════════════════════════
-async function _bgPaintProCapture(req, sender) {
-  const tabId = sender && sender.tab && sender.tab.id;
-  const c = req && req.clip;
-  const k = Number(req && req.scale);
-  if (tabId == null || !c || !(c.width > 0 && c.height > 0) || !(k > 0.5 && k < 5)) return { ok: false, error: '잘못된 요청' };
-  if (c.width * k > 16000 || c.height * k > 16000) return { ok: false, error: '너무 큼' };
-  const target = { tabId };
-  try { await chrome.debugger.attach(target, '1.3'); }
-  catch (e) { return { ok: false, error: '디버거 연결 실패(개발자도구가 열려 있나요?): ' + (e && e.message || e) }; }
-  try {
-    await chrome.debugger.sendCommand(target, 'Emulation.setDeviceMetricsOverride', { width: 0, height: 0, deviceScaleFactor: k, mobile: false });
-    const r = await chrome.debugger.sendCommand(target, 'Page.captureScreenshot', {
-      format: 'png', fromSurface: true, captureBeyondViewport: true,
-      clip: { x: c.x, y: c.y, width: c.width, height: c.height, scale: 1 }
-    });
-    if (!r || !r.data) return { ok: false, error: '빈 결과' };
-    return { ok: true, dataURL: 'data:image/png;base64,' + r.data };
-  } catch (e) {
-    return { ok: false, error: String(e && e.message || e) };
-  } finally {
-    try { await chrome.debugger.sendCommand(target, 'Emulation.clearDeviceMetricsOverride'); } catch (e) {}
-    try { await chrome.debugger.detach(target); } catch (e) {}
-  }
-}
-chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
-  if (!req || req.action !== 'paintProChromeCapture') return;
-  _bgPaintProCapture(req, sender).then(sendResponse).catch(e => sendResponse({ ok: false, error: String(e && e.message || e) }));
-  return true;
-});
-
