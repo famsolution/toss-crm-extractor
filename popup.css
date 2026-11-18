@@ -649,4 +649,6 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 /* 고객 입력 화면 버튼 — PC에 저장(주 버튼)을 크게, 저장+워크스페이스는 작게 */
 .cu-act { align-items: center; }
 .cu-act #cuSave.cu-save-lg { padding: 10px 26px; font-size: 14px; font-weight: 800; min-width: 150px; }
-.cu-act #cuSaveSend.cu-send-sm { padding: 4px 9px; font-size: 11px; font-weight: 600; }
+.cu-act #cuSaveSend.cu-send-sm { padding: 8px 14px; font-size: 12.5px; font-weight: 700; color: var(--primary); background: var(--primary-pale); border: 1.5px solid var(--primary); }
+.cu-act #cuSaveSend.cu-send-sm:hover { background: #DBEAFE; }
+.cu-row-foot .cu-send-row { color: var(--primary); border-color: var(--primary); background: var(--primary-pale); font-weight: 700; }

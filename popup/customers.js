@@ -145,7 +145,7 @@ function cuRenderList() {
       ${sub ? `<div class="cred-extra">${sub}</div>` : ''}
       <div class="cu-row-foot">
         <span class="cred-extra">${c['보낸날'] ? '워크스페이스 보냄 ' + _cuEsc(c['보낸날']) : '수정 ' + _cuEsc(c['수정일'] || '')}</span>
-        <button class="cred-copy" data-act="send">📤 워크스페이스로</button>
+        <button class="cred-copy cu-send-row" data-act="send">📤 워크스페이스에 고객등록</button>
       </div>
     </div>`;
   }).join('') : '<div class="cred-empty">저장된 고객이 없습니다.</div>';
