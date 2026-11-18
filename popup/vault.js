@@ -147,6 +147,32 @@ function _vNotifyUnlocked() {
 
 const VAULT_NAMES = ['creds', 'customers'];
 
+// ── 💻 다른 PC 로 옮기기 — 암호화된 그대로 내보내고/가져온다 (PIN 은 파일에 없음) ──
+const VAULT_FILE_APP = 'toss-crm-extractor-vault';
+const VAULT_EXTRA_KEYS = ['cu_health_tpl', 'credCardAuto'];   // 암호화 대상은 아니지만 같이 옮길 설정
+async function vaultExportFile() {
+  if (!_vaultKey) throw new Error('먼저 PIN 으로 금고를 열어 주세요.');
+  const keys = [VAULT_META_KEY].concat(VAULT_NAMES.map(n => 'vault_' + n), VAULT_EXTRA_KEYS);
+  const st = await _vStoreGet('local', keys);
+  if (!st[VAULT_META_KEY]) throw new Error('금고가 없습니다.');
+  const counts = {};
+  for (const n of VAULT_NAMES) { try { counts[n] = (await vaultGet(n)).length; } catch (e) { counts[n] = 0; } }
+  return { app: VAULT_FILE_APP, v: 1, exportedAt: new Date().toISOString(), counts, data: st };
+}
+function vaultParseFile(obj) {
+  if (!obj || obj.app !== VAULT_FILE_APP || !obj.data || !obj.data[VAULT_META_KEY] || !obj.data[VAULT_META_KEY].check)
+    throw new Error('토스인슈 CRM 추출기 금고 백업 파일이 아닙니다.');
+  return obj;
+}
+async function vaultImportFile(obj) {
+  vaultParseFile(obj);
+  const keep = {};
+  [VAULT_META_KEY].concat(VAULT_NAMES.map(n => 'vault_' + n), VAULT_EXTRA_KEYS).forEach(k => { if (obj.data[k] !== undefined) keep[k] = obj.data[k]; });
+  await _vStoreRemove('local', [VAULT_META_KEY].concat(VAULT_NAMES.map(n => 'vault_' + n)));
+  await _vStoreSet('local', keep);
+  await vaultLock();   // 가져온 금고는 백업한 PC 의 PIN 으로 연다
+}
+
 // 잠금 화면 — 금고를 쓰는 탭(.vault-body 를 가진 tab-content) 안에 그린다
 async function vaultRenderGate(pane) {
   if (!pane || _vaultKey) return;
@@ -171,7 +197,8 @@ async function vaultRenderGate(pane) {
       <input class="vg-in" type="password" inputmode="numeric" autocomplete="off" placeholder="새 PIN">
       <input class="vg-in2" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN 다시 입력">
       <button class="btn-primary vg-ok">금고 만들기</button>
-      <div class="vg-msg"></div>`;
+      <div class="vg-msg"></div>
+      <button class="cred-link pc-move-import">💻 다른 PC 의 금고 백업 가져오기</button>`;
   pane.insertBefore(g, pane.firstChild);
   const inp = g.querySelector('.vg-in'), inp2 = g.querySelector('.vg-in2'), msg = g.querySelector('.vg-msg'), ok = g.querySelector('.vg-ok');
   const go = async () => {
@@ -192,6 +219,8 @@ async function vaultRenderGate(pane) {
   };
   ok.addEventListener('click', go);
   [inp, inp2].forEach(el => el && el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); go(); } }));
+  const im = g.querySelector('.pc-move-import');
+  if (im) im.addEventListener('click', () => { if (typeof pcMoveImport === 'function') pcMoveImport(); });
   const rs = g.querySelector('.vg-reset');
   if (rs) rs.addEventListener('click', async () => {
     const y = await showConfirm('PC 금고를 초기화하면 이 PC 에 저장한 보험사 비번과 고객정보가 모두 지워지고 되돌릴 수 없습니다.\n계속할까요?', '금고 초기화');

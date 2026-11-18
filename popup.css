@@ -652,3 +652,18 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .cu-act #cuSaveSend.cu-send-sm { padding: 8px 14px; font-size: 12.5px; font-weight: 700; color: var(--primary); background: var(--primary-pale); border: 1.5px solid var(--primary); }
 .cu-act #cuSaveSend.cu-send-sm:hover { background: #DBEAFE; }
 .cu-row-foot .cu-send-row { color: var(--primary); border-color: var(--primary); background: var(--primary-pale); font-weight: 700; }
+
+/* ═══ 💻 다른 PC 에서 쓰기 (popup/pcmove.js) ═══ */
+.hd-pcmove { margin-left: auto; margin-right: 8px; padding: 4px 10px; border: 1px solid var(--border-2); border-radius: 99px; background: var(--surface); color: var(--text-2); font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.hd-pcmove:hover { border-color: var(--primary); color: var(--primary); }
+.pm-back { position: fixed; inset: 0; z-index: 9000; background: rgba(15,23,42,.45); display: flex; align-items: flex-start; justify-content: center; padding: 24px 14px; overflow-y: auto; }
+.pm-box { width: 100%; max-width: 520px; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-lg); padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px; }
+.pm-hd { display: flex; align-items: center; font-size: 14px; color: var(--text-1); }
+.pm-step { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.pm-t { font-size: 12.5px; font-weight: 800; color: var(--text-1); }
+.pm-s, .pm-ol { font-size: 11.5px; color: var(--text-2); line-height: 1.6; }
+.pm-ol { padding-left: 18px; }
+.pm-ol code { background: var(--surface-2); padding: 0 4px; border-radius: 4px; }
+.pm-step .btn-primary, .pm-step .btn-secondary { padding: 7px 14px; font-size: 12px; flex: none; height: auto; min-height: 0; width: auto; }
+.pm-msg { font-size: 11.5px; color: var(--success-dark); }
+.pm-warn { font-size: 11px; color: #B45309; }
