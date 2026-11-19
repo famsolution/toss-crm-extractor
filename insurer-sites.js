@@ -49,8 +49,63 @@ function _credInsurersForUrl(url) {
   return out;
 }
 
+// 보험사 이름 표기 차이 흡수 — 'NH농협손보' = 'NH농협손해보험', '현대해상화재' = '현대해상'
+//   회사 이름(core)과 손해/생명 구분(kind)으로 비교한다. 같은 그룹의 손보·생보(삼성화재↔삼성생명,
+//   KB손보↔KB라이프 등)는 kind 가 달라 섞이지 않는다.
+function _credCore(name) {
+  let s = _credNorm(name).replace(/\(주\)|주식회사|㈜/g, '');
+  const kind = /생명|라이프|life/.test(s) ? 'life' : (/손해|손보|화재|해상|fire|general/.test(s) ? 'loss' : '');
+  s = s.replace(/해상화재보험|화재해상보험|손해보험|생명보험|화재보험|해상보험|손보|생명|라이프|보험|화재|해상/g, '');
+  return { core: s, kind };
+}
+function _credNameMatch(a, b) {
+  const x = _credNorm(a), y = _credNorm(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  const A = _credCore(a), B = _credCore(b);
+  if (!A.core || !B.core) return false;
+  if (A.kind && B.kind && A.kind !== B.kind) return false;
+  return A.core === B.core || (A.core.length >= 2 && B.core.length >= 2 && (A.core.includes(B.core) || B.core.includes(A.core)));
+}
 function _credMatchesNames(c, names) {
-  const k = _credNorm(c['보험사']);
+  const k = c && c['보험사'];
   if (!k) return false;
-  return names.some(n => { const nn = _credNorm(n); return nn === k || nn.includes(k) || k.includes(nn); });
+  return (names || []).some(n => _credNameMatch(k, n));
+}
+
+// ── 사용자가 연결한 사이트 (chrome.storage.local 'cred_sites') ──
+//   [{ base:'idbins.com', cid:'계정 doc_id', name:'DB손해보험' }] — 목록에 없는 보험사 주소를
+//   계정과 연결해 두면 그 주소에서도 계정이 뜬다. 주소·보험사 이름만 담기므로 암호화하지 않는다.
+var CRED_SITES_KEY = 'cred_sites';
+function _credBuiltinBases() {
+  const set = new Set();
+  Object.keys(CRED_INSURER_SITES).forEach(n => { try { set.add(_credBaseDomain(new URL(CRED_INSURER_SITES[n]).hostname)); } catch (e) {} });
+  return set;
+}
+// 주소 → { base, names:[...], cids:[...] }  (내장 목록 + 사용자 연결)
+function _credLookupUrl(url, userSites) {
+  let host = '';
+  try { const u = new URL(url); if (!/^https?:$/.test(u.protocol)) return { base: '', names: [], cids: [] }; host = u.hostname; } catch (e) { return { base: '', names: [], cids: [] }; }
+  const base = _credBaseDomain(host);
+  const names = _credInsurersForUrl(url);
+  const cids = [];
+  (userSites || []).forEach(m => {
+    if (!m || m.base !== base) return;
+    if (m.cid && !cids.includes(m.cid)) cids.push(m.cid);
+    if (m.name && !names.includes(m.name)) names.push(m.name);
+  });
+  return { base, names, cids };
+}
+function _credMatchLookup(c, lk) {
+  if (!c || !lk) return false;
+  if (c.doc_id && lk.cids.includes(c.doc_id)) return true;
+  // 사용자 연결 없이 내장 목록으로만 찾은 경우에만 이름으로 매칭
+  return _credMatchesNames(c, lk.names);
+}
+// 입력한 주소(https://… 또는 도메인) → 기준 도메인. 이상하면 ''
+function _credSiteBase(input) {
+  let v = String(input || '').trim();
+  if (!v) return '';
+  if (!/^https?:\/\//i.test(v)) v = 'https://' + v;
+  try { const h = new URL(v).hostname; return /\./.test(h) ? _credBaseDomain(h) : ''; } catch (e) { return ''; }
 }

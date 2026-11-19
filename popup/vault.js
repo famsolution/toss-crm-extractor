@@ -146,7 +146,7 @@ async function vaultWriteCardCache(creds) {
   let raw = st[CARD_DEVKEY_KEY];
   if (!raw) { raw = _vb64.enc(crypto.getRandomValues(new Uint8Array(32))); await _vStoreSet('local', { [CARD_DEVKEY_KEY]: raw }); }
   const key = await crypto.subtle.importKey('raw', _vb64.dec(raw), { name: 'AES-GCM' }, false, ['encrypt']);
-  const items = (creds || []).map(c => ({ 보험사: c['보험사'] || '', ID: c['ID'] || '', 비밀번호: c['비밀번호'] || '', 생년월일: c['생년월일'] || '', 년월일: c['년월일'] || '', 비고: c['비고'] || '' }));
+  const items = (creds || []).map(c => ({ doc_id: c.doc_id || '', 보험사: c['보험사'] || '', ID: c['ID'] || '', 비밀번호: c['비밀번호'] || '', 생년월일: c['생년월일'] || '', 년월일: c['년월일'] || '', 비고: c['비고'] || '' }));
   await _vStoreSet('local', { [CARD_CACHE_KEY]: await _vEncrypt(key, JSON.stringify(items)) });
 }
 async function vaultSetCardPreview(on) {
@@ -174,7 +174,7 @@ const VAULT_NAMES = ['creds', 'customers'];
 
 // ── 💻 다른 PC 로 옮기기 — 암호화된 그대로 내보내고/가져온다 (PIN 은 파일에 없음) ──
 const VAULT_FILE_APP = 'toss-crm-extractor-vault';
-const VAULT_EXTRA_KEYS = ['cu_health_tpl', 'credCardAuto'];   // 암호화 대상은 아니지만 같이 옮길 설정
+const VAULT_EXTRA_KEYS = ['cu_health_tpl', 'credCardAuto', 'cred_sites'];   // 암호화 대상은 아니지만 같이 옮길 설정
 async function vaultExportFile() {
   if (!_vaultKey) throw new Error('먼저 PIN 으로 금고를 열어 주세요.');
   const keys = [VAULT_META_KEY].concat(VAULT_NAMES.map(n => 'vault_' + n), VAULT_EXTRA_KEYS);

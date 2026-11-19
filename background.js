@@ -133,9 +133,11 @@ async function _bgCardCache() {
 async function _bgCredCardLookup(req, sender) {
   const url = (sender && (sender.url || (sender.tab && sender.tab.url))) || '';
   const tabId = sender && sender.tab && sender.tab.id;
-  const names = (typeof _credInsurersForUrl === 'function') ? _credInsurersForUrl(url) : [];
-  if (!names.length) return { ok: true, show: false };
-  const local = await chrome.storage.local.get(['credCardAuto', 'vault_meta']);
+  const local = await chrome.storage.local.get(['credCardAuto', 'vault_meta', CRED_SITES_KEY]);
+  // 내장 보험사 주소 + 사용자가 계정에 연결한 주소
+  const lk = _credLookupUrl(url, local[CRED_SITES_KEY] || []);
+  const names = lk.names;
+  if (!names.length && !lk.cids.length) return { ok: true, show: false };
   if (!local.vault_meta) return { ok: true, show: false };                  // 금고를 아직 안 만듦
   if (local.credCardAuto === false && !req.force) return { ok: true, show: false };
 
@@ -159,13 +161,13 @@ async function _bgCredCardLookup(req, sender) {
     if (!already && !req.force) {
       let pre = null;
       try { pre = await _bgCardCache(); } catch (e) { pre = null; }
-      const hits = (pre || []).filter(c => _credMatchesNames(c, names));
+      const hits = (pre || []).filter(c => _credMatchLookup(c, lk));
       if (hits.length) { await markShown(); return { ok: true, show: true, names, items: hits, previewSec: 10 }; }
     }
     await markShown();
     return { ok: true, show: true, locked: true, names };
   }
-  const items = creds.filter(c => _credMatchesNames(c, names))
+  const items = creds.filter(c => _credMatchLookup(c, lk))
     .map(c => ({ 보험사: c['보험사'] || '', ID: c['ID'] || '', 비밀번호: c['비밀번호'] || '', 생년월일: c['생년월일'] || '', 년월일: c['년월일'] || '', 비고: c['비고'] || '' }));
   if (!items.length) return { ok: true, show: false };
   if (already && !req.force) return { ok: true, show: false, pill: true };
@@ -185,5 +187,36 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
     const shown = (sess && sess[CRED_CARD_SHOWN_KEY]) || {};
     if (shown[tabId]) { delete shown[tabId]; await chrome.storage.session.set({ [CRED_CARD_SHOWN_KEY]: shown }); }
   } catch (e) {}
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// 🌐 사용자가 계정에 연결한 보험사 주소에도 계정 카드(insurer-card.js)를 띄운다
+//   manifest 에는 내장 보험사 도메인만 있으므로, 'cred_sites' 의 나머지 도메인은 실행 중에
+//   content script 로 등록한다(크롬을 다시 켜도 유지). 목록이 바뀌면 다시 맞춘다.
+// ═══════════════════════════════════════════════════════════════════
+const USER_CARD_SCRIPT_ID = 'insurer-card-user';
+async function _bgSyncUserCardScript() {
+  try {
+    const st = await chrome.storage.local.get(CRED_SITES_KEY);
+    const builtin = _credBuiltinBases();
+    const bases = Array.from(new Set((st[CRED_SITES_KEY] || []).map(m => m && m.base).filter(b => b && !builtin.has(b))));
+    const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [USER_CARD_SCRIPT_ID] }).catch(() => []);
+    if (!bases.length) {
+      if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: [USER_CARD_SCRIPT_ID] });
+      return;
+    }
+    const script = {
+      id: USER_CARD_SCRIPT_ID,
+      matches: bases.flatMap(b => [`https://*.${b}/*`, `http://*.${b}/*`]),
+      js: ['insurer-card.js'], runAt: 'document_idle', persistAcrossSessions: true
+    };
+    if (existing.length) await chrome.scripting.updateContentScripts([script]);
+    else await chrome.scripting.registerContentScripts([script]);
+  } catch (e) { console.warn('[bg] 사용자 보험사 주소 등록 실패', e); }
+}
+chrome.runtime.onInstalled.addListener(_bgSyncUserCardScript);
+chrome.runtime.onStartup.addListener(_bgSyncUserCardScript);
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes[CRED_SITES_KEY]) _bgSyncUserCardScript();
 });
 

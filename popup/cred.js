@@ -11,6 +11,11 @@ let _credFilter = 'all';     // all | loss | life
 let _credQuery = '';
 let _credEditId = null;      // 수정 중인 doc_id ('' = 신규)
 let _credSiteNames = [];     // 지금 탭 사이트에 해당하는 보험사 이름들
+let _credSites = [];         // 사용자가 계정에 연결한 주소 [{base, cid, name}] (chrome.storage.local 'cred_sites')
+let _credTab = null;         // 지금 보고 있는 탭 {id, url}
+let _credLk = { base: '', names: [], cids: [] };   // 지금 탭 주소 판별 결과
+// 보험사 사이트가 아닌 게 분명한 곳 — '계정 연결' 안내를 띄우지 않음
+const CRED_NOT_INSURER = /^(tossinsu\.com|ohmymanager\.com|web\.app|firebaseapp\.com|vercel\.app|google\.com|naver\.com|kakao\.com|daum\.net|youtube\.com|github\.com)$/;
 const _credShown = new Set();   // 비번을 펼쳐 보인 doc_id
 
 function _credEsc(s) {
@@ -18,6 +23,46 @@ function _credEsc(s) {
 }
 
 function _credNewId() { return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+// ── 🌐 계정 ↔ 사이트 주소 연결 ──
+async function _credLoadSites() {
+  const st = await new Promise(r => { try { chrome.storage.local.get(CRED_SITES_KEY, v => r(v || {})); } catch (e) { r({}); } });
+  _credSites = Array.isArray(st[CRED_SITES_KEY]) ? st[CRED_SITES_KEY] : [];
+}
+async function _credSaveSites() {
+  await new Promise(r => { try { chrome.storage.local.set({ [CRED_SITES_KEY]: _credSites }, () => r()); } catch (e) { r(); } });
+}
+// 계정 하나의 연결 주소를 정한다 (base 가 '' 이면 연결 해제). 한 계정에 주소 하나.
+async function _credSetSite(cid, base, name) {
+  _credSites = _credSites.filter(m => m.cid !== cid);
+  if (base) _credSites.push({ base, cid, name: name || '' });
+  await _credSaveSites();
+}
+function _credSiteOf(cid) { const m = _credSites.find(x => x.cid === cid); return m ? m.base : ''; }
+function _credRefreshLookup() { _credLk = _credLookupUrl(_credTab && _credTab.url, _credSites); _credSiteNames = _credLk.names; }
+
+// 지금 탭에 계정 카드를 바로 띄운다 (방금 연결한 주소는 아직 스크립트가 없으니 넣어 준다)
+async function _credPokeTab() {
+  if (!_credTab || !_credTab.id) return;
+  try {
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: _credTab.id }, func: () => !!window.__tossCredCardBound });
+    if (r && r.result) chrome.tabs.sendMessage(_credTab.id, { action: 'credCardRetry' }, () => { void chrome.runtime.lastError; });
+    else await chrome.scripting.executeScript({ target: { tabId: _credTab.id }, files: ['insurer-card.js'] });
+  } catch (e) { /* 크롬 내부 페이지 등은 넣을 수 없음 */ }
+}
+
+async function credLinkCurrentSite(cid) {
+  const c = _credFind(cid);
+  if (!c || !_credLk.base) return;
+  await _credSetSite(cid, _credLk.base, c['보험사']);
+  if (!c['사이트'] && _credTab && _credTab.url) {
+    try { c['사이트'] = new URL(_credTab.url).origin; await _credPersist(); } catch (e) {}
+  }
+  _credRefreshLookup();
+  credRender();
+  showToast(`🌐 ${_credLk.base} 에서 ${c['보험사']} 계정이 뜨도록 연결했습니다`);
+  _credPokeTab();
+}
 
 async function credLoad() {
   const box = document.getElementById('credList');
@@ -40,7 +85,8 @@ function _credRow(c, highlight) {
   const shown = _credShown.has(id);
   const pw = String(c['비밀번호'] || '');
   const pwDisp = pw ? (shown ? _credEsc(pw) : '•'.repeat(Math.min(pw.length, 10))) : '-';
-  const extra = [c['생년월일'] && ('생년월일 ' + c['생년월일']), c['년월일'] && ('년월일 ' + c['년월일']), c['비고']].filter(Boolean).map(_credEsc).join(' · ');
+  const site = _credSiteOf(c.doc_id);
+  const extra = [site && ('🌐 ' + site), c['생년월일'] && ('생년월일 ' + c['생년월일']), c['년월일'] && ('년월일 ' + c['년월일']), c['비고']].filter(Boolean).map(_credEsc).join(' · ');
   const type = c['구분'] === '생명보험' ? '생보' : (c['구분'] === '손해보험' ? '손보' : '');
   return `
     <div class="cred-row${highlight ? ' hit' : ''}" data-id="${_credEsc(id)}">
@@ -65,12 +111,25 @@ function credRender() {
   if (!box || !siteBox) return;
 
   // ① 지금 탭 보험사
-  if (_credSiteNames.length) {
-    const hits = _credList.filter(c => _credMatchesNames(c, _credSiteNames));
+  const hits = _credLk.base ? _credList.filter(c => _credMatchLookup(c, _credLk)) : [];
+  const linkUI = () => _credList.length ? `
+      <div class="cred-linkrow">
+        <select id="credLinkSel">${_credList.slice().sort((a, b) => String(a['보험사'] || '').localeCompare(String(b['보험사'] || ''), 'ko'))
+          .map(c => `<option value="${_credEsc(c.doc_id)}">${_credEsc(c['보험사'] || '')} · ${_credEsc(c['ID'] || '')}</option>`).join('')}</select>
+        <button class="cred-copy" data-act="link-site">이 사이트에 연결</button>
+        <button class="cred-link" data-act="new-site">+ 새 계정</button>
+      </div>` : `<button class="cred-link" data-act="new-site">+ 이 사이트 계정 등록</button>`;
+  if (hits.length) {
     siteBox.style.display = 'block';
-    siteBox.innerHTML = `<div class="cred-site-hd">📍 지금 보고 있는 사이트 — ${_credEsc(_credSiteNames[0])}</div>` +
-      (hits.length ? hits.map(c => _credRow(c, true)).join('')
-        : `<div class="cred-empty">이 보험사로 등록된 계정이 없습니다. <button class="cred-link" data-act="new-site">+ 등록</button></div>`);
+    siteBox.innerHTML = `<div class="cred-site-hd">📍 지금 보고 있는 사이트 — ${_credEsc(_credSiteNames[0] || _credLk.base)}</div>` + hits.map(c => _credRow(c, true)).join('');
+  } else if (_credSiteNames.length) {
+    siteBox.style.display = 'block';
+    siteBox.innerHTML = `<div class="cred-site-hd">📍 지금 보고 있는 사이트 — ${_credEsc(_credSiteNames[0])}</div>
+      <div class="cred-empty">이 사이트에 맞는 계정을 못 찾았습니다. 계정을 골라 연결하면 다음부터 자동으로 뜹니다.</div>` + linkUI();
+  } else if (_credLk.base && vaultIsUnlocked() && !CRED_NOT_INSURER.test(_credLk.base)) {
+    // 보험사 목록에 없는 주소 — 여기가 보험사 사이트면 계정을 연결할 수 있게 (작게)
+    siteBox.style.display = 'block';
+    siteBox.innerHTML = `<div class="cred-site-hd cred-site-unknown">🌐 지금 사이트: ${_credEsc(_credLk.base)} — 보험사 사이트라면 계정을 연결하세요</div>` + linkUI();
   } else {
     siteBox.style.display = 'none';
     siteBox.innerHTML = '';
@@ -100,6 +159,8 @@ function credOpenForm(c, presetName) {
   v('cf-birth8', c && c['년월일']);
   v('cf-order', c && c['순서'] != null ? c['순서'] : 99);
   v('cf-note', c && c['비고']);
+  // 사이트 주소: 계정에 저장된 주소 → 연결된 도메인 → (새 계정이고 지금 탭이 웹사이트면) 지금 탭 주소
+  v('cf-site', (c && (c['사이트'] || _credSiteOf(c.doc_id))) || (!c && _credLk.base && _credTab ? (() => { try { return new URL(_credTab.url).origin; } catch (e) { return ''; } })() : ''));
   f.style.display = 'block';
   f.scrollIntoView({ block: 'nearest' });
   document.getElementById('cf-ins').focus();
@@ -112,22 +173,32 @@ async function credSaveForm() {
     구분: g('cf-type'), 보험사: g('cf-ins'), ID: g('cf-id'),
     비밀번호: document.getElementById('cf-pw')?.value || '',   // 비번은 공백도 그대로
     생년월일: g('cf-birth'), 년월일: g('cf-birth8'),
-    순서: Number(g('cf-order')) || 99, 비고: g('cf-note')
+    순서: Number(g('cf-order')) || 99, 비고: g('cf-note'),
+    사이트: g('cf-site')
   };
   if (!data.보험사) { await showAlert('보험사 이름을 입력하세요.'); return; }
+  const siteBase = _credSiteBase(data.사이트);
+  if (data.사이트 && !siteBase) { await showAlert('사이트 주소를 확인해 주세요. 예: https://sales.kbinsure.co.kr'); return; }
   if (!vaultIsUnlocked()) { await showAlert('금고가 잠겨 있습니다. PIN 으로 잠금을 풀어 주세요.'); return; }
   const before = _credList.slice();
   try {
-    if (_credEditId) {
-      const i = _credList.findIndex(c => c.doc_id === _credEditId);
+    let cid = _credEditId;
+    if (cid) {
+      const i = _credList.findIndex(c => c.doc_id === cid);
       if (i >= 0) _credList[i] = Object.assign({}, _credList[i], data);
     } else {
-      _credList.push(Object.assign({}, data, { doc_id: _credNewId() }));
+      cid = _credNewId();
+      _credList.push(Object.assign({}, data, { doc_id: cid }));
     }
     await _credPersist();
+    // 내장 목록으로 이미 알아보는 주소면 따로 연결할 필요 없음 — 목록에 없는 주소만 연결
+    const builtinHit = siteBase && _credBuiltinBases().has(siteBase) && _credMatchesNames(data, _credInsurersForUrl('https://' + siteBase));
+    await _credSetSite(cid, builtinHit ? '' : siteBase, data.보험사);
+    _credRefreshLookup();
     showToast(_credEditId ? '✏️ 수정했습니다' : '➕ 등록했습니다');
     credCloseForm();
     credRender();
+    if (_credLk.cids.includes(cid) || _credMatchLookup(_credFind(cid), _credLk)) _credPokeTab();
   } catch (e) {
     _credList = before;
     await showAlert('저장 실패: ' + (e.message || e));
@@ -141,6 +212,8 @@ async function credDelete(c) {
   try {
     _credList = _credList.filter(x => x.doc_id !== c.doc_id);
     await _credPersist();
+    await _credSetSite(c.doc_id, '', '');
+    _credRefreshLookup();
     credRender();
     showToast('🗑 삭제했습니다');
   } catch (e) {
@@ -161,6 +234,7 @@ function _credOnClick(e) {
   if (!btn) return;
   const act = btn.dataset.act;
   if (act === 'new-site') { credOpenForm(null, _credSiteNames[0] || ''); return; }
+  if (act === 'link-site') { const sel = document.getElementById('credLinkSel'); if (sel && sel.value) credLinkCurrentSite(sel.value); return; }
   const row = btn.closest('.cred-row');
   const c = row && _credFind(row.dataset.id);
   if (!c) return;
@@ -196,11 +270,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 지금 탭이 보험사 사이트인지 — 맞으면 비번 탭으로 바로 전환
+  await _credLoadSites();
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    _credSiteNames = _credInsurersForUrl(tab && tab.url);
-  } catch (e) { _credSiteNames = []; }
-  if (_credSiteNames.length) _credSwitchToTab();
+    _credTab = tab && /^https?:/.test(tab.url || '') ? { id: tab.id, url: tab.url } : null;
+  } catch (e) { _credTab = null; }
+  _credRefreshLookup();
+  if (_credSiteNames.length || _credLk.cids.length) _credSwitchToTab();
   // 🔑 사이트 자동 표시 설정 (insurer-card.js) — 비밀이 아니라 그냥 저장
   const auto = document.getElementById('credAutoChk');
   if (auto) {
@@ -218,7 +294,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     credLoad();
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab && _credInsurersForUrl(tab.url).length) chrome.tabs.sendMessage(tab.id, { action: 'credCardRetry' }, () => { void chrome.runtime.lastError; });
+      if (tab && (_credSiteNames.length || _credLk.cids.length)) chrome.tabs.sendMessage(tab.id, { action: 'credCardRetry' }, () => { void chrome.runtime.lastError; });
     } catch (e) {}
   });
   if (vaultIsUnlocked()) credLoad();
