@@ -281,7 +281,11 @@
         <button id="cuNewBtn" class="btn-primary cred-new">＋ 새 고객</button>
         <button id="cuBigBtn" class="btn-secondary cred-new cu-big-btn" title="큰 창으로 열기">⛶ 크게 보기</button>
       </div>
-      <div class="cred-bar"><span class="cred-sp"></span><span id="cuCount" class="cred-count"></span></div>
+      <div class="cred-bar">
+        <button class="cred-copy cu-gc-all" data-act="gc-all" title="전화번호가 있고 아직 주소록에 없는 고객을 구글 주소록에 한 번에 등록">📇 전체 폰 주소록 등록</button>
+        <select id="gcPrefix" class="cu-gc-pfx" title="주소록 이름 앞에 붙는 접두어 (워크스페이스와 같음)"><option value="ㄴ.">ㄴ.</option><option value="ㅈ.">ㅈ.</option></select>
+        <span class="cred-sp"></span><span id="cuCount" class="cred-count"></span>
+      </div>
       <div id="cuList" class="cred-list"></div>
     </div>
 
@@ -300,6 +304,7 @@
       </div>
       <div class="cred-form-act cu-act">
         <button id="cuCancel" class="btn-secondary">취소</button>
+        <button class="btn-secondary cu-gc-form" data-act="gc-form" title="PC에 저장하고 구글 주소록에 등록 → 폰에 자동 동기화">📇 폰 주소록</button>
         <button id="cuSaveSend" class="btn-secondary cu-send-sm" title="PC에 저장하고 워크스페이스 고객 등록 창에 채워 넣습니다">📤 워크스페이스에 고객등록</button>
         <button id="cuSave" class="btn-primary cu-save-lg">💾 PC에 저장</button>
       </div>
@@ -350,5 +355,6 @@
 <script src="popup/cred.js"></script>
 <script src="popup/customers.js"></script>
 <script src="popup/pcmove.js"></script>
+<script src="popup/gcontacts.js"></script>
 </body>
 </html>

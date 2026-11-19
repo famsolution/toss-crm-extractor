@@ -667,3 +667,11 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .pm-step .btn-primary, .pm-step .btn-secondary { padding: 7px 14px; font-size: 12px; flex: none; height: auto; min-height: 0; width: auto; }
 .pm-msg { font-size: 11.5px; color: var(--success-dark); }
 .pm-warn { font-size: 11px; color: #B45309; }
+
+/* ═══ 📇 폰 주소록 (popup/gcontacts.js) ═══ */
+.cu-row-btns { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.cu-gc-row { color: #047857; border-color: #6EE7B7; background: #ECFDF5; font-weight: 700; }
+.cu-gc-row.done { color: var(--text-3); border-color: var(--border); background: var(--surface); font-weight: 600; }
+.cu-gc-all { color: #047857; border-color: #6EE7B7; background: #ECFDF5; font-weight: 700; padding: 4px 10px; }
+.cu-gc-pfx { padding: 3px 4px; border: 1px solid var(--border-2); border-radius: 5px; font-size: 11.5px; }
+.cu-act .cu-gc-form { padding: 8px 12px; font-size: 12.5px; font-weight: 700; color: #047857; background: #ECFDF5; border: 1.5px solid #6EE7B7; }

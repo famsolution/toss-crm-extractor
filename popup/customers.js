@@ -145,7 +145,10 @@ function cuRenderList() {
       ${sub ? `<div class="cred-extra">${sub}</div>` : ''}
       <div class="cu-row-foot">
         <span class="cred-extra">${c['보낸날'] ? '워크스페이스 보냄 ' + _cuEsc(c['보낸날']) : '수정 ' + _cuEsc(c['수정일'] || '')}</span>
-        <button class="cred-copy cu-send-row" data-act="send">📤 워크스페이스에 고객등록</button>
+        <span class="cu-row-btns">
+          <button class="cred-copy cu-gc-row${c.google_contact_resource ? ' done' : ''}" data-act="gc-one" title="${c.google_contact_resource ? '구글 주소록에 등록됨 — 다시 눌러도 중복 생성 안 됨' : '구글 주소록에 등록 → 폰에 자동 동기화'}">📇 ${c.google_contact_resource ? '주소록 ✓' : '폰 주소록'}</button>
+          <button class="cred-copy cu-send-row" data-act="send">📤 워크스페이스에 고객등록</button>
+        </span>
       </div>
     </div>`;
   }).join('') : '<div class="cred-empty">저장된 고객이 없습니다.</div>';
@@ -252,6 +255,7 @@ async function cuSave() {
   if (!vaultIsUnlocked()) { await showAlert('금고가 잠겨 있습니다. PIN 으로 잠금을 풀어 주세요.'); return null; }
   const before = _cuList.slice();
   _cuEdit['수정일'] = _cuNow();
+  if (!_cuEdit['등록일']) _cuEdit['등록일'] = _cuEdit['수정일'];   // 주소록 이름 {날짜} 용
   if (!_cuEdit.id) { _cuEdit.id = _cuNewId(); _cuList.push(_cuEdit); }
   else { const i = _cuList.findIndex(c => c.id === _cuEdit.id); if (i >= 0) _cuList[i] = _cuEdit; else _cuList.push(_cuEdit); }
   try { await _cuPersist(); }
@@ -474,6 +478,7 @@ async function cuImportExtracted(raw) {
     target[k] = v;
   });
   target['수정일'] = _cuNow();
+  if (!target['등록일']) target['등록일'] = target['수정일'];
   if (hit) _cuList[_cuList.indexOf(hit)] = target; else _cuList.push(target);
   try { await _cuPersist(); }
   catch (e) { _cuList = before; await showAlert('저장 실패: ' + (e.message || e)); return null; }
@@ -507,6 +512,15 @@ async function cuOpenBigView() {
   try { await chrome.windows.create({ url, type: 'popup', width: 1180, height: 900 }); }
   catch (e) { await chrome.tabs.create({ url }); }
 }
+
+// 다른 스크립트(popup/gcontacts.js)용 접근자
+window.cuStore = {
+  list: () => _cuList,
+  find: id => _cuList.find(x => x.id === id),
+  replace: c => { const i = _cuList.findIndex(x => x.id === c.id); if (i >= 0) _cuList[i] = c; },
+  persist: () => _cuPersist(),
+  editing: () => !!_cuEdit
+};
 
 // ── 이벤트 ──
 function _cuOnClick(e) {
