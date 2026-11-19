@@ -130,8 +130,33 @@ async function vaultChangePin(oldPin, newPin, names) {
   return true;
 }
 
+// ── 🔓 사이트 카드 '처음 10초' 미리보기용 비번 사본 (PIN 없이 열림) ──
+//   금고가 잠겨 있어도 보험사 사이트에 처음 들어갔을 때 10초 동안 ID/비번을 보여주기 위해,
+//   보험사 비번만(고객정보 X) 이 PC 전용 기기 키로 따로 암호화해 둔다. 기기 키도 같은 저장소에
+//   있으므로 사실상 이 PC 를 쓰는 사람은 PIN 없이 볼 수 있다 — 🔑 비번 탭 설정으로 끌 수 있고,
+//   끄면 사본과 기기 키를 지운다.
+const CARD_CACHE_KEY = 'card_cache', CARD_DEVKEY_KEY = 'card_dev_key', CARD_PREVIEW_KEY = 'credPreviewNoPin';
+async function vaultCardPreviewEnabled() {
+  const st = await _vStoreGet('local', [CARD_PREVIEW_KEY]);
+  return st[CARD_PREVIEW_KEY] !== false;
+}
+async function vaultWriteCardCache(creds) {
+  if (!(await vaultCardPreviewEnabled())) { await _vStoreRemove('local', [CARD_CACHE_KEY, CARD_DEVKEY_KEY]); return; }
+  const st = await _vStoreGet('local', [CARD_DEVKEY_KEY]);
+  let raw = st[CARD_DEVKEY_KEY];
+  if (!raw) { raw = _vb64.enc(crypto.getRandomValues(new Uint8Array(32))); await _vStoreSet('local', { [CARD_DEVKEY_KEY]: raw }); }
+  const key = await crypto.subtle.importKey('raw', _vb64.dec(raw), { name: 'AES-GCM' }, false, ['encrypt']);
+  const items = (creds || []).map(c => ({ 보험사: c['보험사'] || '', ID: c['ID'] || '', 비밀번호: c['비밀번호'] || '', 생년월일: c['생년월일'] || '', 년월일: c['년월일'] || '', 비고: c['비고'] || '' }));
+  await _vStoreSet('local', { [CARD_CACHE_KEY]: await _vEncrypt(key, JSON.stringify(items)) });
+}
+async function vaultSetCardPreview(on) {
+  await _vStoreSet('local', { [CARD_PREVIEW_KEY]: !!on });
+  if (!on) await _vStoreRemove('local', [CARD_CACHE_KEY, CARD_DEVKEY_KEY]);
+  else if (_vaultKey) { try { await vaultWriteCardCache(await vaultGet('creds')); } catch (e) {} }
+}
+
 async function vaultReset(names) {
-  await _vStoreRemove('local', [VAULT_META_KEY].concat(names.map(n => 'vault_' + n)));
+  await _vStoreRemove('local', [VAULT_META_KEY, CARD_CACHE_KEY, CARD_DEVKEY_KEY].concat(names.map(n => 'vault_' + n)));
   await vaultLock();
 }
 
@@ -168,7 +193,7 @@ async function vaultImportFile(obj) {
   vaultParseFile(obj);
   const keep = {};
   [VAULT_META_KEY].concat(VAULT_NAMES.map(n => 'vault_' + n), VAULT_EXTRA_KEYS).forEach(k => { if (obj.data[k] !== undefined) keep[k] = obj.data[k]; });
-  await _vStoreRemove('local', [VAULT_META_KEY].concat(VAULT_NAMES.map(n => 'vault_' + n)));
+  await _vStoreRemove('local', [VAULT_META_KEY, CARD_CACHE_KEY].concat(VAULT_NAMES.map(n => 'vault_' + n)));
   await _vStoreSet('local', keep);
   await vaultLock();   // 가져온 금고는 백업한 PC 의 PIN 으로 연다
 }

@@ -120,6 +120,16 @@ async function _bgVaultCreds() {
   return Array.isArray(arr) ? arr : [];
 }
 
+// 🔓 금고가 잠겼을 때 쓰는 '처음 10초' 미리보기 사본 (popup/vault.js vaultWriteCardCache)
+async function _bgCardCache() {
+  const st = await chrome.storage.local.get(['card_cache', 'card_dev_key', 'credPreviewNoPin']);
+  if (st.credPreviewNoPin === false || !st.card_cache || !st.card_dev_key) return null;
+  const key = await crypto.subtle.importKey('raw', _bgB64(st.card_dev_key), { name: 'AES-GCM' }, false, ['decrypt']);
+  const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: _bgB64(st.card_cache.iv) }, key, _bgB64(st.card_cache.ct));
+  const arr = JSON.parse(new TextDecoder().decode(pt));
+  return Array.isArray(arr) ? arr : null;
+}
+
 async function _bgCredCardLookup(req, sender) {
   const url = (sender && (sender.url || (sender.tab && sender.tab.url))) || '';
   const tabId = sender && sender.tab && sender.tab.id;
@@ -145,6 +155,13 @@ async function _bgCredCardLookup(req, sender) {
   };
   if (creds === null) {                                                     // 잠김
     if (already && !req.force) return { ok: true, show: false, pill: true };
+    // 처음 자동으로 뜰 때만 PIN 없이 10초 미리보기 (🔑 버튼으로 다시 열 때는 안 됨 — 반복 열람 방지)
+    if (!already && !req.force) {
+      let pre = null;
+      try { pre = await _bgCardCache(); } catch (e) { pre = null; }
+      const hits = (pre || []).filter(c => _credMatchesNames(c, names));
+      if (hits.length) { await markShown(); return { ok: true, show: true, names, items: hits, previewSec: 10 }; }
+    }
     await markShown();
     return { ok: true, show: true, locked: true, names };
   }

@@ -28,8 +28,12 @@ async function credLoad() {
     return;
   }
   credRender();
+  try { await vaultWriteCardCache(_credList); } catch (e) {}   // 사이트 카드 10초 미리보기용 사본 갱신
 }
-async function _credPersist() { await vaultPut('creds', _credList); }
+async function _credPersist() {
+  await vaultPut('creds', _credList);
+  try { await vaultWriteCardCache(_credList); } catch (e) {}
+}
 
 function _credRow(c, highlight) {
   const id = c.doc_id;
@@ -202,6 +206,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (auto) {
     chrome.storage.local.get('credCardAuto', st => { auto.checked = st.credCardAuto !== false; });
     auto.addEventListener('change', () => chrome.storage.local.set({ credCardAuto: auto.checked }));
+  }
+  // 🔓 PIN 없이 처음 10초 보기 설정
+  const pv = document.getElementById('credPreviewChk');
+  if (pv) {
+    vaultCardPreviewEnabled().then(on => { pv.checked = on; });
+    pv.addEventListener('change', () => vaultSetCardPreview(pv.checked));
   }
   // 금고를 풀면 지금 보고 있는 보험사 탭에 계정 카드를 바로 다시 띄운다
   document.addEventListener('vault-unlocked', async () => {

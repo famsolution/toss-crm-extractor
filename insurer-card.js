@@ -44,7 +44,8 @@
     .bar i { display: block; height: 100%; background: #2563EB; width: 100%; transition: width 1s linear; }
     .pill { width: 38px; height: 38px; border-radius: 50%; border: 1.5px solid #2563EB; background: #fff;
             box-shadow: 0 6px 18px rgba(15,23,42,.2); font-size: 17px; cursor: pointer; }
-    .toast { font-size: 11px; color: #059669; font-weight: 700; min-height: 13px; margin-top: 4px; }`;
+    .toast { font-size: 11px; color: #059669; font-weight: 700; min-height: 13px; margin-top: 4px; }
+    .pre { font-size: 11px; color: #B45309; font-weight: 700; margin-top: 6px; }`;
 
   function ensureHost() {
     if (host && document.documentElement.contains(host)) return;
@@ -94,6 +95,7 @@
     card.appendChild(hd);
     const toast = el('div', 'toast');
 
+    const lockLater = [];
     if (res.locked) {
       card.appendChild(el('div', 'msg', '🔒 PC 금고가 잠겨 있어 계정을 표시할 수 없습니다. 확장 아이콘을 눌러 PIN 을 입력하면 바로 여기에 표시됩니다.'));
     } else {
@@ -114,6 +116,8 @@
           const cb = el('button', 'b', '복사');
           cb.addEventListener('click', async () => { toast.textContent = (await copyText(pw)) ? '비번 복사됨' : '복사 실패'; });
           r2.appendChild(sb); r2.appendChild(cb);
+          // 🔓 PIN 없이 보는 미리보기면 previewSec 뒤 비번을 가리고 버튼을 없앤다 (PIN 을 넣어야 다시 보임)
+          if (res.previewSec) lockLater.push(() => { pv.textContent = '•'.repeat(Math.min(pw.length, 10)); sb.remove(); cb.remove(); });
         }
         acc.appendChild(r2);
         const ex = [it.생년월일 && ('생년월일 ' + it.생년월일), it.년월일 && ('년월일 ' + it.년월일), it.비고].filter(Boolean).join(' · ');
@@ -122,6 +126,21 @@
       });
     }
     card.appendChild(toast);
+    if (res.previewSec) {
+      // 마우스를 올려도 멈추지 않는 별도 타이머 — 정확히 previewSec 뒤 가림
+      const note = el('div', 'pre', `🔓 PIN 없이 ${res.previewSec}초 동안만 보입니다`);
+      card.insertBefore(note, toast);
+      let pl = res.previewSec;
+      const pt = setInterval(() => {
+        pl--;
+        if (!note.isConnected) { clearInterval(pt); return; }
+        if (pl > 0) { note.textContent = `🔓 PIN 없이 ${pl}초 동안만 보입니다`; return; }
+        clearInterval(pt);
+        lockLater.forEach(f => { try { f(); } catch (e) {} });
+        note.className = 'msg';
+        note.textContent = '🔒 비번을 가렸습니다. 확장 아이콘을 눌러 PIN 을 입력하면 다시 보입니다.';
+      }, 1000);
+    }
     const bar = el('div', 'bar'); const fill = el('i'); bar.appendChild(fill); card.appendChild(bar);
     w.appendChild(card); root.appendChild(w);
 
