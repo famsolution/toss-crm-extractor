@@ -681,3 +681,4 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .cred-linkrow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .cred-linkrow select { flex: 1; min-width: 140px; padding: 5px 6px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 12px; }
 .cred-site-unknown { color: var(--text-2); font-weight: 700; }
+.anno-toggle { margin: 6px 12px 0; }

@@ -252,7 +252,8 @@ const CONTENT_SCRIPT_FILES = [
   'content/premium.js',
   'content/premium-apply.js',
   'content/messages.js',
-  'content/paint-pro.js'
+  'content/paint-pro.js',
+  'content/annotate.js'
 ];
 
 // content 스크립트 수동 주입 (manifest 자동 주입이 안 걸린 탭/재주입용)

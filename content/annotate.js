@@ -1,0 +1,484 @@
+// ═══════════════════════════════════════════════════════════════════
+// 🖍 토스 보장분석 화면 표시 (crm.tossinsu.com/crm-v2/cover/*)
+//   ① 형광펜 — 칸·줄을 눌러 칠하기. '이 고객' 은 그 고객에게만, '모든 고객' 은 같은 줄 이름에 공통 적용
+//   ② 보험 순서 기억 — 토스에서 드래그로 바꾼 순서를 고객별로 기억했다가 다시 열면 그대로 맞춘다
+//   ③ 글자 수정 — 칸의 글자를 화면에서만 바꾼다(토스 서버 데이터는 그대로)
+//
+//   · 토스 화면 자체를 바꾸지 않고, 열 때마다 내 표시를 다시 입힌다. 기능을 끄면(팝업 체크 또는
+//     도구 막대 ⏻) 화면은 토스 원래 모습 그대로다.
+//   · 표시는 '줄 이름(예: 질병입원의료비) × 보험(증권번호)' 로 찾는다 → 보험 순서가 바뀌거나
+//     '보장분석 표 미리보기' 창에서도 같은 칸에 표시된다. 토스 '이미지 복사' 는 화면을 그대로
+//     그리므로 형광펜·수정 글자가 페인트프로로 가는 이미지에도 그대로 들어간다(2026-11 실측).
+//   · 순서 맞추기는 토스의 끌어 옮기기 기능을 키보드(스페이스·화살표)로 대신 움직인다 —
+//     화면 칸을 직접 옮기지 않으므로 토스 화면이 꼬이지 않는다.
+//   · 글자 수정은 칸 안 글자 노드의 내용만 바꾼다(노드를 새로 만들거나 지우지 않음) — 토스(React)
+//     화면이 깨지지 않게.
+//   · 안전장치: 되돌리기(↶, Ctrl+Z) · 고객별 '원래대로' · 기능 끄기. 저장은 background 가
+//     이 PC 전용 키로 암호화(anno_c_<고객번호>). 공통 규칙은 anno_rules.
+// ═══════════════════════════════════════════════════════════════════
+(function () {
+  if (!/(^|\.)tossinsu\.com$/i.test(location.hostname)) return;
+  if (window.__tossAnnoBound) return;
+  window.__tossAnnoBound = true;
+
+  const COLORS = [
+    { k: 'y', name: '노랑', bg: 'rgba(255, 230, 0, 0.55)' },
+    { k: 'g', name: '초록', bg: 'rgba(52, 211, 153, 0.45)' },
+    { k: 'p', name: '분홍', bg: 'rgba(244, 114, 182, 0.45)' },
+    { k: 'b', name: '파랑', bg: 'rgba(96, 165, 250, 0.45)' }
+  ];
+  const colorBg = k => (COLORS.find(c => c.k === k) || COLORS[0]).bg;
+  const MARK = 'data-tce';            // 우리가 칠한 칸 표시 (원래 배경은 data-tce-bg 에 보관)
+
+  let enabled = true;
+  let cid = '';                       // 고객 번호 (주소 끝 숫자)
+  let data = { hl: [], edits: [], order: null };   // 이 고객 저장분
+  let rules = [];                     // 공통 규칙 [{sec,row,color}]
+  let mode = '';                      // '' | 'hl' | 'edit'
+  let curColor = 'y';
+  let scope = 'one';                  // 'one' 이 고객 | 'all' 모든 고객
+  const undo = [];                    // 되돌리기 스냅샷
+  let applying = false;
+  const editedNodes = new Map();      // cell → [{node, orig}]
+  let lastOrderSig = '';
+  let replaying = false;
+
+  // ── background 저장소 ─────────────────────────────
+  const send = msg => new Promise(r => { try { chrome.runtime.sendMessage(msg, x => { void chrome.runtime.lastError; r(x); }); } catch (e) { r(null); } });
+  async function loadAll() {
+    const st = await new Promise(r => { try { chrome.storage.local.get(['anno_enabled', 'anno_rules'], v => r(v || {})); } catch (e) { r({}); } });
+    enabled = st.anno_enabled !== false;
+    rules = Array.isArray(st.anno_rules) ? st.anno_rules : [];
+    const res = cid ? await send({ action: 'annoLoad', cid }) : null;
+    data = (res && res.ok && res.data) || { hl: [], edits: [], order: null };
+    data.hl = data.hl || []; data.edits = data.edits || [];
+  }
+  async function saveCustomer() { if (cid) await send({ action: 'annoSave', cid, data }); }
+  function saveRules() { try { chrome.storage.local.set({ anno_rules: rules }); } catch (e) {} }
+  function snapshot() { undo.push(JSON.stringify({ data, rules })); if (undo.length > 50) undo.shift(); renderBar(); }
+  async function doUndo() {
+    const s = undo.pop(); if (!s) return;
+    const o = JSON.parse(s); data = o.data; rules = o.rules;
+    await saveCustomer(); saveRules(); applyAll(); renderBar(); toast('↶ 되돌렸습니다');
+  }
+
+  // ── 표 해석: 표 → 구역·줄 이름·보험 칸 ──────────────
+  const norm = s => String(s || '').replace(/\s+/g, '');
+  function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(36) + s.length.toString(36); }
+  const cellText = c => norm(c && c.textContent);
+
+  // 한 줄 → { label, labelCells:[], prod:[td...] }  (보험 칸 = 마지막 TH 뒤의 TD 들)
+  function parseRow(tr) {
+    const cells = Array.prototype.filter.call(tr.children, c => c.tagName === 'TD' || c.tagName === 'TH');
+    let k = -1;
+    cells.forEach((c, j) => { if (c.tagName === 'TH') k = j; });
+    if (k < 0) return null;
+    const prev = cells[k - 1];
+    // 보장 표: [대분류][소분류][합계 TH][보험...] → 소분류 / 상세 표: [이름 TH][보험...] → TH
+    const labelCell = (prev && prev.tagName === 'TD' && prev.rowSpan === 1) ? prev : cells[k];
+    // 줄 전체 칠하기용 이름 칸 — 여러 줄에 걸친 칸(대분류·요약 상자)은 빼서 다른 줄까지 칠하지 않게
+    return { label: cellText(labelCell), labelCells: cells.slice(0, k + 1).filter(c => c.rowSpan === 1), prod: cells.slice(k + 1).filter(c => c.tagName === 'TD') };
+  }
+
+  // 화면 하나(본문 또는 미리보기 창)의 표들을 해석. 보험 칸 키 = 증권번호(없으면 보험명) 해시
+  function scanRoot(root) {
+    const tables = Array.prototype.slice.call(root.querySelectorAll('table'));
+    const parsed = tables.map(t => ({ t, rows: Array.prototype.map.call(t.querySelectorAll('tr'), tr => ({ tr, p: parseRow(tr) })).filter(x => x.p) }));
+    let keys = null;
+    for (const pt of parsed) {
+      const r = pt.rows.find(x => x.p.label === '증권번호') || null;
+      if (r) { keys = r.p.prod.map(c => 'n' + hash(cellText(c))); break; }
+    }
+    if (!keys) {
+      for (const pt of parsed) {
+        const r = pt.rows.find(x => x.p.label === '보험명');
+        if (r) { keys = r.p.prod.map(c => 'm' + hash(cellText(c))); break; }
+      }
+    }
+    parsed.forEach(pt => { pt.sec = pt.rows.some(x => x.p.label === '증권번호' || x.p.label === '보험사명') ? 'info' : 'cat'; });
+    // 보장분석 표만 대상 (상담 메모 등 다른 작은 표는 건드리지 않음): 보험 칸 수가 보험 수와 같은 줄이 있는 표
+    const n = (keys || []).length;
+    const only = n ? parsed.filter(pt => pt.rows.some(x => x.p.prod.length === n)) : [];
+    return { parsed: only, keys: keys || [] };
+  }
+  function roots() {
+    const out = [document];
+    document.querySelectorAll('[role="dialog"]').forEach(d => out.push(d));
+    return out;
+  }
+  // 본문 표만(미리보기 창 제외)
+  function mainScan() {
+    const s = scanRoot(document);
+    s.parsed = s.parsed.filter(pt => !pt.t.closest('[role="dialog"]'));
+    return s;
+  }
+
+  // ── 칠하기 / 지우기 ────────────────────────────────
+  function paint(el, color) {
+    if (!el.hasAttribute(MARK)) el.setAttribute('data-tce-bg', el.style.getPropertyValue('background-color') || '');
+    el.setAttribute(MARK, color);
+    el.style.setProperty('background-color', colorBg(color), 'important');
+  }
+  function unpaintAll() {
+    document.querySelectorAll('[' + MARK + ']').forEach(el => {
+      const bg = el.getAttribute('data-tce-bg');
+      if (bg) el.style.setProperty('background-color', bg); else el.style.removeProperty('background-color');
+      el.removeAttribute(MARK); el.removeAttribute('data-tce-bg');
+    });
+  }
+  function restoreEdits() {
+    editedNodes.forEach(list => list.forEach(x => { try { if (x.node.nodeValue !== x.orig) x.node.nodeValue = x.orig; } catch (e) {} }));
+    editedNodes.clear();
+    document.querySelectorAll('[data-tce-ed]').forEach(el => { el.removeAttribute('data-tce-ed'); el.removeAttribute('title'); el.style.removeProperty('outline'); });
+  }
+  function textNodes(el) {
+    const out = []; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = w.nextNode(); n; n = w.nextNode()) if (n.nodeValue.trim()) out.push(n);
+    return out;
+  }
+  function originalText(cell) {
+    const l = editedNodes.get(cell);
+    return l ? l.map(x => x.orig).join('').trim() : (cell.textContent || '').trim();
+  }
+  function setCellText(cell, text) {
+    let list = editedNodes.get(cell);
+    if (!list) { list = textNodes(cell).map(n => ({ node: n, orig: n.nodeValue })); if (!list.length) return; editedNodes.set(cell, list); }
+    list.forEach((x, i) => { x.node.nodeValue = i === 0 ? text : ''; });
+    cell.setAttribute('data-tce-ed', '1');
+    cell.title = '✏️ 고친 글자 — 원래: ' + list.map(x => x.orig).join('').trim();
+    cell.style.setProperty('outline', '1.5px dashed rgba(37, 99, 235, 0.55)');
+    cell.style.setProperty('outline-offset', '-2px');
+  }
+
+  function applyAll() {
+    if (applying) return;
+    applying = true;
+    try {
+      unpaintAll(); restoreEdits();
+      if (!enabled || !cid) return;
+      roots().forEach(root => {
+        const { parsed, keys } = scanRoot(root);
+        parsed.forEach(pt => {
+          if (root === document && pt.t.closest('[role="dialog"]')) return;   // 미리보기 표는 따로
+          pt.rows.forEach(({ p }) => {
+            const rowRule = rules.find(r => r.sec === pt.sec && r.row === p.label);
+            const rowHl = data.hl.find(h => h.sec === pt.sec && h.row === p.label && h.col === '*');
+            const rowColor = rowHl ? rowHl.color : (rowRule ? rowRule.color : null);
+            if (rowColor) { p.labelCells.forEach(c => paint(c, rowColor)); p.prod.forEach(c => paint(c, rowColor)); }
+            p.prod.forEach((c, j) => {
+              const key = keys[j]; if (!key) return;
+              const h = data.hl.find(x => x.sec === pt.sec && x.row === p.label && x.col === key);
+              if (h) paint(c, h.color);
+              const ed = data.edits.find(x => x.sec === pt.sec && x.row === p.label && x.col === key);
+              if (ed) setCellText(c, ed.text);
+            });
+          });
+        });
+      });
+    } finally { setTimeout(() => { applying = false; }, 0); }
+  }
+
+  // 클릭한 칸 → 위치 정보
+  function locate(cell) {
+    const tr = cell.closest('tr'); const table = cell.closest('table');
+    if (!tr || !table) return null;
+    const root = cell.closest('[role="dialog"]') || document;
+    const { parsed, keys } = scanRoot(root);
+    const pt = parsed.find(x => x.t === table); if (!pt) return null;
+    const row = pt.rows.find(x => x.tr === tr); if (!row) return null;
+    const j = row.p.prod.indexOf(cell);
+    return { sec: pt.sec, row: row.p.label, col: j >= 0 ? keys[j] : '*', isLabel: j < 0 };
+  }
+
+  // ── 클릭 처리 (형광펜·글자 수정 모드일 때만 토스 동작을 막고 가로챔) ──
+  function onClick(e) {
+    if (!enabled || !mode || !cid) return;
+    if (e.composedPath && e.composedPath().includes(barHost)) return;
+    const cell = e.target.closest && e.target.closest('td,th');
+    if (!cell || !cell.closest('table')) return;
+    e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
+    const loc = locate(cell); if (!loc || !loc.row) return;
+    if (mode === 'hl') toggleHighlight(loc);
+    else if (mode === 'edit' && !loc.isLabel) openEditor(cell, loc);
+  }
+  function swallow(e) {
+    if (!enabled || !mode) return;
+    if (e.composedPath && e.composedPath().includes(barHost)) return;
+    const cell = e.target.closest && e.target.closest('td,th');
+    if (cell && cell.closest('table')) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
+  }
+
+  async function toggleHighlight(loc) {
+    snapshot();
+    const color = curColor;
+    if (scope === 'all') {
+      // 공통 규칙은 줄 단위 — 같은 줄 이름이면 모든 고객에 칠해짐
+      const i = rules.findIndex(r => r.sec === loc.sec && r.row === loc.row);
+      if (i >= 0 && (color === 'x' || rules[i].color === color)) rules.splice(i, 1);
+      else if (color !== 'x') { if (i >= 0) rules[i].color = color; else rules.push({ sec: loc.sec, row: loc.row, color }); }
+      saveRules();
+      toast(i >= 0 && (color === 'x' || !rules.find(r => r.sec === loc.sec && r.row === loc.row)) ? `모든 고객: '${loc.row}' 줄 형광펜 해제` : `모든 고객: '${loc.row}' 줄 형광펜`);
+    } else {
+      const col = loc.isLabel ? '*' : loc.col;
+      const i = data.hl.findIndex(h => h.sec === loc.sec && h.row === loc.row && h.col === col);
+      if (i >= 0 && (color === 'x' || data.hl[i].color === color)) data.hl.splice(i, 1);
+      else if (color !== 'x') { if (i >= 0) data.hl[i].color = color; else data.hl.push({ sec: loc.sec, row: loc.row, col, color }); }
+      await saveCustomer();
+    }
+    applyAll();
+  }
+
+  // ── 글자 수정 입력창 ───────────────────────────────
+  let edBox = null;
+  function openEditor(cell, loc) {
+    closeEditor();
+    const r = cell.getBoundingClientRect();
+    const cur = (cell.textContent || '').trim();
+    const orig = originalText(cell);
+    edBox = document.createElement('div');
+    edBox.setAttribute('data-tce-ui', '');
+    const sr = edBox.attachShadow({ mode: 'closed' });
+    sr.innerHTML = `<style>
+      .b{position:fixed;z-index:2147483646;background:#fff;border:1.5px solid #2563EB;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.2);padding:8px;display:flex;flex-direction:column;gap:6px;font:12px -apple-system,"Malgun Gothic",sans-serif;min-width:220px}
+      input{padding:6px 8px;border:1px solid #CBD5E1;border-radius:6px;font-size:13px}
+      .a{display:flex;gap:6px;justify-content:flex-end}.o{color:#64748B;font-size:11px}
+      button{padding:4px 10px;border-radius:6px;border:1px solid #CBD5E1;background:#fff;cursor:pointer;font-size:12px}
+      .p{background:#2563EB;color:#fff;border-color:#2563EB}</style>
+      <div class="b"><input><div class="o"></div><div class="a"><button class="r">원래 글자로</button><button class="c">취소</button><button class="p">저장</button></div></div>`;
+    const box = sr.querySelector('.b'), inp = sr.querySelector('input');
+    box.style.left = Math.max(8, Math.min(window.innerWidth - 240, r.left)) + 'px';
+    box.style.top = Math.min(window.innerHeight - 110, r.bottom + 4) + 'px';
+    inp.value = cur;
+    sr.querySelector('.o').textContent = '원래: ' + orig;
+    const save = async (text) => {
+      snapshot();
+      const i = data.edits.findIndex(x => x.sec === loc.sec && x.row === loc.row && x.col === loc.col);
+      if (text == null || text.trim() === '' || text.trim() === orig) { if (i >= 0) data.edits.splice(i, 1); }
+      else if (i >= 0) data.edits[i].text = text.trim(); else data.edits.push({ sec: loc.sec, row: loc.row, col: loc.col, text: text.trim() });
+      await saveCustomer(); closeEditor(); applyAll();
+    };
+    sr.querySelector('.p').addEventListener('click', () => save(inp.value));
+    sr.querySelector('.r').addEventListener('click', () => save(null));
+    sr.querySelector('.c').addEventListener('click', closeEditor);
+    inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') save(inp.value); if (ev.key === 'Escape') closeEditor(); });
+    document.documentElement.appendChild(edBox);
+    setTimeout(() => { inp.focus(); inp.select(); }, 0);
+  }
+  function closeEditor() { if (edBox) { edBox.remove(); edBox = null; } }
+
+  // ── 보험 순서 기억 · 다시 맞추기 ─────────────────────
+  function headerCells() {
+    const { parsed } = mainScan();
+    for (const pt of parsed) {
+      const tr = pt.t.querySelector('tr'); if (!tr) continue;
+      const hs = Array.prototype.filter.call(tr.children, c => c.getAttribute('aria-roledescription') === 'sortable');
+      if (hs.length) return hs;
+    }
+    return [];
+  }
+  function currentOrder() { const s = mainScan(); return headerCells().length ? s.keys.slice(0, headerCells().length) : []; }
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  function key(el, code) { el.dispatchEvent(new KeyboardEvent('keydown', { key: code === 'Space' ? ' ' : code, code, bubbles: true, cancelable: true })); }
+  async function moveColumn(from, to) {
+    const el = headerCells()[from]; if (!el) return false;
+    const before = currentOrder().join(',');
+    el.focus(); key(el, 'Space'); await sleep(160);
+    const dir = to < from ? 'ArrowLeft' : 'ArrowRight';
+    for (let i = 0; i < Math.abs(to - from); i++) { key(document.activeElement || el, dir); await sleep(140); }
+    key(document.activeElement || el, 'Space'); await sleep(350);
+    return currentOrder().join(',') !== before;
+  }
+  async function replayOrder() {
+    const want = data.order;
+    if (!enabled || !Array.isArray(want) || !want.length) return;
+    let cur = currentOrder();
+    if (!cur.length) return;
+    // 저장된 순서에 있는 보험만 그 순서로, 새로 생긴 보험은 토스 순서대로 뒤에
+    const target = want.filter(k => cur.includes(k)).concat(cur.filter(k => !want.includes(k)));
+    if (target.join(',') === cur.join(',')) { lastOrderSig = cur.join(','); return; }
+    replaying = true;
+    try {
+      for (let i = 0; i < target.length; i++) {
+        cur = currentOrder();
+        const j = cur.indexOf(target[i]);
+        if (j === i) continue;
+        const ok = await moveColumn(j, i);
+        if (!ok) { toast('⚠ 기억한 보험 순서를 맞추지 못했습니다 — 토스 순서 그대로 둡니다'); break; }
+      }
+    } finally { lastOrderSig = currentOrder().join(','); replaying = false; }
+    if (lastOrderSig === target.join(',')) toast('↔ 기억한 보험 순서로 맞췄습니다');
+  }
+  async function watchOrder() {
+    if (replaying || !enabled || !cid) return;
+    const sig = currentOrder().join(',');
+    if (!sig || sig === lastOrderSig) return;
+    if (!lastOrderSig) { lastOrderSig = sig; return; }   // 처음 본 순서는 기준값
+    lastOrderSig = sig;
+    snapshot();
+    data.order = sig.split(',');
+    await saveCustomer();
+    toast('↔ 바꾼 보험 순서를 기억했습니다 (다음에 열어도 이 순서)');
+    renderBar();
+  }
+
+  // ── 도구 막대 ─────────────────────────────────────
+  let barHost = null, barRoot = null, toastTimer = null;
+  function ensureBar() {
+    if (barHost && document.documentElement.contains(barHost)) return;
+    barHost = document.createElement('div');
+    barHost.setAttribute('data-tce-ui', '');
+    barRoot = barHost.attachShadow({ mode: 'closed' });
+    document.documentElement.appendChild(barHost);
+  }
+  function toast(msg) {
+    if (!barRoot) return;
+    const t = barRoot.querySelector('.t'); if (!t) return;
+    t.textContent = msg; t.style.opacity = '1';
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 3500);
+  }
+  let barOpen = false;
+  function renderBar() {
+    if (!onCover()) { if (barHost) barHost.remove(); barHost = null; return; }
+    ensureBar();
+    const ordered = Array.isArray(data.order) && data.order.length;
+    barRoot.innerHTML = `<style>
+      :host{all:initial}
+      .w{position:fixed;right:16px;top:72px;z-index:2147483645;font:12px -apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+      .fab{border:1.5px solid #2563EB;background:#fff;color:#1D4ED8;border-radius:99px;padding:6px 12px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(15,23,42,.15)}
+      .fab.on{background:#2563EB;color:#fff}
+      .p{background:#fff;border:1px solid #CBD5E1;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.2);padding:10px;width:260px;display:flex;flex-direction:column;gap:8px}
+      .r{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+      .lab{font-size:11px;color:#64748B;font-weight:700;width:100%}
+      button{border:1px solid #CBD5E1;background:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;color:#334155}
+      button.sel{border-color:#2563EB;background:#EFF6FF;color:#1D4ED8;font-weight:800}
+      .sw{width:22px;height:22px;border-radius:50%;padding:0;border:2px solid #fff;box-shadow:0 0 0 1px #CBD5E1}
+      .sw.sel{box-shadow:0 0 0 2px #2563EB}
+      .hint{font-size:11px;color:#475569;line-height:1.5;background:#F8FAFC;border-radius:6px;padding:6px}
+      .t{font-size:11.5px;background:#0F172A;color:#fff;border-radius:8px;padding:6px 10px;opacity:0;transition:opacity .3s;max-width:300px}
+      .off{color:#B91C1C}.dz button{color:#B91C1C;border-color:#FECACA}</style>
+      <div class="w">
+        <button class="fab ${mode ? 'on' : ''}" data-a="toggle">🖍 ${!enabled ? '표시 꺼짐' : mode === 'hl' ? '형광펜 중' : mode === 'edit' ? '글자 수정 중' : '표시 도구'}</button>
+        ${barOpen ? `<div class="p">
+          ${enabled ? `
+          <div class="r"><span class="lab">모드 (켜져 있는 동안 표를 누르면 토스 기능 대신 표시가 됩니다)</span>
+            <button data-a="mode-hl" class="${mode === 'hl' ? 'sel' : ''}">🖍 형광펜</button>
+            <button data-a="mode-edit" class="${mode === 'edit' ? 'sel' : ''}">✏️ 글자 수정</button>
+            <button data-a="mode-off" class="${!mode ? 'sel' : ''}">보기만</button></div>
+          ${mode === 'hl' ? `
+          <div class="r"><span class="lab">색</span>${COLORS.map(c => `<button class="sw ${curColor === c.k ? 'sel' : ''}" data-a="c-${c.k}" title="${c.name}" style="background:${c.bg}"></button>`).join('')}
+            <button data-a="c-x" class="${curColor === 'x' ? 'sel' : ''}" title="누른 칸의 형광펜 지우기">지우개</button></div>
+          <div class="r"><span class="lab">적용 범위</span>
+            <button data-a="s-one" class="${scope === 'one' ? 'sel' : ''}">이 고객만</button>
+            <button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객(줄 단위)</button></div>
+          <div class="hint">칸을 누르면 그 칸, 줄 이름(예: 질병입원의료비)을 누르면 줄 전체. 같은 색으로 다시 누르면 지워집니다.${scope === 'all' ? '<br><b>모든 고객</b>: 누른 줄이 모든 고객 화면에서 칠해집니다.' : ''}</div>` : ''}
+          ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르면 입력창이 뜹니다. 화면에서만 바뀌고 토스 데이터는 그대로입니다. 고친 칸은 점선 테두리 · 마우스를 올리면 원래 글자.</div>` : ''}
+          <div class="r"><span class="lab">보험 순서 ${ordered ? '— <b>기억됨</b>' : '— 토스에서 끌어 옮기면 자동으로 기억'}</span>
+            ${ordered ? '<button data-a="order-reset">토스 원래 순서로</button>' : ''}</div>
+          <div class="r"><button data-a="undo" ${undo.length ? '' : 'disabled'}>↶ 되돌리기${undo.length ? ' (' + undo.length + ')' : ''}</button></div>
+          <div class="r dz"><span class="lab">원래대로 (이 고객)</span>
+            <button data-a="clr-hl">형광펜 지우기</button><button data-a="clr-ed">글자 원래대로</button><button data-a="clr-all">전부</button></div>
+          ${rules.length ? `<div class="r dz"><span class="lab">모든 고객 규칙 ${rules.length}개</span><button data-a="clr-rules">규칙 모두 지우기</button></div>` : ''}
+          <div class="r"><button data-a="disable" class="off">⏻ 표시 기능 끄기</button></div>
+          ` : `<div class="hint">표시 기능이 꺼져 있어 토스 원래 화면입니다. 켜면 저장해 둔 형광펜·글자·순서가 다시 적용됩니다.</div>
+          <div class="r"><button data-a="enable">⏻ 표시 기능 켜기</button></div>`}
+        </div>` : ''}
+        <div class="t"></div>
+      </div>`;
+    barRoot.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', onBar));
+  }
+  async function onBar(e) {
+    const a = e.currentTarget.dataset.a;
+    if (a === 'toggle') { barOpen = !barOpen; if (!barOpen) mode = ''; renderBar(); return; }
+    if (a === 'mode-hl') mode = 'hl';
+    else if (a === 'mode-edit') mode = 'edit';
+    else if (a === 'mode-off') { mode = ''; closeEditor(); }
+    else if (a.startsWith('c-')) curColor = a.slice(2);
+    else if (a === 's-one') scope = 'one';
+    else if (a === 's-all') scope = 'all';
+    else if (a === 'undo') return doUndo();
+    else if (a === 'order-reset') {
+      if (!confirmBox('기억한 보험 순서를 지우고 토스 원래 순서로 돌아갈까요? (페이지를 새로 불러옵니다)')) return;
+      snapshot(); data.order = null; await saveCustomer(); location.reload(); return;
+    }
+    else if (a === 'clr-hl' || a === 'clr-ed' || a === 'clr-all') {
+      const what = a === 'clr-hl' ? '이 고객의 형광펜을 모두' : a === 'clr-ed' ? '이 고객의 고친 글자를 모두 원래대로' : '이 고객의 형광펜·고친 글자·기억한 순서를 모두';
+      if (!confirmBox(what + ' 지울까요? (↶ 되돌리기로 다시 살릴 수 있습니다)')) return;
+      snapshot();
+      if (a !== 'clr-ed') data.hl = [];
+      if (a !== 'clr-hl') data.edits = [];
+      if (a === 'clr-all') data.order = null;
+      await saveCustomer(); applyAll(); toast('원래대로 했습니다 (↶ 로 되돌릴 수 있음)');
+    }
+    else if (a === 'clr-rules') {
+      if (!confirmBox('모든 고객에 적용되는 형광펜 규칙 ' + rules.length + '개를 지울까요? (↶ 되돌리기 가능)')) return;
+      snapshot(); rules = []; saveRules(); applyAll();
+    }
+    else if (a === 'disable') { mode = ''; closeEditor(); await setEnabled(false); return; }
+    else if (a === 'enable') { await setEnabled(true); return; }
+    renderBar();
+  }
+  // 페이지 안 확인 창 — 토스 페이지의 confirm 대신 우리 막대 안에서 (확장 규칙: confirm/alert 금지)
+  let pendingConfirm = null;
+  function confirmBox(msg) {
+    // 같은 버튼을 3초 안에 한 번 더 누르면 실행 (실수 방지)
+    if (pendingConfirm && pendingConfirm.msg === msg && Date.now() - pendingConfirm.at < 3000) { pendingConfirm = null; return true; }
+    pendingConfirm = { msg, at: Date.now() };
+    toast('⚠ ' + msg + ' — 실행하려면 같은 버튼을 한 번 더 누르세요');
+    return false;
+  }
+  async function setEnabled(on) {
+    enabled = on;
+    try { chrome.storage.local.set({ anno_enabled: on }); } catch (e) {}
+    applyAll(); renderBar();
+    if (on) replayOrder();
+    toast(on ? '표시 기능을 켰습니다' : '표시 기능을 껐습니다 — 토스 원래 화면');
+  }
+
+  // ── 페이지 감시 (토스는 화면을 자주 다시 그린다 / 고객을 옮겨 다녀도 주소만 바뀜) ──
+  const onCover = () => /\/crm-v2\/cover\/\d+/.test(location.pathname);
+  const cidOf = () => { const m = location.pathname.match(/\/crm-v2\/cover\/(\d+)/); return m ? m[1] : ''; };
+  let applyTimer = null;
+  function scheduleApply() {
+    if (applying) return;
+    clearTimeout(applyTimer);
+    applyTimer = setTimeout(() => { applyAll(); watchOrder(); }, 180);
+  }
+  async function onRoute() {
+    const now = onCover() ? cidOf() : '';
+    if (now === cid) return;
+    cid = now; mode = ''; undo.length = 0; lastOrderSig = ''; closeEditor();
+    unpaintAll(); restoreEdits();
+    if (!cid) { renderBar(); return; }
+    await loadAll();
+    renderBar();
+    // 표가 그려질 때까지 기다렸다가 순서 맞추고 표시
+    for (let i = 0; i < 40 && !headerCells().length; i++) await sleep(250);
+    await sleep(400);
+    await replayOrder();
+    if (!lastOrderSig) lastOrderSig = currentOrder().join(',');
+    applyAll();
+  }
+
+  document.addEventListener('click', onClick, true);
+  ['pointerdown', 'mousedown', 'keydown'].forEach(t => document.addEventListener(t, ev => {
+    if (t === 'keydown') {
+      if (enabled && mode && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey && ev.key && ev.key.toLowerCase() === 'z' && !edBox) { ev.preventDefault(); doUndo(); }
+      return;
+    }
+    swallow(ev);
+  }, true));
+  new MutationObserver(muts => {
+    if (applying) return;
+    if (muts.every(m => m.target && m.target.closest && m.target.closest('[data-tce-ui]'))) return;
+    scheduleApply();
+  }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });   // 토스가 글자만 바꿔도 다시 입힘
+  setInterval(onRoute, 700);
+  try {
+    chrome.storage.onChanged.addListener((ch, area) => {
+      if (area !== 'local') return;
+      if (ch.anno_enabled) { enabled = ch.anno_enabled.newValue !== false; if (!enabled) mode = ''; applyAll(); renderBar(); }
+      if (ch.anno_rules) { rules = ch.anno_rules.newValue || []; applyAll(); }
+    });
+  } catch (e) {}
+  onRoute();
+})();

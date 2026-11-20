@@ -220,3 +220,44 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes[CRED_SITES_KEY]) _bgSyncUserCardScript();
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// 🖍 토스 보장분석 화면 표시 저장 (content/annotate.js)
+//   고객별 형광펜·고친 글자·보험 순서를 이 PC 전용 키(anno_dev_key)로 암호화해 anno_c_<고객번호> 에 둔다.
+//   (고친 글자에 고객 정보가 들어갈 수 있어서 평문으로 두지 않음)
+// ═══════════════════════════════════════════════════════════════════
+async function _bgAnnoKey() {
+  let st = await chrome.storage.local.get('anno_dev_key');
+  if (!st.anno_dev_key) {
+    const raw = crypto.getRandomValues(new Uint8Array(32));
+    let s = ''; raw.forEach(b => { s += String.fromCharCode(b); });
+    await chrome.storage.local.set({ anno_dev_key: btoa(s) });
+    st = await chrome.storage.local.get('anno_dev_key');
+  }
+  return crypto.subtle.importKey('raw', _bgB64(st.anno_dev_key), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+function _bgB64enc(buf) { const b = new Uint8Array(buf); let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return btoa(s); }
+async function _bgAnno(req) {
+  const cid = String(req.cid || '').replace(/[^0-9]/g, '');
+  if (!cid) return { ok: false, error: '고객번호 없음' };
+  const k = 'anno_c_' + cid;
+  const key = await _bgAnnoKey();
+  if (req.action === 'annoLoad') {
+    const st = await chrome.storage.local.get(k);
+    if (!st[k]) return { ok: true, data: null };
+    const pt = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: _bgB64(st[k].iv) }, key, _bgB64(st[k].ct));
+    return { ok: true, data: JSON.parse(new TextDecoder().decode(pt)) };
+  }
+  const d = req.data || {};
+  const empty = !(d.hl && d.hl.length) && !(d.edits && d.edits.length) && !(d.order && d.order.length);
+  if (empty) { await chrome.storage.local.remove(k); return { ok: true }; }
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, new TextEncoder().encode(JSON.stringify(d)));
+  await chrome.storage.local.set({ [k]: { iv: _bgB64enc(iv), ct: _bgB64enc(ct), at: Date.now() } });
+  return { ok: true };
+}
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+  if (!req || (req.action !== 'annoLoad' && req.action !== 'annoSave')) return;
+  _bgAnno(req).then(sendResponse).catch(e => sendResponse({ ok: false, error: String(e && e.message || e) }));
+  return true;
+});
+
