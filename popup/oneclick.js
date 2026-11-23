@@ -36,8 +36,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     label.title = (label.title ? label.title + ' — ' : '') + '누르면 바로 추출해서 적용합니다';
   });
+  // '다른 곳으로 보내기' 펼침 상태 기억
+  const more = document.getElementById('sendMore');
+  if (more) {
+    try { more.open = localStorage.getItem('sendMoreOpen') === '1'; } catch (e) {}
+    more.addEventListener('toggle', () => { try { localStorage.setItem('sendMoreOpen', more.open ? '1' : '0'); } catch (e) {} });
+  }
   const hint = document.getElementById('targetModeHint');
-  if (hint) hint.textContent = '버튼을 누르면 지금 페이지를 바로 추출해서 그곳으로 적용합니다';
+  if (hint) hint.textContent = '';
   // 👤 고객 등록 (고객 탭과 같은 세 가지)
   const go = async (mode) => {
     if (typeof cuRegisterFromPage !== 'function') return;
