@@ -22,7 +22,34 @@
   var root = document.documentElement;
   // 🔠 쉬운 화면(큰 글씨·큰 버튼) — 기본 켜짐. 머리말 [원래 화면] 으로 끄면 'uiSimple'='0'
   try { if (localStorage.getItem('uiSimple') !== '0') root.classList.add('ui-simple'); } catch (_) { root.classList.add('ui-simple'); }
-  var mark = function () { root.classList.add('is-sidepanel'); };
+  // 📐 폭에 맞춰 글씨·버튼 크기 자동 조절 — 폭이 실재하는 그릇(오른쪽 세로바·크게 보기·고객관리 창)에서만.
+  //   팝업은 크롬이 800px 로 고정하고, 뷰포트 기준 계산이 팝업 폭을 좁게 굳히는 버그가 있었으므로
+  //   팝업에서는 절대 돌리지 않는다(아래 is-sidepanel 이 붙은 경우에만 동작).
+  //   · 전체를 zoom 으로 비례 축소/확대: 360px → 0.85배 · 800px → 1배 · 1600px 이상 → 1.2배
+  //   · 줄어든 뒤의 실제 폭이 좁으면(640 미만) w-narrow — 버튼을 한 줄에 하나씩, 칸을 1단으로
+  var fitting = false;
+  var fit = function () {
+    if (!root.classList.contains('is-sidepanel')) return;
+    var w = window.innerWidth || root.clientWidth || 0;
+    if (!w) return;
+    var s;
+    if (w <= 360) s = 0.85;
+    else if (w < 800) s = 0.85 + (w - 360) / (800 - 360) * 0.15;
+    else s = Math.min(1.2, 1 + (w - 800) / (1600 - 800) * 0.2);
+    s = Math.round(s * 100) / 100;
+    if (root.style.zoom !== String(s)) root.style.zoom = String(s);
+    var eff = w / s;
+    root.classList.toggle('w-narrow', eff < 640);
+    root.classList.toggle('w-mid', eff >= 640 && eff < 1000);
+    root.classList.toggle('w-wide', eff >= 1000);
+  };
+  var startFit = function () {
+    if (fitting) return; fitting = true;
+    fit();
+    var t = null;
+    window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(fit, 60); });
+  };
+  var mark = function () { root.classList.add('is-sidepanel'); startFit(); };
 
   // ⛶ 크게 보기 창(popup.html?full=1) — 실제 창 폭이 있으므로 사이드패널처럼 100% 폭 + 큰 화면 배치
   // 🪟 고객관리 팝업 창(popup.html?full=1&tab=cust&solo=1) — 고객 탭만 단독으로

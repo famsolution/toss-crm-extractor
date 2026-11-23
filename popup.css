@@ -711,3 +711,30 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 /* 🧭 페이지가 바뀌었을 때 눌러야 할 버튼을 잠깐 반짝 */
 @keyframes apFlash { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } 30%, 70% { box-shadow: 0 0 0 5px rgba(245, 158, 11, .75); } }
 .ap-flash { animation: apFlash 1.2s ease-in-out 2; }
+
+/* 📐 좁은 폭(오른쪽 세로바를 좁게 쓸 때) — popup-ctx.js 가 is-sidepanel 일 때만 w-narrow 를 붙임 */
+.w-narrow .header { flex-wrap: wrap; row-gap: 6px; }
+.w-narrow .header-left { flex: 1 1 100%; }
+.w-narrow .tab { padding-left: 2px; padding-right: 2px; font-size: 14px; white-space: normal; line-height: 1.25; }
+.w-narrow .toolbar { flex-wrap: wrap; }
+.w-narrow .toolbar > button { flex: 1 1 100%; }
+.w-narrow .cred-bar > .cred-search { flex: 1 1 100%; }
+.w-narrow .cred-bar > .cred-new { flex: 1 1 calc(50% - 8px); }
+.w-narrow .cred-bar > #cuFromPageBtn { flex-basis: 100%; }
+.w-narrow .cred-form-act, .w-narrow .pm-btns { flex-wrap: wrap; }
+.w-narrow .cred-form-act > button { flex: 1 1 100%; }
+.w-narrow #cuFields, .w-narrow .cred-grid { grid-template-columns: 1fr !important; }
+.w-narrow .cu-cols { display: block !important; }
+.w-narrow #cuList { display: block !important; }
+.w-narrow .cu-row-foot { flex-wrap: wrap; }
+.w-narrow .cu-row-btns { width: 100%; display: flex; gap: 6px; }
+.w-narrow .cu-row-btns > * { flex: 1 1 0; }
+.w-narrow .ui-mode-row { align-items: flex-start; flex-direction: column; gap: 6px; }
+.w-narrow .ui-mode-switch { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+.w-narrow .tm-btn { flex: 1 1 calc(50% - 6px); justify-content: center; white-space: normal; text-align: center; }
+.w-narrow [data-target-panel] > div[style*="display:flex"] { display: flex !important; }
+.w-narrow .cfg-presets { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* 넓은 폭(크게 보기 등) — 내용이 한없이 퍼지지 않게 가운데 정렬 */
+.w-wide.is-sidepanel:not(.is-full) body { max-width: 1400px; margin: 0 auto; }
+.is-sidepanel .cred-bar { flex-wrap: wrap; }
+.is-sidepanel .cred-new, .is-sidepanel .header .badge, .is-sidepanel .hd-pcmove, .is-sidepanel .hd-simple { white-space: nowrap; }
