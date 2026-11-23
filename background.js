@@ -99,7 +99,7 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
 
 // ═══════════════════════════════════════════════════════════════════
 // 🔑 보험사 사이트 자동 표시 (insurer-card.js) — PC 금고에서 이 사이트 계정만 꺼내 준다
-//   · 금고 키는 popup/vault.js 가 잠금 해제 때 chrome.storage.session 에 30분 넣어 둔 것.
+//   · 금고 키는 popup/vault.js 가 잠금 해제 때 chrome.storage.session 에 넣어 둔 것(PIN 입력 후 6시간).
 //     없거나 만료면 잠김으로 응답한다(PIN 은 페이지에서 받지 않는다).
 //   · 요청한 페이지 주소(sender.url)에 해당하는 보험사 계정만 돌려준다.
 //   · 같은 탭·같은 보험사 도메인은 자동으로 한 번만 띄운다(이후엔 🔑 버튼만).

@@ -3,8 +3,8 @@
 //   PIN 으로 암호화해 저장한다. (서버·워크스페이스로는 보내지 않음)
 //
 //   · 암호화: PBKDF2-SHA256(PIN, salt, 310,000회) → AES-GCM 256. 항목마다 새 IV.
-//   · 잠금 해제한 키는 chrome.storage.session(메모리, 디스크 X)에 30분 보관 →
-//     팝업을 닫았다 열어도 30분 안이면 PIN 을 다시 묻지 않는다. 브라우저를 닫으면 사라진다.
+//   · 잠금 해제한 키는 chrome.storage.session(메모리, 디스크 X)에 보관 → PIN 을 넣은 때부터 6시간 동안은
+//     다시 묻지 않는다(쓰는 동안에도 늘어나지 않음 — 6시간마다 새로 입력). 브라우저를 닫으면 사라진다.
 //   · PIN 을 잊으면 복구 불가 — '초기화' 로 금고를 비우고 새로 시작해야 한다.
 //
 //   저장 키 (chrome.storage.local)
@@ -15,7 +15,7 @@
 const VAULT_META_KEY = 'vault_meta';
 const VAULT_SESSION_KEY = 'vault_session';
 const VAULT_ITER = 310000;
-const VAULT_IDLE_MS = 30 * 60 * 1000;
+const VAULT_IDLE_MS = 6 * 60 * 60 * 1000;   // PIN 유효 시간: 입력한 때부터 6시간 (연장 없음)
 
 let _vaultKey = null;        // CryptoKey (잠금 해제 상태일 때만)
 const _vaultUnlockWaiters = [];
@@ -56,24 +56,27 @@ async function vaultIsSetUp() {
 }
 function vaultIsUnlocked() { return !!_vaultKey; }
 
-async function _vRememberSession() {
+// fresh: PIN 을 방금 입력함 → 6시간 새로 시작. 그 외(저장 등)는 처음 정한 만료 시각을 그대로 둔다.
+let _vaultExp = 0;
+async function _vRememberSession(fresh) {
   try {
     const key = _vaultKey;
     if (!key) return;
     const raw = await crypto.subtle.exportKey('raw', key);
     if (_vaultKey !== key) return;   // 그 사이 잠겼으면 세션 키를 되살리지 않는다
-    await _vStoreSet('session', { [VAULT_SESSION_KEY]: { k: _vb64.enc(raw), exp: Date.now() + VAULT_IDLE_MS } });
+    if (fresh || !_vaultExp) _vaultExp = Date.now() + VAULT_IDLE_MS;
+    await _vStoreSet('session', { [VAULT_SESSION_KEY]: { k: _vb64.enc(raw), exp: _vaultExp } });
   } catch (e) { /* session 저장소가 없으면 팝업을 열 때마다 PIN 을 묻는다 */ }
 }
 
-// 30분 안에 잠금 해제했던 키가 남아 있으면 그대로 쓴다
+// 6시간 안에 잠금 해제했던 키가 남아 있으면 그대로 쓴다
 async function _vRestoreSession() {
   try {
     const st = await _vStoreGet('session', [VAULT_SESSION_KEY]);
     const s = st[VAULT_SESSION_KEY];
     if (!s || !s.k || !(s.exp > Date.now())) return false;
     _vaultKey = await crypto.subtle.importKey('raw', _vb64.dec(s.k), { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
-    await _vRememberSession();   // 사용 중이면 30분 연장
+    _vaultExp = s.exp;           // 처음 PIN 넣은 때 기준 만료 시각 유지 (연장 안 함)
     return true;
   } catch (e) { _vaultKey = null; return false; }
 }
@@ -84,7 +87,7 @@ async function vaultSetup(pin) {
   const check = await _vEncrypt(key, 'ok');
   await _vStoreSet('local', { [VAULT_META_KEY]: { v: 1, salt: _vb64.enc(salt), iter: VAULT_ITER, check, at: Date.now() } });
   _vaultKey = key;
-  await _vRememberSession();
+  await _vRememberSession(true);
   _vNotifyUnlocked();
 }
 
@@ -95,13 +98,13 @@ async function vaultUnlock(pin) {
   const key = await _vDeriveKey(pin, _vb64.dec(m.salt), m.iter || VAULT_ITER);
   try { if (await _vDecrypt(key, m.check) !== 'ok') return false; } catch (e) { return false; }
   _vaultKey = key;
-  await _vRememberSession();
+  await _vRememberSession(true);
   _vNotifyUnlocked();
   return true;
 }
 
 async function vaultLock() {
-  _vaultKey = null;
+  _vaultKey = null; _vaultExp = 0;
   await _vStoreRemove('session', [VAULT_SESSION_KEY]);
 }
 
@@ -155,7 +158,7 @@ async function _vStamp(name, arr) {
 async function vaultAdoptMeta(meta, key) {
   await _vStoreSet('local', { [VAULT_META_KEY]: meta });
   _vaultKey = key;
-  await _vRememberSession();
+  await _vRememberSession(true);
 }
 async function vaultKeyForMeta(meta, pin) {
   const key = await _vDeriveKey(pin, _vb64.dec(meta.salt), meta.iter || VAULT_ITER);
@@ -327,7 +330,7 @@ async function vaultChangePinFlow() {
   }
 }
 
-// 팝업 시작 — 30분 안에 풀었던 금고면 자동 해제, 아니면 금고 탭들에 잠금 화면
+// 팝업 시작 — 6시간 안에 풀었던 금고면 자동 해제, 아니면 금고 탭들에 잠금 화면
 document.addEventListener('DOMContentLoaded', async () => {
   try { if (window._extAuthReady && !(await window._extAuthReady)) return; } catch (e) { return; }
   const restored = await _vRestoreSession();
@@ -336,3 +339,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.vault-lock-btn').forEach(b => b.addEventListener('click', vaultLockAndShowGates));
   document.querySelectorAll('.vault-pin-btn').forEach(b => b.addEventListener('click', vaultChangePinFlow));
 });
+
+// 창을 오래 열어 둔 경우(고객관리 팝업 창·크게 보기)에도 6시간이 지나면 잠근다
+setInterval(() => {
+  if (_vaultKey && _vaultExp && Date.now() > _vaultExp && typeof vaultLockAndShowGates === 'function') {
+    vaultLockAndShowGates();
+    try { showToast('🔒 PIN 을 넣은 지 6시간이 지나 잠갔습니다 — PIN 을 다시 입력하세요'); } catch (e) {}
+  }
+}, 60 * 1000);
+
