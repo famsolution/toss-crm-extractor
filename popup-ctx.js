@@ -20,8 +20,6 @@
 
 (function () {
   var root = document.documentElement;
-  // 🔠 쉬운 화면(큰 글씨·큰 버튼) — 기본 켜짐. 머리말 [원래 화면] 으로 끄면 'uiSimple'='0'
-  try { if (localStorage.getItem('uiSimple') !== '0') root.classList.add('ui-simple'); } catch (_) { root.classList.add('ui-simple'); }
   // 📐 폭에 맞춰 글씨·버튼 크기 자동 조절 — 폭이 실재하는 그릇(오른쪽 세로바·크게 보기·고객관리 창)에서만.
   //   팝업은 크롬이 800px 로 고정하고, 뷰포트 기준 계산이 팝업 폭을 좁게 굳히는 버그가 있었으므로
   //   팝업에서는 절대 돌리지 않는다(아래 is-sidepanel 이 붙은 경우에만 동작).

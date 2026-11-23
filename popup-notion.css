@@ -1,0 +1,175 @@
+/* ═══════════════════════════════════════════════════════════════════
+   📓 노션 스타일 — 기존 배치·기능은 그대로, 보이는 모양만 노션처럼
+   · 흰 바탕 + 먹색 글씨(#37352F) + 옅은 회색 구분선, 그라데이션·그림자 대신 평평한 면
+   · 버튼은 평평하게: 주요 버튼만 노션 파랑(#2383E2), 나머지는 회색 테두리/마우스 올리면 옅은 회색
+   · 선택 표시는 노션 '태그' 처럼 옅은 색 바탕
+   popup.css 뒤에 불러와서 덮어쓴다 → 이 파일만 빼면 예전 모습.
+   ═══════════════════════════════════════════════════════════════════ */
+:root {
+  --primary: #2383E2;
+  --primary-dark: #0B6BCB;
+  --primary-pale: #E7F3F8;
+  --accent: #D9730D;
+  --accent-dark: #B45309;
+  --success: #0F7B6C;
+  --success-dark: #0B6B5E;
+  --success-pale: #DDEDEA;
+  --danger: #E03E3E;
+  --danger-pale: #FBE4E4;
+  --text-1: #37352F;
+  --text-2: rgba(55, 53, 47, 0.75);
+  --text-3: rgba(55, 53, 47, 0.5);
+  --bg: #FFFFFF;
+  --surface: #FFFFFF;
+  --surface-2: #F7F7F5;
+  --border: #E9E9E7;
+  --border-2: rgba(55, 53, 47, 0.16);
+  --hover: rgba(55, 53, 47, 0.06);
+  --shadow-sm: none;
+  --shadow: rgba(15, 15, 15, 0.05) 0 0 0 1px, rgba(15, 15, 15, 0.1) 0 3px 6px;
+  --shadow-lg: rgba(15, 15, 15, 0.05) 0 0 0 1px, rgba(15, 15, 15, 0.1) 0 3px 6px, rgba(15, 15, 15, 0.2) 0 9px 24px;
+  --radius: 6px;
+  --radius-sm: 4px;
+}
+body {
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif;
+  font-size: 14px; line-height: 1.5; color: var(--text-1); background: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: rgba(35, 131, 226, 0.28); }
+
+/* ── 머리말 ── */
+.header { background: #fff !important; color: var(--text-1) !important; box-shadow: none !important; border-bottom: 1px solid var(--border); padding: 10px 14px; }
+.header h1 { font-size: 15px; font-weight: 600; color: var(--text-1) !important; letter-spacing: 0; }
+.header-icon { background: transparent !important; color: inherit !important; box-shadow: none !important; font-size: 18px; width: auto !important; height: auto !important; }
+.header .badge { background: var(--surface-2) !important; color: var(--text-2) !important; border: none; font-size: 12px; font-weight: 500; border-radius: var(--radius-sm); padding: 3px 8px; }
+.hd-pcmove { background: transparent !important; color: var(--text-2) !important; border: none !important; border-radius: var(--radius-sm) !important; font-size: 13px !important; font-weight: 500 !important; padding: 4px 8px !important; }
+.hd-pcmove:hover { background: var(--hover) !important; color: var(--text-1) !important; }
+
+/* ── 탭: 노션 페이지 탭처럼 글자 + 아래 짙은 줄 ── */
+.tab-bar { background: #fff; border-bottom: 1px solid var(--border); padding: 0 8px; box-shadow: none; }
+.tab { font-size: 14px; font-weight: 500; color: var(--text-3); border-bottom: 2px solid transparent; padding: 9px 4px; background: transparent !important; transition: color .12s; }
+.tab:hover { color: var(--text-1); background: transparent; }
+.tab.active { color: var(--text-1); font-weight: 600; border-bottom-color: var(--text-1); background: transparent; }
+
+/* ── 버튼 ── */
+.btn-primary, .btn-apply {
+  background: var(--primary) !important; background-image: none !important; color: #fff !important;
+  border: none !important; border-radius: var(--radius-sm) !important; box-shadow: none !important;
+  font-weight: 500 !important; font-size: 14px !important; min-height: 34px;
+}
+.btn-primary:hover, .btn-apply:hover { background: var(--primary-dark) !important; }
+.btn-secondary, .cred-copy, .cfg-preset-btn, .tpl-action, .btn-copy, .btn-sm, .ana-send-btn {
+  background: #fff !important; background-image: none !important; color: var(--text-1) !important;
+  border: 1px solid var(--border-2) !important; border-radius: var(--radius-sm) !important; box-shadow: none !important;
+  font-weight: 500 !important;
+}
+.btn-secondary:hover, .cred-copy:hover, .cfg-preset-btn:hover, .tpl-action:hover, .btn-copy:hover, .btn-sm:hover { background: var(--hover) !important; }
+.cred-link { color: var(--text-2) !important; text-decoration: underline; text-decoration-color: rgba(55, 53, 47, 0.3); text-underline-offset: 2px; font-weight: 500; }
+.cred-link:hover { color: var(--text-1) !important; }
+.cred-ic { border-radius: var(--radius-sm); background: transparent; border: none; }
+.cred-ic:hover { background: var(--hover); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, .tab:focus-visible {
+  outline: none; box-shadow: 0 0 0 2px rgba(35, 131, 226, 0.45) !important;
+}
+
+/* ── 입력칸: 노션처럼 옅은 회색 면 ── */
+input[type="text"], input[type="search"], input[type="password"], input[type="tel"], input[type="email"],
+input[type="number"], input[type="date"], input:not([type]), select, textarea, .modal-input {
+  background: rgba(242, 241, 238, 0.6) !important; border: 1px solid rgba(15, 15, 15, 0.1) !important;
+  border-radius: var(--radius-sm) !important; color: var(--text-1); box-shadow: none !important;
+}
+input::placeholder, textarea::placeholder { color: rgba(55, 53, 47, 0.4); }
+input:focus, select:focus, textarea:focus { background: #fff !important; border-color: rgba(35, 131, 226, 0.6) !important; }
+input[type="checkbox"], input[type="radio"]:not([name="targetMode"]) { accent-color: var(--primary); }
+
+/* ── 현재 페이지 탭의 색 면들을 평평하게 ── */
+.toolbar { background: #fff; border-bottom: 1px solid var(--border); }
+[data-target-panel] { background: #fff !important; border-bottom: 1px solid var(--border) !important; }
+[data-target-panel] > div:first-of-type { color: var(--text-3) !important; font-weight: 600 !important; letter-spacing: .2px; }
+.tm-btn {
+  background: rgba(55, 53, 47, 0.06) !important; color: var(--text-1) !important; border: 1px solid transparent !important;
+  border-radius: var(--radius-sm) !important; font-weight: 500 !important;
+}
+.tm-btn:hover { background: rgba(55, 53, 47, 0.12) !important; }
+.tm-btn.tm-on,
+#tm_auto:checked ~ div label[for="tm_auto"], #tm_consult:checked ~ div label[for="tm_consult"],
+#tm_vault:checked ~ div label[for="tm_vault"], #tm_std:checked ~ div label[for="tm_std"],
+#tm_plan:checked ~ div label[for="tm_plan"], #tm_prem:checked ~ div label[for="tm_prem"],
+#tm_paintpro:checked ~ div label[for="tm_paintpro"], #tm_absence:checked ~ div label[for="tm_absence"] {
+  background: #D3E5EF !important; color: #183347 !important; border-color: rgba(35, 131, 226, 0.35) !important;
+}
+.ui-mode-row { background: #fff; border-bottom: 1px solid var(--border); }
+.ui-mode-label { color: var(--text-3); font-weight: 600; }
+.ui-mode-switch { background: rgba(55, 53, 47, 0.06) !important; border-radius: var(--radius-sm); box-shadow: none; }
+.ui-mode-switch button { border-radius: 3px; font-weight: 500; color: var(--text-2); background: transparent; box-shadow: none; }
+.ui-mode-switch button.active, .ui-mode-switch button[aria-pressed="true"], .ui-mode-switch button.on { background: #fff !important; color: var(--text-1) !important; box-shadow: rgba(15, 15, 15, 0.1) 0 1px 2px !important; }
+.cfg-panel { border-bottom: 1px solid var(--border); }
+.cfg-header, .cfg-header:hover { background: var(--surface-2) !important; color: var(--text-1) !important; font-weight: 600; border-top: 1px solid var(--border); }
+.cfg-header:hover { background: #EFEFED !important; }
+#productPickerSection { background: #fff !important; border-bottom: 1px solid var(--border) !important; }
+#productPickerSection [style*="color:#3730a3"], #productPickerSection [style*="color:#4f46e5"], #productPickerSection [style*="color:#6366f1"], #productPickerSection [style*="color:#4338ca"] { color: var(--text-1) !important; }
+#productPickerPreview { border-color: var(--border) !important; }
+.product-card { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; box-shadow: none !important; background: #fff !important; }
+.product-card:hover { background: var(--surface-2) !important; }
+.anno-toggle, .cred-auto { color: var(--text-2); }
+.cred-auto-note { color: var(--text-3); }
+
+/* ── 추출 결과 · 저장된 데이터 ── */
+.section { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; box-shadow: none !important; background: #fff !important; }
+.section-header { background: transparent !important; color: var(--text-3) !important; font-weight: 600; border-bottom: 1px solid var(--border) !important; }
+.field-row { border-bottom: 1px solid var(--border) !important; }
+.field-row:hover { background: var(--surface-2) !important; }
+.field-label { color: var(--text-3) !important; font-weight: 500; }
+.field-value { color: var(--text-1) !important; }
+.insurance-card { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; box-shadow: none !important; }
+.insurance-card-header { background: var(--surface-2) !important; color: var(--text-1) !important; }
+.status-badge { border-radius: var(--radius-sm) !important; font-weight: 500 !important; }
+.saved-item { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; box-shadow: none !important; }
+.saved-item:hover { background: var(--surface-2) !important; border-color: var(--border) !important; }
+.notice { color: var(--text-2); }
+.notice .icon { filter: grayscale(.2); opacity: .9; }
+.notice p { color: var(--text-1); font-weight: 500; }
+.notice .sub { color: var(--text-3) !important; font-weight: 400; }
+.alert { border-radius: var(--radius-sm) !important; box-shadow: none !important; }
+
+/* ── 비번 · 고객 목록 ── */
+.cred-row { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; box-shadow: none !important; background: #fff !important; transition: background .1s; }
+.cred-row:hover { background: var(--surface-2) !important; border-color: var(--border) !important; }
+.cred-ins { color: var(--text-1); font-weight: 600; }
+.cred-type { background: rgba(55, 53, 47, 0.08) !important; color: var(--text-2) !important; border-radius: 3px; font-weight: 500; }
+.cred-kv .k { color: var(--text-3); font-weight: 500; }
+.cred-site-hd { color: var(--text-3) !important; font-weight: 600; }
+.cred-filter { border-radius: var(--radius-sm) !important; border: 1px solid transparent !important; background: rgba(55, 53, 47, 0.06) !important; color: var(--text-1) !important; font-weight: 500 !important; }
+.cred-filter.on, .cred-filter.active { background: #D3E5EF !important; color: #183347 !important; }
+.cred-empty { color: var(--text-3); }
+.cred-foot { color: var(--text-3); }
+.cred-form-tit { font-weight: 600; }
+.cu-hq { border: 1px solid var(--border) !important; border-radius: var(--radius) !important; background: #fff !important; }
+.cu-hans span { background: #D3E5EF !important; color: #183347 !important; border-radius: 3px !important; }
+.cu-solo-bar { background: #fff !important; border-bottom: 1px solid var(--border) !important; font-weight: 600 !important; }
+.sf-status { color: var(--success); }
+.sf-status.warn { color: var(--accent); }
+.pm-sf { border: 1px solid var(--border) !important; background: var(--surface-2) !important; }
+.pm-rec { background: #DDEDEA !important; color: #0F7B6C !important; border-radius: 3px !important; }
+
+/* ── 대화상자 · 알림 ── */
+.modal, .pm-box { border-radius: 8px !important; box-shadow: var(--shadow-lg) !important; border: none !important; }
+.modal-backdrop, .pm-back { background: rgba(15, 15, 15, 0.45) !important; }
+.modal-title { font-weight: 600; }
+.toast { background: #37352F !important; color: #fff !important; border-radius: var(--radius) !important; box-shadow: var(--shadow-lg) !important; font-weight: 500; }
+
+/* 스크롤바도 얇고 옅게 */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #D3D1CB; border-radius: 10px; border: 2px solid #fff; }
+::-webkit-scrollbar-thumb:hover { background: #AEACA6; }
+::-webkit-scrollbar-track { background: transparent; }
+
+/* 남아 있던 연보라·연파랑 인라인 면도 평평하게 */
+button[style*="#eef2ff"], button[style*="#e0e7ff"], button[style*="#EEF2FF"], button[style*="#E0E7FF"],
+button[style*="#eff6ff"], button[style*="#EFF6FF"], button[style*="linear-gradient"] {
+  background: #fff !important; background-image: none !important; color: var(--text-1) !important;
+  border: 1px solid var(--border-2) !important; border-radius: var(--radius-sm) !important; box-shadow: none !important;
+}
+.cred-bar { margin-bottom: 8px; gap: 6px; }
+.cred-wrap { padding-top: 10px; }

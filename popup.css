@@ -703,10 +703,9 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
   .is-solo #cuFields { grid-template-columns: 1fr 1fr 1fr; }
   .is-solo #cuList { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
 }
-/* 🔠 쉬운 화면 켜기/끄기 버튼 (머리말 오른쪽) */
+/* 머리말: 제목 왼쪽, 버튼들 오른쪽 */
 .header { gap: 8px; }
 .header-left { margin-right: auto; }
-.hd-simple { background: rgba(255,255,255,.18); color: #fff; border: 1px solid rgba(255,255,255,.5); border-radius: 99px; padding: 4px 10px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
 .header .hd-pcmove { margin-left: 0; margin-right: 0; }
 /* 🧭 페이지가 바뀌었을 때 눌러야 할 버튼을 잠깐 반짝 */
 @keyframes apFlash { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); } 30%, 70% { box-shadow: 0 0 0 5px rgba(245, 158, 11, .75); } }
@@ -737,4 +736,4 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 /* 넓은 폭(크게 보기 등) — 내용이 한없이 퍼지지 않게 가운데 정렬 */
 .w-wide.is-sidepanel:not(.is-full) body { max-width: 1400px; margin: 0 auto; }
 .is-sidepanel .cred-bar { flex-wrap: wrap; }
-.is-sidepanel .cred-new, .is-sidepanel .header .badge, .is-sidepanel .hd-pcmove, .is-sidepanel .hd-simple { white-space: nowrap; }
+.is-sidepanel .cred-new, .is-sidepanel .header .badge, .is-sidepanel .hd-pcmove { white-space: nowrap; }
