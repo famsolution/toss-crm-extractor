@@ -1,7 +1,13 @@
-// 데이터 추출
-document.getElementById('btnExtract').addEventListener('click', async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) return;
+// 데이터 추출 — [📋 데이터 추출] 버튼, 그리고 전송 대상 버튼(한 번에 추출+적용)이 함께 쓴다. 성공하면 데이터, 아니면 null
+async function runExtract() {
+  let tab = null;
+  try {
+    const w = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
+    tab = w && w.tabs && w.tabs.find(x => x.active);
+  } catch (e) {}
+  if (!tab) [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return null;
+  let ok = null;
 
   const btn = document.getElementById('btnExtract');
   btn.textContent = '추출 중...';
@@ -15,6 +21,7 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
 
     const data = await chrome.tabs.sendMessage(tab.id, { action: 'extractData' });
     if (!data) throw new Error('데이터 응답 없음');
+    ok = data;
 
     extractedData = data;
     renderResult(data);
@@ -48,7 +55,9 @@ document.getElementById('btnExtract').addEventListener('click', async () => {
     btn.textContent = '📋 데이터 추출';
     btn.disabled = false;
   }
-});
+  return ok;
+}
+document.getElementById('btnExtract').addEventListener('click', () => { runExtract(); });
 
 document.getElementById('btnCoverageExcel')?.addEventListener('click', async () => {
   await downloadCoverageExcelFromActiveTab(document.getElementById('btnCoverageExcel'));

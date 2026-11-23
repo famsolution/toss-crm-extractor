@@ -36,6 +36,7 @@ function _apFlash(el) {
 function _apResetResult(kind) {
   try { extractedData = null; } catch (e) {}
   try { showCopyButtons(false); } catch (e) {}
+  try { syncTargetCompatibility(); } catch (e) {}   // 이전 데이터 기준으로 흐리게 한 대상 버튼을 되살림
   const pp = document.getElementById('productPickerSection'); if (pp) pp.style.display = 'none';
   const msg = {
     'toss-customer': ['👤', '고객 상세 페이지입니다', '[📋 데이터 추출] 을 누르면 이 고객의 정보를 읽습니다. 👤 고객 탭의 [📋 현재 페이지 고객 등록] 으로 바로 PC 에 저장할 수도 있습니다.'],

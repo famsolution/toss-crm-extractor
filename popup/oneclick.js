@@ -1,0 +1,52 @@
+// ═══════════════════════════════════════════════════════════════════
+// 👆 한 번에 적용 — 📋 현재 페이지 탭의 전송 대상 버튼을 누르면 바로 [추출 → 그곳으로 적용]
+//   예전: 대상 고르기 → [📋 데이터 추출] → [📤 프로그램 적용] 3번
+//   지금: 대상 버튼 1번 (그 버튼이 곧 실행 버튼). [📋 데이터 추출] 은 내용만 볼 때 그대로 쓴다.
+//   · 실제 보내기는 기존 [📤 프로그램 적용] 처리(apply.js)를 그대로 부른다 — 보내는 방식은 같다.
+//   · 누를 때마다 지금 페이지를 새로 추출한다(다른 고객의 이전 데이터를 보내지 않게).
+//   · 👤 고객 등록(PC · 워크스페이스 · 함께) 버튼도 이 탭에 — 고객 탭과 같은 동작.
+// ═══════════════════════════════════════════════════════════════════
+let _ocBusy = false;
+async function oneClickApply(mode, label) {
+  if (_ocBusy) return;
+  _ocBusy = true;
+  const orig = label ? label.innerHTML : '';
+  try {
+    if (label) { label.classList.add('oc-run'); label.innerHTML = '⏳ ' + label.textContent.trim(); }
+    const data = await runExtract();
+    if (!data || data.type === 'error') return;        // 추출 실패 안내는 runExtract 가 띄움
+    const r = document.querySelector(`input[name="targetMode"][value="${mode}"]`);
+    if (r && !r.checked) { r.disabled = false; r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
+    document.getElementById('btnApply').click();       // apply.js 의 기존 적용 흐름
+  } finally {
+    if (label) { label.innerHTML = orig; label.classList.remove('oc-run'); }
+    setTimeout(() => { _ocBusy = false; }, 800);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // 전송 대상 버튼 = 실행 버튼
+  document.querySelectorAll('label.tm-btn[for]').forEach(label => {
+    label.addEventListener('click', e => {
+      const inp = document.getElementById(label.getAttribute('for'));
+      if (!inp) return;
+      e.preventDefault();                                // 라디오 선택은 oneClickApply 가 직접
+      // (이전 추출 기준으로 꺼져 있어도 누를 수 있게 — 새로 추출한 뒤 apply.js 가 맞는지 다시 확인함)
+      oneClickApply(inp.value, label);
+    });
+    label.title = (label.title ? label.title + ' — ' : '') + '누르면 바로 추출해서 적용합니다';
+  });
+  const hint = document.getElementById('targetModeHint');
+  if (hint) hint.textContent = '버튼을 누르면 지금 페이지를 바로 추출해서 그곳으로 적용합니다';
+  // 👤 고객 등록 (고객 탭과 같은 세 가지)
+  const go = async (mode) => {
+    if (typeof cuRegisterFromPage !== 'function') return;
+    await cuRegisterFromPage(mode);
+    if (mode !== 'ws' && typeof cuStore !== 'undefined') {           // 저장했으면 건강상태 입력하러 고객 탭으로
+      const t = document.querySelector('.tab[data-tab="cust"]'); if (t && vaultIsUnlocked()) t.click();
+    }
+  };
+  document.getElementById('ocRegPc')?.addEventListener('click', () => go('pc'));
+  document.getElementById('ocRegWs')?.addEventListener('click', () => go('ws'));
+  document.getElementById('ocRegBoth')?.addEventListener('click', () => go('both'));
+});

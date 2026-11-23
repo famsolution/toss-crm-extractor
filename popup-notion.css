@@ -180,3 +180,9 @@ button[style*="#eff6ff"], button[style*="#EFF6FF"], button[style*="linear-gradie
 /* 현재 페이지 고객 등록 줄 — 세 가지 방식 */
 .cu-reg-bar { align-items: center; padding: 8px 10px; background: var(--surface-2); border-radius: var(--radius); }
 .cu-reg-lab { font-weight: 600; color: var(--text-1); margin-right: auto; font-size: 14.5px; }
+
+/* 👆 전송 대상 버튼이 곧 실행 버튼 — 따로 누르던 [📤 프로그램 적용] 은 숨김 */
+#btnApply { display: none !important; }
+.tm-btn { cursor: pointer; }
+.tm-btn.oc-run { opacity: .7; pointer-events: none; }
+.oc-reg-bar { margin: 10px 12px 4px; }
