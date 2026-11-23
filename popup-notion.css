@@ -186,3 +186,7 @@ button[style*="#eff6ff"], button[style*="#EFF6FF"], button[style*="linear-gradie
 .tm-btn { cursor: pointer; }
 .tm-btn.oc-run { opacity: .7; pointer-events: none; }
 .oc-reg-bar { margin: 10px 12px 4px; }
+/* 💾📤 PC + 워크스페이스 = 메인 버튼 */
+.cu-act #cuSaveSend.cu-save-lg { padding: 10px 22px; font-size: 16px; font-weight: 700 !important; min-width: 190px; }
+.cu-act #cuSave.cu-send-sm { padding: 8px 14px; }
+#ocRegBoth, #cuFromPageBothBtn { font-weight: 700 !important; padding-left: 16px; padding-right: 16px; }

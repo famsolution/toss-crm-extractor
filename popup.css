@@ -719,7 +719,7 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .w-narrow .toolbar > button { flex: 1 1 100%; }
 .w-narrow .cred-bar > .cred-search { flex: 1 1 100%; }
 .w-narrow .cred-bar > .cred-new { flex: 1 1 calc(50% - 8px); }
-.w-narrow .cred-bar > #cuFromPageBtn { flex-basis: 100%; }
+.w-narrow .cred-bar > #cuFromPageBothBtn, .w-narrow .cred-bar > #ocRegBoth { flex-basis: 100%; }
 .w-narrow .cred-form-act, .w-narrow .pm-btns { flex-wrap: wrap; }
 .w-narrow .cred-form-act > button { flex: 1 1 100%; }
 .w-narrow #cuFields, .w-narrow .cred-grid { grid-template-columns: 1fr !important; }

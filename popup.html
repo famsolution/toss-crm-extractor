@@ -60,9 +60,9 @@
   </div>
   <div class="cred-bar cu-reg-bar oc-reg-bar">
     <span class="cu-reg-lab">👤 고객 등록</span>
-    <button id="ocRegPc" class="btn-primary cred-new" title="지금 토스 고객정보 화면을 읽어 이 PC 에만 저장">💾 PC에 저장</button>
+    <button id="ocRegBoth" class="btn-primary cred-new" title="지금 토스 고객정보 화면을 읽어 PC 에 저장하고 워크스페이스 고객 등록 창에도 채움">💾📤 PC + 워크스페이스</button>
+    <button id="ocRegPc" class="btn-secondary cred-new" title="지금 토스 고객정보 화면을 읽어 이 PC 에만 저장">💾 PC에 저장</button>
     <button id="ocRegWs" class="btn-secondary cred-new" title="지금 토스 고객정보 화면을 읽어 워크스페이스 고객 등록 창에만 채움 (PC 저장 안 함)">📤 워크스페이스에 등록</button>
-    <button id="ocRegBoth" class="btn-secondary cred-new" title="지금 토스 고객정보 화면을 읽어 PC 에 저장하고 워크스페이스 고객 등록 창에도 채움">💾📤 PC + 워크스페이스</button>
   </div>
   <label class="cred-auto anno-toggle"><input type="checkbox" id="annoEnabledChk" checked> 🖍 토스 보장분석 화면 표시 (형광펜·보험 순서 기억·글자 수정) <span class="cred-auto-note">— 끄면 토스 원래 화면</span></label>
 
@@ -290,9 +290,9 @@
     <div id="cuListView">
       <div class="cred-bar cu-reg-bar">
         <span class="cu-reg-lab">📋 현재 페이지 고객 등록</span>
-        <button id="cuFromPageBtn" class="btn-primary cred-new cu-frompage-btn" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 이 PC 에만 저장">💾 PC에 저장</button>
+        <button id="cuFromPageBothBtn" class="btn-primary cred-new" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 PC 에 저장하고 워크스페이스 고객 등록 창에도 채움">💾📤 PC + 워크스페이스</button>
+        <button id="cuFromPageBtn" class="btn-secondary cred-new cu-frompage-btn" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 이 PC 에만 저장">💾 PC에 저장</button>
         <button id="cuFromPageWsBtn" class="btn-secondary cred-new" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 워크스페이스 고객 등록 창에만 채움 (PC 에는 저장 안 함, PIN 필요 없음)">📤 워크스페이스에 등록</button>
-        <button id="cuFromPageBothBtn" class="btn-secondary cred-new" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 PC 에 저장하고 워크스페이스 고객 등록 창에도 채움">💾📤 PC + 워크스페이스</button>
       </div>
       <div class="cred-bar">
         <input id="cuSearch" class="cred-search" type="search" placeholder="이름·전화번호 검색">
@@ -325,8 +325,8 @@
         <button id="cuCancel" class="btn-secondary">취소</button>
         <button class="btn-secondary cu-gc-form" data-act="gc-form" title="PC에 저장하고 구글 주소록에 등록 → 폰에 자동 동기화">📇 폰 주소록</button>
         <button id="cuSendOnly" class="btn-secondary cu-send-sm" title="PC 에는 저장하지 않고 워크스페이스 고객 등록 창에만 채워 넣습니다">📤 워크스페이스에만</button>
-        <button id="cuSaveSend" class="btn-secondary cu-send-sm" title="PC에 저장하고 워크스페이스 고객 등록 창에도 채워 넣습니다">💾📤 PC + 워크스페이스</button>
-        <button id="cuSave" class="btn-primary cu-save-lg">💾 PC에 저장</button>
+        <button id="cuSave" class="btn-secondary cu-send-sm">💾 PC에 저장</button>
+        <button id="cuSaveSend" class="btn-primary cu-save-lg cu-main" title="PC에 저장하고 워크스페이스 고객 등록 창에도 채워 넣습니다">💾📤 PC + 워크스페이스</button>
       </div>
     </div>
 
