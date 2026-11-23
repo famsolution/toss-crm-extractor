@@ -114,18 +114,62 @@
   }
 
   // ── 칠하기 / 지우기 ────────────────────────────────
-  function paint(el, color) {
-    if (!el.hasAttribute(MARK)) el.setAttribute('data-tce-bg', el.style.getPropertyValue('background-color') || '');
+  // 형광펜 = 글자 위에만 칠하기. 칸 안 글자 자리(Range 사각형)에 맞춘 색 띠를 칸 안에 깔고
+  // 글자 '뒤' 에 둔다(z-index -1, 칸을 쌓임 맥락으로). 토스 글자 노드는 건드리지 않음(React 안전).
+  // 이 띠도 화면의 일부라 '이미지 복사' 이미지에 그대로 들어간다.
+  const HL = 'data-tce-hl';
+  const painted = new Map();          // cell → color
+  function paint(el, color) { painted.set(el, color); }
+  function drawCell(el, color) {
+    let ov = Array.prototype.find.call(el.children, c => c.hasAttribute(HL));
+    if (ov) ov.textContent = '';
+    const tr = textNodes(el);
+    if (!tr.length) return;
+    if (!el.hasAttribute(MARK)) {
+      el.setAttribute('data-tce-pos', el.style.getPropertyValue('position') || '');
+      el.setAttribute('data-tce-z', el.style.getPropertyValue('z-index') || '');
+      const cs = getComputedStyle(el);
+      if (cs.position === 'static') el.style.setProperty('position', 'relative');
+      if (cs.zIndex === 'auto') el.style.setProperty('z-index', '0');   // 띠가 칸 배경 위·글자 아래에 오도록
+    }
     el.setAttribute(MARK, color);
-    el.style.setProperty('background-color', colorBg(color), 'important');
-  }
-  function unpaintAll() {
-    document.querySelectorAll('[' + MARK + ']').forEach(el => {
-      const bg = el.getAttribute('data-tce-bg');
-      if (bg) el.style.setProperty('background-color', bg); else el.style.removeProperty('background-color');
-      el.removeAttribute(MARK); el.removeAttribute('data-tce-bg');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.setAttribute(HL, '');
+      ov.setAttribute('aria-hidden', 'true');
+      ov.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;z-index:-1;pointer-events:none;';
+      el.appendChild(ov);
+    }
+    const box = el.getBoundingClientRect();
+    const k = box.width ? el.offsetWidth / box.width : 1;   // 미리보기 창 확대·축소 애니메이션 보정
+    const bg = colorBg(color);
+    tr.forEach(n => {
+      const r = document.createRange(); r.selectNodeContents(n);
+      Array.prototype.forEach.call(r.getClientRects(), q => {
+        if (q.width < 1 || q.height < 1) return;
+        const d = document.createElement('div');
+        const x = (q.left - box.left) * k - el.clientLeft, y = (q.top - box.top) * k - el.clientTop;
+        const w = q.width * k, h = q.height * k;
+        d.style.cssText = `position:absolute;left:${(x - 2).toFixed(1)}px;top:${(y + h * 0.08).toFixed(1)}px;width:${(w + 4).toFixed(1)}px;height:${(h * 0.9).toFixed(1)}px;background:${bg};border-radius:3px;`;
+        ov.appendChild(d);
+      });
     });
   }
+  function drawAll() { painted.forEach((color, el) => { if (el.isConnected) drawCell(el, color); }); }
+  function unpaintAll() {
+    painted.clear();
+    document.querySelectorAll('[' + HL + ']').forEach(el => el.remove());
+    document.querySelectorAll('[' + MARK + ']').forEach(el => {
+      const pos = el.getAttribute('data-tce-pos'), z = el.getAttribute('data-tce-z');
+      if (pos) el.style.setProperty('position', pos); else el.style.removeProperty('position');
+      if (z) el.style.setProperty('z-index', z); else el.style.removeProperty('z-index');
+      el.removeAttribute(MARK); el.removeAttribute('data-tce-pos'); el.removeAttribute('data-tce-z');
+    });
+  }
+  // 칸 너비가 바뀌면(창 크기, 순서 변경 중, 미리보기 창 애니메이션) 띠 위치를 다시 맞춘다
+  let redrawTimer = null;
+  function scheduleRedraw() { clearTimeout(redrawTimer); redrawTimer = setTimeout(() => { applying = true; try { drawAll(); } finally { setTimeout(() => { applying = false; }, 0); } }, 120); }
+  window.addEventListener('resize', scheduleRedraw);
   function restoreEdits() {
     editedNodes.forEach(list => list.forEach(x => { try { if (x.node.nodeValue !== x.orig) x.node.nodeValue = x.orig; } catch (e) {} }));
     editedNodes.clear();
@@ -133,7 +177,7 @@
   }
   function textNodes(el) {
     const out = []; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    for (let n = w.nextNode(); n; n = w.nextNode()) if (n.nodeValue.trim()) out.push(n);
+    for (let n = w.nextNode(); n; n = w.nextNode()) if (n.nodeValue.trim() && !(n.parentElement && n.parentElement.closest('[' + HL + ']'))) out.push(n);
     return out;
   }
   function originalText(cell) {
@@ -175,7 +219,9 @@
           });
         });
       });
+      drawAll();
     } finally { setTimeout(() => { applying = false; }, 0); }
+    if (painted.size && document.querySelector('[role="dialog"]')) { setTimeout(scheduleRedraw, 400); setTimeout(scheduleRedraw, 1200); }
   }
 
   // 클릭한 칸 → 위치 정보
@@ -370,7 +416,7 @@
           <div class="r"><span class="lab">적용 범위</span>
             <button data-a="s-one" class="${scope === 'one' ? 'sel' : ''}">이 고객만</button>
             <button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객(줄 단위)</button></div>
-          <div class="hint">칸을 누르면 그 칸, 줄 이름(예: 질병입원의료비)을 누르면 줄 전체. 같은 색으로 다시 누르면 지워집니다.${scope === 'all' ? '<br><b>모든 고객</b>: 누른 줄이 모든 고객 화면에서 칠해집니다.' : ''}</div>` : ''}
+          <div class="hint">칸을 누르면 그 칸의 글자, 줄 이름(예: 질병입원의료비)을 누르면 그 줄 글자 전체에 칠해집니다. 같은 색으로 다시 누르면 지워집니다.${scope === 'all' ? '<br><b>모든 고객</b>: 누른 줄이 모든 고객 화면에서 칠해집니다.' : ''}</div>` : ''}
           ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르면 입력창이 뜹니다. 화면에서만 바뀌고 토스 데이터는 그대로입니다. 고친 칸은 점선 테두리 · 마우스를 올리면 원래 글자.</div>` : ''}
           <div class="r"><span class="lab">보험 순서 ${ordered ? '— <b>기억됨</b>' : '— 토스에서 끌어 옮기면 자동으로 기억'}</span>
             ${ordered ? '<button data-a="order-reset">토스 원래 순서로</button>' : ''}</div>
@@ -469,7 +515,9 @@
   }, true));
   new MutationObserver(muts => {
     if (applying) return;
-    if (muts.every(m => m.target && m.target.closest && m.target.closest('[data-tce-ui]'))) return;
+    const ours = n => n.nodeType === 1 && (n.hasAttribute('data-tce-hl') || n.hasAttribute('data-tce-ui'));
+    if (muts.every(m => (m.target && m.target.closest && m.target.closest('[data-tce-ui],[data-tce-hl]')) ||
+      (m.type === 'childList' && Array.prototype.every.call(m.addedNodes, ours) && Array.prototype.every.call(m.removedNodes, ours)))) return;
     scheduleApply();
   }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });   // 토스가 글자만 바꿔도 다시 입힘
   setInterval(onRoute, 700);
