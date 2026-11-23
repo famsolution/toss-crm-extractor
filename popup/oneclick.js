@@ -13,9 +13,14 @@ async function oneClickApply(mode, label) {
   _ocBusy = true;
   const orig = label ? label.innerHTML : '';
   try {
-    if (label) { label.classList.add('oc-run'); label.innerHTML = '⏳ ' + label.textContent.trim(); }
-    const data = await runExtract();
-    if (!data || data.type === 'error') return;        // 추출 실패 안내는 runExtract 가 띄움
+    const name = label ? label.textContent.trim() : '';
+    if (label) { label.classList.add('oc-run'); label.innerHTML = '⏳ 1/2 데이터 추출 중…'; }
+    const data = await runExtract();                   // [📋 데이터 추출] 과 똑같이 추출 (그 버튼도 '추출 중' 으로 바뀜)
+    if (!data || data.type === 'error') {               // 추출 실패 안내는 runExtract 가 띄움
+      if (typeof showToast === 'function') showToast('⚠ 데이터를 읽지 못해 ' + name + ' 로 보내지 못했습니다');
+      return;
+    }
+    if (label) label.innerHTML = '⏳ 2/2 ' + name + ' 진행 중…';
     const r = document.querySelector(`input[name="targetMode"][value="${mode}"]`);
     if (r && !r.checked) { r.disabled = false; r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true })); }
     document.getElementById('btnApply').click();       // apply.js 의 기존 적용 흐름
