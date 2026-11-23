@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       tm_auto:        isCustomer || (!isCoverage && !isPremium && !isVercel),  // 기타 페이지
       tm_consult:     isCustomer,
       tm_std:         isCoverage || isApp,
-      tm_plan:        isPlan,
+      tm_plan:        isPlan || isPremium,   // 보험료 비교 페이지에서도 가설계로 바로 보내기 (한 번에 적용)
       tm_prem:        isCoverage,
       tm_paintpro:    isCoverage,
       tm_absence:     isCoverage,
@@ -112,8 +112,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     if (isPremium) {
-      // 보험료 비교 페이지: 전송 대상 패널 숨김 + plan 자동 선택
-      if (targetPanel) targetPanel.style.display = 'none';
+      // 보험료 비교 페이지: plan 자동 선택. (예전엔 패널을 숨기고 [프로그램 적용]으로 보냈지만,
+      //   이제 버튼이 곧 실행이므로 '📐 가설계 탭' 버튼을 보여 준다)
+      if (targetPanel) targetPanel.style.display = '';
       setTargetMode('plan');
       try { chrome.storage.local.set({ [TARGET_MODE_KEY]: 'plan' }); } catch {}
     } else {
@@ -132,6 +133,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     _syncTmBtns();
   }
 
+  window.applyPageContext = applyPageContext;   // 페이지가 바뀌면 popup/autopage.js 가 다시 부른다
   try {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     applyPageContext(activeTab?.url || '');

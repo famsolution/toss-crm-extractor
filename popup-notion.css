@@ -191,21 +191,6 @@ button[style*="#eff6ff"], button[style*="#EFF6FF"], button[style*="linear-gradie
 .cu-act #cuSave.cu-send-sm { padding: 8px 14px; }
 #ocRegBoth, #cuFromPageBothBtn { font-weight: 700 !important; padding-left: 16px; padding-right: 16px; }
 
-/* 📤 보내기 — 기본 버튼 하나 + '다른 곳으로 보내기' 접기 */
-.send-main-row { display: flex; }
-.tm-btn.send-main { display: flex !important; flex-direction: column; align-items: flex-start; width: 100%; padding: 10px 14px !important;
-  background: #fff !important; border: 1px solid var(--border-2) !important; font-size: 15px !important; font-weight: 600 !important; }
-.tm-btn.send-main:hover { background: var(--hover) !important; }
-.tm-btn.send-main.tm-on { background: #fff !important; color: var(--text-1) !important; border-color: var(--border-2) !important; }
-.send-main-sub { font-size: 12.5px; font-weight: 400; color: var(--text-3); margin-top: 2px; white-space: normal; }
-.send-more { margin-top: 8px; }
-.send-more > summary { cursor: pointer; color: var(--text-2); font-size: 14px; font-weight: 500; padding: 4px 2px; list-style: none; user-select: none; }
-.send-more > summary::before { content: '▸ '; color: var(--text-3); }
-.send-more[open] > summary::before { content: '▾ '; }
-.send-more > summary:hover { color: var(--text-1); }
-.send-more > div { margin-top: 6px; }
-#targetModeHint:empty { display: none; }
 
-.send-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-.send-quick .tm-btn { background: #fff !important; border: 1px solid var(--border-2) !important; font-size: 14.5px !important; padding: 7px 12px !important; }
-.send-quick .tm-btn:hover { background: var(--hover) !important; }
+
+

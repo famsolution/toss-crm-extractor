@@ -73,7 +73,7 @@ async function apSync(first) {
   const kind = _apKind(url);
   try { updatePageBadge(url, true); } catch (e) {}
   const isInsurer = typeof credOnPageChange === 'function' ? credOnPageChange(tab) : false;
-  try { arrangeTargets(kind); } catch (e) {}
+  try { if (typeof window.applyPageContext === 'function') window.applyPageContext(url); } catch (e) {}   // 페이지에 맞는 보내기 버튼만 보이게 (boot.js)
   if (changed || kind !== 'other') _apResetResult(isInsurer ? 'insurer' : kind);
   const badge = document.getElementById('pageBadge');
   if (badge && isInsurer) badge.textContent = '보험사 사이트';
