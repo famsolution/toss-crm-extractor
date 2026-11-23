@@ -205,3 +205,7 @@ button[style*="#eff6ff"], button[style*="#EFF6FF"], button[style*="linear-gradie
 .send-more > summary:hover { color: var(--text-1); }
 .send-more > div { margin-top: 6px; }
 #targetModeHint:empty { display: none; }
+
+.send-quick { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.send-quick .tm-btn { background: #fff !important; border: 1px solid var(--border-2) !important; font-size: 14.5px !important; padding: 7px 12px !important; }
+.send-quick .tm-btn:hover { background: var(--hover) !important; }

@@ -91,10 +91,12 @@
     <div class="send-main-row">
       <label for="tm_auto" class="tm-btn send-main">📤 이 페이지에 맞게 보내기 <span class="send-main-sub">고객 상세 → 상담등록 · 보장 → 표준 보장분석 · 보험료 비교 → 비교 폼</span></label>
     </div>
+    <!-- 지금 페이지에 해당되는 보낼 곳 — popup/oneclick.js 의 arrangeTargets 가 페이지마다 여기로 옮겨 놓음 -->
+    <div class="send-quick" id="sendQuick"></div>
     <!-- 보낼 곳을 직접 고를 때만 펼침 (🔐 내 확장에 저장 은 위 👤 고객 등록 '💾 PC에 저장' 과 같아서 뺌) -->
     <details class="send-more" id="sendMore">
-      <summary>다른 곳으로 보내기</summary>
-      <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+      <summary id="sendMoreSum">다른 곳으로 보내기</summary>
+      <div id="sendMoreList" style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
         <label for="tm_consult"  class="tm-btn">📝 워크스페이스(상담등록)</label>
         <label for="tm_std"      class="tm-btn">📊 표준 보장분석</label>
         <label for="tm_plan"     class="tm-btn">📐 가설계 탭</label>
