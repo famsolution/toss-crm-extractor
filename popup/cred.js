@@ -245,6 +245,14 @@ function _credOnClick(e) {
   else if (act === 'toggle') { if (_credShown.has(c.doc_id)) _credShown.delete(c.doc_id); else _credShown.add(c.doc_id); credRender(); }
 }
 
+// 페이지가 바뀌면(popup/autopage.js) 지금 사이트의 계정 목록을 다시 맞춘다. 보험사 사이트면 true
+function credOnPageChange(tab) {
+  _credTab = tab && /^https?:/.test(tab.url || '') ? { id: tab.id, url: tab.url } : null;
+  _credRefreshLookup();
+  try { if (vaultIsUnlocked()) credRender(); } catch (e) {}
+  return !!(_credSiteNames.length || _credLk.cids.length);
+}
+
 function _credSwitchToTab() {
   const t = document.querySelector('.tab[data-tab="cred"]');
   if (t) t.click();

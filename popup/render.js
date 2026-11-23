@@ -370,10 +370,12 @@ function escHtml(str) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-(async () => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const url = tab?.url || '';
+// 지금 페이지 표시(머리말 배지) — 처음 열 때, 그리고 페이지가 바뀔 때마다(popup/autopage.js) 다시 부른다
+function updatePageBadge(url, quiet) {
+  url = url || '';
   const badge = document.getElementById('pageBadge');
+  if (!badge) return;
+  badge.style.background = '';
 
   // 🆕 한장으로 보는 보험료 비교 페이지 패턴 — file:// 저장본까지 폭넓게 인식
   const isPremiumCompare = (
@@ -402,6 +404,10 @@ function escHtml(str) {
     // 알 수 없는 페이지여도 비활성화하지 않음 — 사용자가 시도하면 content.js 가 페이지 타입 검사 후 알려줌
     badge.textContent = '외부 페이지';
     // 안내 메시지만 (버튼은 활성 유지)
-    showNotice('ℹ️', '지원 페이지', 'CRM 상세/보장 페이지 또는 한장으로 보는 보험료 비교 페이지에서 사용하세요. 그 외 페이지에서는 추출이 동작하지 않을 수 있습니다.');
+    if (!quiet) showNotice('ℹ️', '지원 페이지', 'CRM 상세/보장 페이지 또는 한장으로 보는 보험료 비교 페이지에서 사용하세요. 그 외 페이지에서는 추출이 동작하지 않을 수 있습니다.');
   }
+}
+(async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!window.__autoPageOwnsBadge) updatePageBadge(tab?.url || '');
 })();
