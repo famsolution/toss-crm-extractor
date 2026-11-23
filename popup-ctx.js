@@ -20,6 +20,8 @@
 
 (function () {
   var root = document.documentElement;
+  // 🔠 쉬운 화면(큰 글씨·큰 버튼) — 기본 켜짐. 머리말 [원래 화면] 으로 끄면 'uiSimple'='0'
+  try { if (localStorage.getItem('uiSimple') !== '0') root.classList.add('ui-simple'); } catch (_) { root.classList.add('ui-simple'); }
   var mark = function () { root.classList.add('is-sidepanel'); };
 
   // ⛶ 크게 보기 창(popup.html?full=1) — 실제 창 폭이 있으므로 사이드패널처럼 100% 폭 + 큰 화면 배치

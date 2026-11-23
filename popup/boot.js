@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       lb.style.background = (inp && inp.value === cur) ? '#2563eb' : '';
       lb.style.color = (inp && inp.value === cur) ? '#fff' : '';
       lb.style.borderColor = (inp && inp.value === cur) ? '#1d4ed8' : '';
+      lb.classList.toggle('tm-on', !!(inp && inp.value === cur));
     });
   }
   _initUiModeControls();
