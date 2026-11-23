@@ -682,3 +682,9 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .cred-linkrow select { flex: 1; min-width: 140px; padding: 5px 6px; border: 1px solid var(--border-2); border-radius: var(--radius-sm); font-size: 12px; }
 .cred-site-unknown { color: var(--text-2); font-weight: 700; }
 .anno-toggle { margin: 6px 12px 0; }
+.pm-sf { border: 1.5px solid #93C5FD; background: #F8FBFF; }
+.pm-rec { font-size: 10px; background: #2563EB; color: #fff; border-radius: 99px; padding: 1px 6px; margin-left: 4px; vertical-align: middle; }
+.pm-btns { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 6px; }
+.sf-status { font-size: 11.5px; color: #047857; }
+.sf-status.warn { color: #B45309; font-weight: 700; }
+.sf-foot { margin-top: 2px; }

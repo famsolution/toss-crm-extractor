@@ -33,8 +33,24 @@ function pcMoveOpen() {
         </ol>
       </div>
 
+      <div class="pm-step pm-sf">
+        <div class="pm-t">📁 원드라이브·구글드라이브 폴더로 자동 동기화 <span class="pm-rec">추천</span></div>
+        <div class="pm-s">보험사 비번·고객정보(건강정보 포함)를 고른 폴더에 <b>PIN 으로 암호화된 파일 1개</b>로 둡니다.
+          원드라이브/구글드라이브 PC 프로그램이 동기화하는 폴더(예: <code>OneDrive\토스확장</code>)를 고르세요.
+          다른 PC 에서도 같은 폴더를 연결하면 어느 PC 에서 고쳐도 서로 반영됩니다(같은 PIN 사용).
+          바뀔 때마다 <b>백업</b> 폴더에 단계별로 남깁니다 — 최근 20개 · 하루 1개(30일) · 한 달 1개(12개월).</div>
+        <div class="sf-status"></div>
+        <div class="pm-btns">
+          <button class="btn-primary" data-sf="connect">📁 폴더 연결 / 바꾸기</button>
+          <button class="btn-secondary sf-reperm" data-sf="reperm" style="display:none">📁 다시 허용</button>
+          <button class="btn-secondary sf-need-conn" data-sf="sync">🔄 지금 동기화</button>
+          <button class="btn-secondary sf-need-conn" data-sf="restore">↩ 백업에서 되돌리기</button>
+          <button class="cred-link sf-need-conn" data-sf="off">연결 끊기</button>
+        </div>
+      </div>
+
       <div class="pm-step">
-        <div class="pm-t">② 이 PC 의 보험사 비번·고객정보 내보내기</div>
+        <div class="pm-t">② 이 PC 의 보험사 비번·고객정보 내보내기 (파일 1개로 직접 옮길 때)</div>
         <div class="pm-s">암호화된 그대로 파일 1개로 저장합니다. <b>PIN 은 파일에 들어가지 않아</b> 파일만으로는 열 수 없습니다.</div>
         <button class="btn-secondary pm-export">📦 금고 백업 파일 저장</button>
         <div class="pm-msg pm-export-msg"></div>
@@ -48,6 +64,7 @@ function pcMoveOpen() {
       </div>
     </div>`;
   document.body.appendChild(back);
+  if (typeof sfRenderStatus === 'function') sfRenderStatus();
   const close = () => back.remove();
   back.querySelector('.pm-x').addEventListener('click', close);
   back.addEventListener('click', e => { if (e.target === back) close(); });

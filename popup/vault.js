@@ -82,7 +82,7 @@ async function vaultSetup(pin) {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await _vDeriveKey(pin, salt, VAULT_ITER);
   const check = await _vEncrypt(key, 'ok');
-  await _vStoreSet('local', { [VAULT_META_KEY]: { v: 1, salt: _vb64.enc(salt), iter: VAULT_ITER, check } });
+  await _vStoreSet('local', { [VAULT_META_KEY]: { v: 1, salt: _vb64.enc(salt), iter: VAULT_ITER, check, at: Date.now() } });
   _vaultKey = key;
   await _vRememberSession();
   _vNotifyUnlocked();
@@ -114,11 +114,58 @@ async function vaultGet(name) {
   const arr = JSON.parse(await _vDecrypt(_vaultKey, st[k]));
   return Array.isArray(arr) ? arr : [];
 }
-async function vaultPut(name, arr) {
+async function vaultPut(name, arr, opt) {
   if (!_vaultKey) throw new Error('잠겨 있습니다');
-  await _vStoreSet('local', { ['vault_' + name]: await _vEncrypt(_vaultKey, JSON.stringify(arr || [])) });
+  arr = arr || [];
+  if (!(opt && opt.raw)) await _vStamp(name, arr);
+  await _vStoreSet('local', { ['vault_' + name]: await _vEncrypt(_vaultKey, JSON.stringify(arr)) });
+  await _vRememberSession();
+  if (!(opt && opt.raw)) { try { document.dispatchEvent(new CustomEvent('vault-changed', { detail: { name } })); } catch (e) {} }
+}
+
+// ── 📁 폴더 동기화용 표시 — 항목마다 고친 시각(_u), 지운 항목은 지운 시각(vault_tomb) ──
+//   여러 PC 가 같은 폴더 파일을 고쳐도 항목 단위로 '나중에 고친 쪽' 을 고를 수 있게 한다.
+const VAULT_TOMB_KEY = 'vault_tomb';
+const VAULT_ID_FIELD = { creds: 'doc_id', customers: 'id' };
+function vaultRecId(name, r) { return r && r[VAULT_ID_FIELD[name] || 'id']; }
+async function _vStamp(name, arr) {
+  const idf = VAULT_ID_FIELD[name] || 'id';
+  let prev = [];
+  try { prev = await vaultGet(name); } catch (e) {}
+  const pm = new Map(prev.map(r => [r[idf], r]));
+  const strip = r => { const c = Object.assign({}, r); delete c._u; return JSON.stringify(c); };
+  const now = Date.now();
+  const seen = new Set();
+  arr.forEach(r => {
+    if (!r[idf]) r[idf] = 'r' + now.toString(36) + Math.random().toString(36).slice(2, 8);
+    seen.add(r[idf]);
+    const o = pm.get(r[idf]);
+    if (!o || strip(o) !== strip(r) || !r._u) r._u = (o && strip(o) === strip(r) && o._u) ? o._u : now;
+  });
+  const gone = prev.filter(r => r[idf] && !seen.has(r[idf]));
+  if (gone.length) {
+    const st = await _vStoreGet('local', [VAULT_TOMB_KEY]);
+    const t = st[VAULT_TOMB_KEY] || {};
+    t[name] = t[name] || {};
+    gone.forEach(r => { t[name][r[idf]] = now; });
+    await _vStoreSet('local', { [VAULT_TOMB_KEY]: t });
+  }
+}
+// 지금 열린 금고 키를 다른 금고 정보(폴더 파일의 PIN 설정)로 바꾼다 — 폴더 파일과 같은 PIN 을 쓰게
+async function vaultAdoptMeta(meta, key) {
+  await _vStoreSet('local', { [VAULT_META_KEY]: meta });
+  _vaultKey = key;
   await _vRememberSession();
 }
+async function vaultKeyForMeta(meta, pin) {
+  const key = await _vDeriveKey(pin, _vb64.dec(meta.salt), meta.iter || VAULT_ITER);
+  try { if (await _vDecrypt(key, meta.check) !== 'ok') return null; } catch (e) { return null; }
+  return key;
+}
+async function vaultMeta() { return (await _vStoreGet('local', [VAULT_META_KEY]))[VAULT_META_KEY] || null; }
+function vaultCurrentKey() { return _vaultKey; }
+async function vaultEncryptWith(key, text) { return _vEncrypt(key, text); }
+async function vaultDecryptWith(key, box) { return _vDecrypt(key, box); }
 
 // PIN 변경 — 모든 항목을 새 키로 다시 암호화
 async function vaultChangePin(oldPin, newPin, names) {
@@ -126,7 +173,8 @@ async function vaultChangePin(oldPin, newPin, names) {
   const data = {};
   for (const n of names) data[n] = await vaultGet(n);
   await vaultSetup(newPin);
-  for (const n of names) await vaultPut(n, data[n]);
+  for (const n of names) await vaultPut(n, data[n], { raw: true });   // 고친 시각(_u)은 그대로
+  try { document.dispatchEvent(new CustomEvent('vault-changed', { detail: { name: '*pin' } })); } catch (e) {}
   return true;
 }
 
@@ -273,7 +321,10 @@ async function vaultChangePinFlow() {
   if (again !== newPin) { await showAlert('두 PIN 이 다릅니다.'); return; }
   const ok = await vaultChangePin(String(oldPin), String(newPin), VAULT_NAMES);
   if (!ok) await showAlert('현재 PIN 이 맞지 않습니다.');
-  else showToast('🔑 PIN 을 바꿨습니다');
+  else {
+    showToast('🔑 PIN 을 바꿨습니다');
+    if (typeof sfSync === 'function') sfSync({ interactive: true });   // 폴더 파일도 새 PIN 으로 (바꾸기 전 PIN 한 번 확인)
+  }
 }
 
 // 팝업 시작 — 30분 안에 풀었던 금고면 자동 해제, 아니면 금고 탭들에 잠금 화면
