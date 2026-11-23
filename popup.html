@@ -282,9 +282,14 @@
   <div class="cu-solo-bar">👤 고객 관리 <span class="cred-sp"></span><button class="cred-link vault-lock-btn" title="PIN 으로 다시 잠그기">🔒 잠그기</button></div>
   <div class="cred-wrap vault-body">
     <div id="cuListView">
+      <div class="cred-bar cu-reg-bar">
+        <span class="cu-reg-lab">📋 현재 페이지 고객 등록</span>
+        <button id="cuFromPageBtn" class="btn-primary cred-new cu-frompage-btn" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 이 PC 에만 저장">💾 PC에 저장</button>
+        <button id="cuFromPageWsBtn" class="btn-secondary cred-new" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 워크스페이스 고객 등록 창에만 채움 (PC 에는 저장 안 함, PIN 필요 없음)">📤 워크스페이스에 등록</button>
+        <button id="cuFromPageBothBtn" class="btn-secondary cred-new" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 PC 에 저장하고 워크스페이스 고객 등록 창에도 채움">💾📤 PC + 워크스페이스</button>
+      </div>
       <div class="cred-bar">
         <input id="cuSearch" class="cred-search" type="search" placeholder="이름·전화번호 검색">
-        <button id="cuFromPageBtn" class="btn-primary cred-new cu-frompage-btn" title="열려 있는 토스 CRM 고객정보 화면에서 고객정보를 읽어 이 PC 에 저장합니다 (현재 페이지 탭의 데이터 추출 → 내 확장에 저장과 같음)">📋 현재 페이지 고객 등록</button>
         <button id="cuNewBtn" class="btn-secondary cred-new">＋ 새 고객</button>
         <button id="cuSoloBtn" class="btn-secondary cred-new cu-solo-btn" title="고객 관리만 따로 작은 창으로 띄우기 (단축키 Alt+Shift+C)">🪟 팝업 창</button>
         <button id="cuBigBtn" class="btn-secondary cred-new cu-big-btn" title="큰 창으로 열기">⛶ 크게 보기</button>
@@ -313,7 +318,8 @@
       <div class="cred-form-act cu-act">
         <button id="cuCancel" class="btn-secondary">취소</button>
         <button class="btn-secondary cu-gc-form" data-act="gc-form" title="PC에 저장하고 구글 주소록에 등록 → 폰에 자동 동기화">📇 폰 주소록</button>
-        <button id="cuSaveSend" class="btn-secondary cu-send-sm" title="PC에 저장하고 워크스페이스 고객 등록 창에 채워 넣습니다">📤 워크스페이스에 고객등록</button>
+        <button id="cuSendOnly" class="btn-secondary cu-send-sm" title="PC 에는 저장하지 않고 워크스페이스 고객 등록 창에만 채워 넣습니다">📤 워크스페이스에만</button>
+        <button id="cuSaveSend" class="btn-secondary cu-send-sm" title="PC에 저장하고 워크스페이스 고객 등록 창에도 채워 넣습니다">💾📤 PC + 워크스페이스</button>
         <button id="cuSave" class="btn-primary cu-save-lg">💾 PC에 저장</button>
       </div>
     </div>

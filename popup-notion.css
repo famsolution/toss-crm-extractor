@@ -176,3 +176,7 @@ button[style*="#eff6ff"], button[style*="#EFF6FF"], button[style*="linear-gradie
 .cred-bar { flex-wrap: wrap; }
 .cred-bar > .cred-search { flex: 1 1 190px; min-width: 190px; }
 .cred-bar > .cred-new { flex: 0 0 auto; }
+
+/* 현재 페이지 고객 등록 줄 — 세 가지 방식 */
+.cu-reg-bar { align-items: center; padding: 8px 10px; background: var(--surface-2); border-radius: var(--radius); }
+.cu-reg-lab { font-weight: 600; color: var(--text-1); margin-right: auto; font-size: 14.5px; }

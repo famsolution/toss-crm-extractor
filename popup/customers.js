@@ -47,6 +47,7 @@ const CU_TELCO = ['', 'SKT', 'KT', 'LGU+', '알뜰폰'];
 const CU_TPL_KEY = 'cu_health_tpl';
 let _cuTpl = JSON.parse(JSON.stringify(CU_HEALTH_TPL));   // 지금 쓰는 질문 템플릿 (편집 가능)
 let _cuTplEdit = false;                                   // 질문 편집 모드
+let _cuPendingSend = false;                                // 잠금 풀린 뒤 워크스페이스에도 보낼지
 let _cuPendingImport = null;                              // 금고가 잠겨 있을 때 받은 추출 데이터
 
 // 개인정보 칸 — key 는 워크스페이스 고객 필드명과 같다
@@ -267,6 +268,14 @@ async function cuSave() {
   return saved;
 }
 
+// 입력 화면에서 '워크스페이스에만' — PC 에는 저장하지 않고 지금 입력한 내용을 그대로 보낸다
+async function cuSendOnly() {
+  _cuCapturePending();
+  _cuReadFields();
+  if (!_cuEdit || !_cuEdit['고객명']) { await showAlert('이름을 입력하세요.'); return; }
+  await cuSend(JSON.parse(JSON.stringify(_cuEdit)));
+}
+
 async function cuDelete(c) {
   const ok = await showConfirm(`${c['고객명'] || ''} 고객을 이 PC 에서 삭제할까요?\n워크스페이스에 이미 보낸 내용은 지워지지 않습니다.`, '고객 삭제');
   if (!ok) return;
@@ -451,7 +460,8 @@ async function _cuTplAction(act, b) {
 const _cuIsMasked = v => /[\*●·]/.test(String(v || ''));
 const _cuDigits = v => String(v || '').replace(/[^0-9]/g, '');
 
-async function cuImportExtracted(raw) {
+// 토스에서 읽은 고객정보 → 확장 고객 항목 (저장하지 않음)
+function _cuPickExtracted(raw) {
   const src = raw || {};
   const pick = {};
   ['고객명', '연락처', '생년월일', '주민등록번호', '주소', '이메일', '직업', '하는일', '통신사', '운전여부'].forEach(k => {
@@ -459,6 +469,10 @@ async function cuImportExtracted(raw) {
   });
   ['키', '몸무게'].forEach(k => { const v = String(src[k] == null ? '' : src[k]).replace(/[^\d.]/g, ''); if (v) pick[k] = v; });
   const g = String(src['성별'] || ''); if (/여/.test(g)) pick['성별'] = '여'; else if (/남/.test(g)) pick['성별'] = '남';
+  return pick;
+}
+async function cuImportExtracted(raw) {
+  const pick = _cuPickExtracted(raw);
   if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. 토스 CRM 고객정보 화면에서 다시 추출해 주세요.'); return null; }
   // 같은 사람: 이름 같음 + (전화 숫자 같음 / 끝 4자리 같음 / 주민 앞 6자리 같음)
   const pd = _cuDigits(pick['연락처']), rr = _cuDigits(pick['주민등록번호']).slice(0, 6);
@@ -533,8 +547,10 @@ async function _cuFindTossTab() {
     return all.find(t => t.active) || all[0] || null;
   } catch (e) { return null; }
 }
-async function cuRegisterFromPage() {
-  const btn = document.getElementById('cuFromPageBtn');
+// mode: 'pc' PC 에만 · 'ws' 워크스페이스에만 · 'both' PC 와 워크스페이스에 함께
+async function cuRegisterFromPage(mode) {
+  mode = mode || 'pc';
+  const btn = document.getElementById({ pc: 'cuFromPageBtn', ws: 'cuFromPageWsBtn', both: 'cuFromPageBothBtn' }[mode]) || document.getElementById('cuFromPageBtn');
   const tab = await _cuFindTossTab();
   if (!tab) { await showAlert('토스 CRM 고객정보 화면을 연 뒤 눌러 주세요.', '현재 페이지 고객 등록'); return; }
   const label = btn ? btn.textContent : '';
@@ -548,8 +564,18 @@ async function cuRegisterFromPage() {
     }
     try { extractedData = data; } catch (e) {}
     try { chrome.storage.local.set({ lastCustomer: data.customer, lastCustomerAt: Date.now() }); } catch (e) {}
-    if (!vaultIsUnlocked()) { _cuPendingImport = data.customer; showToast('🔒 PIN 을 입력하면 바로 저장됩니다'); return; }
-    await cuImportExtracted(data.customer);
+    if (mode === 'ws') {
+      // 워크스페이스에만 — PC 금고에 저장하지 않으므로 PIN 도 필요 없다
+      const pick = _cuPickExtracted(data.customer);
+      if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. 토스 CRM 고객정보 화면에서 다시 눌러 주세요.'); return; }
+      const masked = Object.keys(pick).filter(k => _cuIsMasked(pick[k]));
+      if (masked.length && !(await showConfirm('아직 가려진(****) 값이 있습니다: ' + masked.join(', ') + '\n그대로 워크스페이스에 보낼까요?', '워크스페이스에 등록'))) return;
+      await cuSend(Object.assign({ id: '', health: { cat: _cuTpl.categories[0] || '일반체', state: {} } }, pick));
+      return;
+    }
+    if (!vaultIsUnlocked()) { _cuPendingImport = data.customer; _cuPendingSend = mode === 'both'; showToast('🔒 PIN 을 입력하면 바로 저장됩니다'); return; }
+    const saved = await cuImportExtracted(data.customer);
+    if (saved && mode === 'both') await cuSend(saved);
   } catch (e) {
     await showAlert('고객정보를 읽지 못했습니다: ' + (e.message || e), '현재 페이지 고객 등록');
   } finally {
@@ -669,11 +695,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cuSaveSend')?.addEventListener('click', async () => { const c = await cuSave(); if (c) cuSend(c); });
   document.getElementById('cuBigBtn')?.addEventListener('click', cuOpenBigView);
   document.getElementById('cuSoloBtn')?.addEventListener('click', cuOpenSolo);
-  document.getElementById('cuFromPageBtn')?.addEventListener('click', cuRegisterFromPage);
+  document.getElementById('cuFromPageBtn')?.addEventListener('click', () => cuRegisterFromPage('pc'));
+  document.getElementById('cuFromPageWsBtn')?.addEventListener('click', () => cuRegisterFromPage('ws'));
+  document.getElementById('cuFromPageBothBtn')?.addEventListener('click', () => cuRegisterFromPage('both'));
+  document.getElementById('cuSendOnly')?.addEventListener('click', () => cuSendOnly());
   await _cuLoadTpl();
   document.addEventListener('vault-unlocked', async () => {
     await cuLoad();
-    if (_cuPendingImport) { const p = _cuPendingImport; _cuPendingImport = null; cuImportExtracted(p); }
+    if (_cuPendingImport) {
+      const p = _cuPendingImport, send = _cuPendingSend; _cuPendingImport = null; _cuPendingSend = false;
+      const saved = await cuImportExtracted(p);
+      if (saved && send) await cuSend(saved);
+    }
   });
   if (vaultIsUnlocked()) cuLoad();
   // 크게 보기 창(popup.html?full=1&tab=cust) — 고객 탭으로 바로
