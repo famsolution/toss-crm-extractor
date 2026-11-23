@@ -278,11 +278,13 @@
 
 <!-- 👤 고객 — 개인정보·건강상태를 이 PC 금고에 저장, 워크스페이스로 보내기 (popup/customers.js) -->
 <div class="tab-content" id="tab-cust">
+  <div class="cu-solo-bar">👤 고객 관리 <span class="cred-sp"></span><button class="cred-link vault-lock-btn" title="PIN 으로 다시 잠그기">🔒 잠그기</button></div>
   <div class="cred-wrap vault-body">
     <div id="cuListView">
       <div class="cred-bar">
         <input id="cuSearch" class="cred-search" type="search" placeholder="이름·전화번호 검색">
         <button id="cuNewBtn" class="btn-primary cred-new">＋ 새 고객</button>
+        <button id="cuSoloBtn" class="btn-secondary cred-new cu-solo-btn" title="고객 관리만 따로 작은 창으로 띄우기 (단축키 Alt+Shift+C)">🪟 팝업 창</button>
         <button id="cuBigBtn" class="btn-secondary cred-new cu-big-btn" title="큰 창으로 열기">⛶ 크게 보기</button>
       </div>
       <div class="cred-bar">

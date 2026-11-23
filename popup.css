@@ -688,3 +688,18 @@ input[name="targetMode"]:checked + * ~ .tm-btn { /* fallback */ }
 .sf-status { font-size: 11.5px; color: #047857; }
 .sf-status.warn { color: #B45309; font-weight: 700; }
 .sf-foot { margin-top: 2px; }
+
+/* 🪟 고객관리 팝업 창 (solo) — 고객 탭만, 창 크기에 맞춰 1단 ↔ 2단 */
+.cu-solo-bar { display: none; }
+.is-solo .header, .is-solo .tab-bar, .is-solo .cu-big-btn, .is-solo .cu-solo-btn { display: none !important; }
+.is-solo body { max-width: none; }
+.is-solo .cu-solo-bar { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-weight: 800; font-size: 13px; color: #0F172A; border-bottom: 1px solid #E2E8F0; background: #F8FAFC; position: sticky; top: 0; z-index: 5; }
+.is-solo #tab-cust .cred-wrap { padding: 10px 12px 16px; }
+.is-solo .cu-cols { display: block; }
+.is-solo #cuFields { grid-template-columns: 1fr 1fr; }
+.is-solo #cuList { display: block; }
+@media (min-width: 900px) {
+  .is-solo .cu-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 0 24px; align-items: start; }
+  .is-solo #cuFields { grid-template-columns: 1fr 1fr 1fr; }
+  .is-solo #cuList { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+}

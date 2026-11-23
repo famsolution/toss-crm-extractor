@@ -261,3 +261,28 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   return true;
 });
 
+// ═══════════════════════════════════════════════════════════════════
+// 🪟 고객관리 팝업 창 — popup.html?full=1&tab=cust&solo=1 을 작은 창으로 (이미 열려 있으면 앞으로)
+//   위치·크기는 창이 기억(cu_solo_bounds). 팝업 버튼 · 단축키(Alt+Shift+C)로 연다.
+// ═══════════════════════════════════════════════════════════════════
+async function _bgOpenCustomerSolo() {
+  const base = chrome.runtime.getURL('popup.html');
+  try {
+    const tabs = await chrome.tabs.query({ url: base + '*' });
+    const t = (tabs || []).find(x => /[?&]solo=1/.test(x.url || ''));
+    if (t) { await chrome.windows.update(t.windowId, { focused: true, state: 'normal' }); return; }
+  } catch (e) {}
+  const st = await chrome.storage.local.get('cu_solo_bounds');
+  const b = st.cu_solo_bounds || {};
+  const opt = { url: base + '?full=1&tab=cust&solo=1', type: 'popup', width: b.width || 560, height: b.height || 820, focused: true };
+  if (b.left != null && b.top != null) { opt.left = b.left; opt.top = b.top; }
+  try { await chrome.windows.create(opt); }
+  catch (e) { delete opt.left; delete opt.top; await chrome.windows.create(opt); }   // 저장된 위치가 화면 밖이면 기본 위치로
+}
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+  if (!req || req.action !== 'cuOpenSolo') return;
+  _bgOpenCustomerSolo().then(() => sendResponse({ ok: true })).catch(e => sendResponse({ ok: false, error: String(e) }));
+  return true;
+});
+try { chrome.commands.onCommand.addListener(cmd => { if (cmd === 'open-customers') _bgOpenCustomerSolo(); }); } catch (e) {}
+

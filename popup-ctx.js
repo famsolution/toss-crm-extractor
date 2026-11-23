@@ -23,6 +23,8 @@
   var mark = function () { root.classList.add('is-sidepanel'); };
 
   // ⛶ 크게 보기 창(popup.html?full=1) — 실제 창 폭이 있으므로 사이드패널처럼 100% 폭 + 큰 화면 배치
+  // 🪟 고객관리 팝업 창(popup.html?full=1&tab=cust&solo=1) — 고객 탭만 단독으로
+  if (/[?&]solo=1\b/.test(location.search)) root.classList.add('is-solo');
   if (/[?&]full=1\b/.test(location.search)) { mark(); root.classList.add('is-full'); return; }
   if (/[?&]sp=1\b/.test(location.search)) { mark(); return; }
 

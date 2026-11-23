@@ -513,6 +513,23 @@ async function cuOpenBigView() {
   catch (e) { await chrome.tabs.create({ url }); }
 }
 
+// ── 🪟 고객관리 팝업 창 — 고객 탭만 따로 띄운 작은 창 (위치·크기 기억, 단축키 Alt+Shift+C) ──
+function cuOpenSolo() {
+  try { chrome.runtime.sendMessage({ action: 'cuOpenSolo' }, () => { void chrome.runtime.lastError; }); } catch (e) {}
+}
+if (/[?&]solo=1\b/.test(location.search)) {
+  document.title = '👤 고객 관리';
+  let last = '';
+  const keep = () => {
+    const b = { left: window.screenX, top: window.screenY, width: window.outerWidth, height: window.outerHeight };
+    const sig = JSON.stringify(b);
+    if (sig !== last && b.width > 200 && b.height > 200) { last = sig; try { chrome.storage.local.set({ cu_solo_bounds: b }); } catch (e) {} }
+  };
+  setInterval(keep, 1500);
+  window.addEventListener('resize', keep);
+  window.addEventListener('beforeunload', keep);
+}
+
 // 다른 스크립트(popup/gcontacts.js)용 접근자
 window.cuStore = {
   list: () => _cuList,
@@ -607,6 +624,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cuSave')?.addEventListener('click', () => cuSave());
   document.getElementById('cuSaveSend')?.addEventListener('click', async () => { const c = await cuSave(); if (c) cuSend(c); });
   document.getElementById('cuBigBtn')?.addEventListener('click', cuOpenBigView);
+  document.getElementById('cuSoloBtn')?.addEventListener('click', cuOpenSolo);
   await _cuLoadTpl();
   document.addEventListener('vault-unlocked', async () => {
     await cuLoad();
