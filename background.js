@@ -286,3 +286,15 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
 });
 try { chrome.commands.onCommand.addListener(cmd => { if (cmd === 'open-customers') _bgOpenCustomerSolo(); }); } catch (e) {}
 
+// 🎨 페인트프로 편집기 열기 (content/paint-pro.js) — 확장 버튼에서 시작하면 페이지의 window.open 이
+//   팝업 차단에 막히므로 여기서 새 탭으로 연다. 보낸 탭 바로 옆에.
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+  if (!req || req.action !== 'paintProOpenEditor') return;
+  const url = String(req.url || '');
+  if (!/^https:\/\/tossinssu-pro\.vercel\.app\//.test(url)) { sendResponse({ ok: false }); return; }
+  const opt = { url, active: true };
+  if (sender && sender.tab) { opt.index = sender.tab.index + 1; opt.openerTabId = sender.tab.id; opt.windowId = sender.tab.windowId; }
+  chrome.tabs.create(opt).then(() => sendResponse({ ok: true })).catch(e => sendResponse({ ok: false, error: String(e) }));
+  return true;
+});
+

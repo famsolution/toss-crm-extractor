@@ -14,6 +14,13 @@ async function oneClickApply(mode, label) {
   const orig = label ? label.innerHTML : '';
   try {
     const name = label ? label.textContent.trim() : '';
+    // 🎨 페인트 프로는 추출한 데이터를 쓰지 않는다 — 추출이 토스 화면(펼치기·전환)을 건드린 직후에
+    //    표 이미지를 찍으면 어긋날 수 있어서 추출 없이 바로 보낸다.
+    if (mode === 'paintpro' && typeof _execPaintProRoute === 'function') {
+      if (label) { label.classList.add('oc-run'); label.innerHTML = '⏳ 페인트프로로 보내는 중…'; }
+      await _execPaintProRoute(null, null);
+      return;
+    }
     if (label) { label.classList.add('oc-run'); label.innerHTML = '⏳ 1/2 데이터 추출 중…'; }
     const data = await runExtract();                   // [📋 데이터 추출] 과 똑같이 추출 (그 버튼도 '추출 중' 으로 바뀜)
     if (!data || data.type === 'error') {               // 추출 실패 안내는 runExtract 가 띄움

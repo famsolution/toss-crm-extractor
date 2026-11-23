@@ -96,7 +96,9 @@ async function _execPaintProRoute(btn, safetyTimer) {
   // 🔑 popup 을 닫아 페이지 focus 복귀 → content.js 가 clipboard.read() 실행 가능
   try { chrome.tabs.sendMessage(tab.id, { action: 'triggerPaintPro' }, () => { void chrome.runtime.lastError; }); } catch {}
   try { clearTimeout(safetyTimer); } catch {}
-  setTimeout(() => window.close(), 120);
+  // 팝업일 때만 닫는다(페이지에 포커스 돌려주기). 오른쪽 세로바·크게 보기 창은 그대로 둔다.
+  if (!document.documentElement.classList.contains('is-sidepanel')) setTimeout(() => window.close(), 120);
+  else if (typeof showToast === 'function') showToast('🎨 토스 화면에서 이미지를 만들어 페인트프로로 보냅니다');
 }
 
 // 🆕 전송 대상 '부재고객[경고]' 실행 — 추출 데이터를 스튜디오로 전송

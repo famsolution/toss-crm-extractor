@@ -320,9 +320,41 @@
     return false;
   }
 
+  // 진행 안내 — 확장 버튼으로 시작하면 숨은 앵커가 눌리므로 화면에 아무 표시가 없었다 → 위쪽에 작은 안내
+  let _ppMsgEl = null, _ppMsgT = null;
+  function _ppStatus(msg, ms) {
+    try {
+      if (!_ppMsgEl || !document.documentElement.contains(_ppMsgEl)) {
+        _ppMsgEl = document.createElement('div');
+        _ppMsgEl.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#37352F;color:#fff;padding:9px 16px;border-radius:8px;font:600 14px -apple-system,"Malgun Gothic",sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none;';
+        document.documentElement.appendChild(_ppMsgEl);
+      }
+      _ppMsgEl.textContent = msg; _ppMsgEl.style.display = '';
+      clearTimeout(_ppMsgT);
+      if (ms) _ppMsgT = setTimeout(function () { if (_ppMsgEl) _ppMsgEl.style.display = 'none'; }, ms);
+    } catch (e) {}
+  }
+  // 페인트프로 편집기 열기 — 확장 버튼에서 시작하면 이 페이지에 '사용자 클릭' 이 없어서 window.open 이
+  // 팝업 차단에 막힌다(이미지 복사 뒤 아무 변화 없음). background 가 새 탭으로 연다.
+  function _ppOpenEditor() {
+    return new Promise(function (res) {
+      let done = false;
+      try {
+        chrome.runtime.sendMessage({ action: 'paintProOpenEditor', url: EDITOR_URL }, function (r) {
+          void chrome.runtime.lastError;
+          if (done) return; done = true;
+          if (r && r.ok) return res(true);
+          res(!!window.open(EDITOR_URL, '_blank'));
+        });
+      } catch (e) { done = true; res(!!window.open(EDITOR_URL, '_blank')); }
+      setTimeout(function () { if (!done) { done = true; res(!!window.open(EDITOR_URL, '_blank')); } }, 3000);
+    });
+  }
+
   async function sendToPaintPro(fab) {
     const old = fab.textContent;
     fab.textContent = '⏳ 이미지 준비 중…'; fab.disabled = true;
+    _ppStatus('🎨 페인트프로로 보내는 중… (표 이미지 준비)');
     try {
       // 1) '이미지 복사' 버튼이 안 보이면 → '표' 탭을 먼저 눌러 표 화면을 띄운다
       let btn = findCopyBtn();
@@ -352,6 +384,7 @@
         await _waitPreviewSettled(btn, attempt ? 6000 : 4000);
         _capturedImageURL = null;
         const clickedAt = Date.now();
+        _ppStatus('🎨 페인트프로로 보내는 중… (이미지 복사)');
         btn.click();
 
         // 3) 가로챈 이미지를 우선 대기(최대 ~3.5초). 실패 시 클립보드 읽기로 폴백.
@@ -373,12 +406,16 @@
         if (zoomBefore) _restoreTabZoom(zoomBefore);
       }
       if (!dataURL) {
+        _ppStatus('', 1);
         pageAlert('이미지를 읽지 못했습니다.\n\n· 토스 "이미지 복사" 버튼이 정상 동작하는지 확인해 주세요.\n· 확장 새로고침 후 다시 시도해 보세요.' +
           (_lastClipErr ? '\n\n[오류: ' + _lastClipErr + ']' : ''));
         return;
       }
       await new Promise(function (r) { chrome.storage.local.set({ [STORAGE_KEY]: { dataURL: dataURL, fileName: '토스보장분석.png', ts: Date.now() } }, r); });
-      window.open(EDITOR_URL, '_blank');
+      _ppStatus('🎨 페인트프로를 여는 중…');
+      const opened = await _ppOpenEditor();
+      if (opened) _ppStatus('✅ 페인트프로를 새 탭으로 열었습니다', 3500);
+      else { _ppStatus('', 1); pageAlert('페인트프로 창을 열지 못했습니다.\n주소창 오른쪽의 팝업 차단 표시를 눌러 crm.tossinsu.com 팝업을 허용한 뒤 다시 시도해 주세요.'); }
     } finally { fab.textContent = old; fab.disabled = false; }
   }
 
