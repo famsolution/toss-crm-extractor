@@ -513,6 +513,50 @@ async function cuOpenBigView() {
   catch (e) { await chrome.tabs.create({ url }); }
 }
 
+// ── 📋 현재 페이지 고객 등록 — 토스 CRM 고객정보 화면에서 읽어 바로 PC 금고에 저장 ──
+//   '현재 페이지' 탭의 [데이터 추출] → [🔐 내 확장에 저장] 과 같은 일을 고객 탭에서 한 번에.
+//   고객관리 팝업 창에서 눌러도 되도록, 마지막으로 보던 일반 브라우저 창의 토스 탭을 찾는다.
+async function _cuFindTossTab() {
+  const isToss = t => /^https:\/\/crm\.tossinsu\.com\//.test(t.url || '');
+  try {
+    const w = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
+    const t = w && w.tabs && w.tabs.find(x => x.active);
+    if (t && isToss(t)) return t;
+  } catch (e) {}
+  try {
+    const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (t && isToss(t)) return t;
+  } catch (e) {}
+  try {
+    const all = await chrome.tabs.query({ url: 'https://crm.tossinsu.com/*' });
+    all.sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0));
+    return all.find(t => t.active) || all[0] || null;
+  } catch (e) { return null; }
+}
+async function cuRegisterFromPage() {
+  const btn = document.getElementById('cuFromPageBtn');
+  const tab = await _cuFindTossTab();
+  if (!tab) { await showAlert('토스 CRM 고객정보 화면을 연 뒤 눌러 주세요.', '현재 페이지 고객 등록'); return; }
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = '읽는 중...'; }
+  try {
+    if (typeof ensureContentScript === 'function' && !(await ensureContentScript(tab.id))) throw new Error('토스 화면에 연결하지 못했습니다. 토스 탭을 새로고침한 뒤 다시 눌러 주세요.');
+    const data = await chrome.tabs.sendMessage(tab.id, { action: 'extractData' });
+    if (!data || data.type !== 'customer' || !data.customer) {
+      await showAlert('지금 토스 화면은 고객정보 화면이 아닙니다.\n토스 CRM 에서 고객을 열어 고객정보(이름·연락처)가 보이는 화면에서 눌러 주세요.', '현재 페이지 고객 등록');
+      return;
+    }
+    try { extractedData = data; } catch (e) {}
+    try { chrome.storage.local.set({ lastCustomer: data.customer, lastCustomerAt: Date.now() }); } catch (e) {}
+    if (!vaultIsUnlocked()) { _cuPendingImport = data.customer; showToast('🔒 PIN 을 입력하면 바로 저장됩니다'); return; }
+    await cuImportExtracted(data.customer);
+  } catch (e) {
+    await showAlert('고객정보를 읽지 못했습니다: ' + (e.message || e), '현재 페이지 고객 등록');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+  }
+}
+
 // ── 🪟 고객관리 팝업 창 — 고객 탭만 따로 띄운 작은 창 (위치·크기 기억, 단축키 Alt+Shift+C) ──
 function cuOpenSolo() {
   try { chrome.runtime.sendMessage({ action: 'cuOpenSolo' }, () => { void chrome.runtime.lastError; }); } catch (e) {}
@@ -625,6 +669,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cuSaveSend')?.addEventListener('click', async () => { const c = await cuSave(); if (c) cuSend(c); });
   document.getElementById('cuBigBtn')?.addEventListener('click', cuOpenBigView);
   document.getElementById('cuSoloBtn')?.addEventListener('click', cuOpenSolo);
+  document.getElementById('cuFromPageBtn')?.addEventListener('click', cuRegisterFromPage);
   await _cuLoadTpl();
   document.addEventListener('vault-unlocked', async () => {
     await cuLoad();
