@@ -122,7 +122,7 @@ function _renderProductPicker() {
   count.textContent = `총 ${products.length}개 상품${selCount ? ` · ${selCount}개 선택` : ''}`;
   // 🆕 다중 선택 시 — 한 번에 갱신분석 버튼 (2개 이상 선택)
   const _multiBar = selCount > 1
-    ? `<div style="margin-bottom:8px;"><button id="__multiAnaBtn" style="width:100%; border:none; background:#dc2626; color:#fff; border-radius:6px; padding:9px; font-size:12px; font-weight:800; cursor:pointer;">📈 선택한 ${selCount}개 상품 한 번에 갱신분석 (합산/상품별)</button></div>`
+    ? `<div style="margin-bottom:8px;"><button id="__multiAnaBtn" style="width:100%; border:none; background:#dc2626; color:#fff; border-radius:6px; padding:9px; font-size:13.5px; font-weight:800; cursor:pointer;">📈 선택한 ${selCount}개 상품 한 번에 갱신분석 (합산/상품별)</button></div>`
     : '';
   // 카드 렌더링 (체크박스)
   cardList.innerHTML = _multiBar + products.map(p => {
@@ -132,15 +132,15 @@ function _renderProductPicker() {
     return `
       <div class="product-card" data-key="${p.key}" style="cursor:pointer; padding:8px 10px; border-radius:6px; border:2px solid ${isSel ? '#6366f1' : '#e5e7eb'}; background:${isSel ? '#eef2ff' : '#fff'}; transition:all 0.15s;">
         <div style="display:flex; align-items:center; gap:8px;">
-          <div style="width:16px; height:16px; border-radius:4px; border:2px solid ${isSel ? '#6366f1' : '#d1d5db'}; background:${isSel ? '#6366f1' : '#fff'}; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:900; line-height:1;">
+          <div style="width:16px; height:16px; border-radius:4px; border:2px solid ${isSel ? '#6366f1' : '#d1d5db'}; background:${isSel ? '#6366f1' : '#fff'}; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12.5px; font-weight:900; line-height:1;">
             ${isSel ? '✓' : ''}
           </div>
           <div style="flex:1; min-width:0;">
-            <div style="font-size:11.5px; font-weight:700; color:#1f2937; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${p.상품명}">${p.상품명}</div>
-            <div style="font-size:10px; color:#6b7280; margin-top:1px;">[${p.보험사명}] · ${p.coverages.length}개 담보${p.premium > 0 ? ` · <span style="color:#2563eb; font-weight:700;">💰 ${p.premium.toLocaleString()}원</span>` : ''}</div>
-            <div style="font-size:9.5px; color:#9ca3af; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sampleCovs}${extra}</div>
+            <div style="font-size:13px; font-weight:700; color:#1f2937; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${p.상품명}">${p.상품명}</div>
+            <div style="font-size:12px; color:#6b7280; margin-top:1px;">[${p.보험사명}] · ${p.coverages.length}개 담보${p.premium > 0 ? ` · <span style="color:#2563eb; font-weight:700;">💰 ${p.premium.toLocaleString()}원</span>` : ''}</div>
+            <div style="font-size:11.5px; color:#9ca3af; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${sampleCovs}${extra}</div>
           </div>
-          <button class="ana-send-btn" data-ana="${p.key}" title="이 상품으로 갱신형 보험료 분석 보내기" style="flex-shrink:0; border:none; background:#fee2e2; color:#dc2626; border-radius:6px; padding:6px 9px; font-size:11px; font-weight:800; cursor:pointer; white-space:nowrap;">📈 갱신분석</button>
+          <button class="ana-send-btn" data-ana="${p.key}" title="이 상품으로 갱신형 보험료 분석 보내기" style="flex-shrink:0; border:none; background:#fee2e2; color:#dc2626; border-radius:6px; padding:6px 9px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap;">📈 갱신분석</button>
         </div>
       </div>
     `;
@@ -309,24 +309,24 @@ function _renderProductPreview() {
   preview.style.display = '';
   const rows = merged.map(c => {
     const amt = parseInt(String(c.amount || '').replace(/[^0-9]/g, '')) || 0;
-    const tag = c._added ? '<span style="color:#16a34a;font-size:9px;">추가</span>' : (c._edited ? '<span style="color:#d97706;font-size:9px;">수정</span>' : '');
+    const tag = c._added ? '<span style="color:#16a34a;font-size:11px;">추가</span>' : (c._edited ? '<span style="color:#d97706;font-size:11px;">수정</span>' : '');
     return `<div style="display:flex;align-items:center;gap:4px;padding:2px 0;border-bottom:1px solid #f3f4f6;">
-      <span style="flex:1;min-width:0;font-size:10.5px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${c.name}">${c.name} ${tag}</span>
-      <input data-cov="${encodeURIComponent(c.name)}" value="${amt || ''}" placeholder="0" style="width:58px;font-size:10.5px;text-align:right;border:1px solid #d1d5db;border-radius:4px;padding:2px 4px;" />
-      <span style="font-size:9.5px;color:#9ca3af;">만</span>
-      <button data-del="${encodeURIComponent(c.name)}" title="이 담보 삭제(학습)" style="border:none;background:#fef2f2;color:#ef4444;border-radius:4px;cursor:pointer;font-size:11px;padding:1px 5px;">🗑</button>
+      <span style="flex:1;min-width:0;font-size:12px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${c.name}">${c.name} ${tag}</span>
+      <input data-cov="${encodeURIComponent(c.name)}" value="${amt || ''}" placeholder="0" style="width:58px;font-size:12px;text-align:right;border:1px solid #d1d5db;border-radius:4px;padding:2px 4px;" />
+      <span style="font-size:11.5px;color:#9ca3af;">만</span>
+      <button data-del="${encodeURIComponent(c.name)}" title="이 담보 삭제(학습)" style="border:none;background:#fef2f2;color:#ef4444;border-radius:4px;cursor:pointer;font-size:12.5px;padding:1px 5px;">🗑</button>
     </div>`;
   }).join('');
   preview.innerHTML = `
-    <div style="font-weight:700;font-size:11px;color:#4338ca;margin-bottom:4px;">📝 전송 담보 — 편집·학습 (${merged.length}개)</div>
-    <div style="font-size:9px;color:#9ca3af;margin-bottom:4px;">담보금을 직접 수정/삭제/추가하면 자동 저장되어 다음에도 적용됩니다. (받아오는 페이지와 담보명이 달라도 직접 맞출 수 있어요)</div>
+    <div style="font-weight:700;font-size:12.5px;color:#4338ca;margin-bottom:4px;">📝 전송 담보 — 편집·학습 (${merged.length}개)</div>
+    <div style="font-size:11px;color:#9ca3af;margin-bottom:4px;">담보금을 직접 수정/삭제/추가하면 자동 저장되어 다음에도 적용됩니다. (받아오는 페이지와 담보명이 달라도 직접 맞출 수 있어요)</div>
     <div id="covEditList" style="max-height:230px;overflow:auto;">${rows}</div>
     <div style="display:flex;gap:4px;margin-top:6px;">
-      <input id="newCovName" placeholder="담보명 추가" style="flex:1;min-width:0;font-size:10.5px;border:1px solid #d1d5db;border-radius:4px;padding:3px 5px;" />
-      <input id="newCovAmt" placeholder="만원" style="width:55px;font-size:10.5px;text-align:right;border:1px solid #d1d5db;border-radius:4px;padding:3px 5px;" />
-      <button id="addCovBtn" style="border:none;background:#6366f1;color:#fff;border-radius:4px;cursor:pointer;font-size:11px;font-weight:700;padding:3px 9px;">+ 추가</button>
+      <input id="newCovName" placeholder="담보명 추가" style="flex:1;min-width:0;font-size:12px;border:1px solid #d1d5db;border-radius:4px;padding:3px 5px;" />
+      <input id="newCovAmt" placeholder="만원" style="width:55px;font-size:12px;text-align:right;border:1px solid #d1d5db;border-radius:4px;padding:3px 5px;" />
+      <button id="addCovBtn" style="border:none;background:#6366f1;color:#fff;border-radius:4px;cursor:pointer;font-size:12.5px;font-weight:700;padding:3px 9px;">+ 추가</button>
     </div>
-    <div style="text-align:right;margin-top:4px;"><button id="resetCovLearn" style="border:none;background:none;color:#ef4444;text-decoration:underline;cursor:pointer;font-size:9.5px;">학습 초기화</button></div>
+    <div style="text-align:right;margin-top:4px;"><button id="resetCovLearn" style="border:none;background:none;color:#ef4444;text-decoration:underline;cursor:pointer;font-size:11.5px;">학습 초기화</button></div>
   `;
   // 금액 수정 → 학습 저장
   preview.querySelectorAll('input[data-cov]').forEach(inp => {

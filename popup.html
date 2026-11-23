@@ -15,24 +15,24 @@
 <div id="__ext_gate" style="position:fixed; inset:0; z-index:99999; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="font-size:34px; margin-bottom:6px;">🔐</div>
   <div style="font-weight:800; font-size:16px; color:#0F172A; margin-bottom:2px;">토스인슈 CRM 추출기</div>
-  <div id="__ext_gate_sub" style="font-size:12px; color:#64748B; margin-bottom:16px; text-align:center;">사용하려면 로그인하세요.</div>
+  <div id="__ext_gate_sub" style="font-size:13.5px; color:#64748B; margin-bottom:16px; text-align:center;">사용하려면 로그인하세요.</div>
 
   <!-- 로그인 폼 -->
   <div id="__ext_login_box" style="width:100%; max-width:260px; display:flex; flex-direction:column; gap:8px;">
-    <input id="__ext_email" type="email" autocomplete="username" placeholder="이메일" style="padding:9px 11px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:13px;">
-    <input id="__ext_pw" type="password" autocomplete="current-password" placeholder="비밀번호" style="padding:9px 11px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:13px;">
-    <button id="__ext_login_btn" style="padding:10px; border:none; border-radius:8px; background:#2563EB; color:#fff; font-weight:700; font-size:13px; cursor:pointer;">로그인</button>
-    <button id="__ext_signup_btn" style="padding:9px; border:1.5px solid #2563EB; border-radius:8px; background:#fff; color:#2563EB; font-weight:700; font-size:12.5px; cursor:pointer;">처음이신가요? 회원가입</button>
-    <div id="__ext_gate_msg" style="font-size:11.5px; color:#EF4444; min-height:14px; text-align:center;"></div>
-    <div style="font-size:10.5px; color:#94A3B8; text-align:center; line-height:1.5;">가입 후 <b>관리자 승인</b>을 받아야 사용할 수 있습니다.</div>
+    <input id="__ext_email" type="email" autocomplete="username" placeholder="이메일" style="padding:9px 11px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:14.5px;">
+    <input id="__ext_pw" type="password" autocomplete="current-password" placeholder="비밀번호" style="padding:9px 11px; border:1.5px solid #CBD5E1; border-radius:8px; font-size:14.5px;">
+    <button id="__ext_login_btn" style="padding:10px; border:none; border-radius:8px; background:#2563EB; color:#fff; font-weight:700; font-size:14.5px; cursor:pointer;">로그인</button>
+    <button id="__ext_signup_btn" style="padding:9px; border:1.5px solid #2563EB; border-radius:8px; background:#fff; color:#2563EB; font-weight:700; font-size:14px; cursor:pointer;">처음이신가요? 회원가입</button>
+    <div id="__ext_gate_msg" style="font-size:13px; color:#EF4444; min-height:14px; text-align:center;"></div>
+    <div style="font-size:12px; color:#94A3B8; text-align:center; line-height:1.5;">가입 후 <b>관리자 승인</b>을 받아야 사용할 수 있습니다.</div>
   </div>
 
   <!-- 승인 대기/거부 안내 (로그인은 됐지만 active=false) -->
   <div id="__ext_pending_box" style="display:none; width:100%; max-width:280px; text-align:center;">
-    <div style="font-size:13px; color:#0F172A; font-weight:700; margin-bottom:6px;">⏳ 승인 대기 중</div>
-    <div style="font-size:12px; color:#64748B; line-height:1.6;">계정은 등록되었지만 아직 <b>관리자 승인</b>이 필요합니다.<br>관리자에게 승인을 요청하세요.</div>
-    <div id="__ext_pending_email" style="font-size:11px; color:#94A3B8; margin-top:8px;"></div>
-    <button id="__ext_logout_btn" style="margin-top:14px; padding:8px 14px; border:1px solid #FECACA; border-radius:8px; background:#FEF2F2; color:#EF4444; font-weight:700; font-size:12px; cursor:pointer;">로그아웃</button>
+    <div style="font-size:14.5px; color:#0F172A; font-weight:700; margin-bottom:6px;">⏳ 승인 대기 중</div>
+    <div style="font-size:13.5px; color:#64748B; line-height:1.6;">계정은 등록되었지만 아직 <b>관리자 승인</b>이 필요합니다.<br>관리자에게 승인을 요청하세요.</div>
+    <div id="__ext_pending_email" style="font-size:12.5px; color:#94A3B8; margin-top:8px;"></div>
+    <button id="__ext_logout_btn" style="margin-top:14px; padding:8px 14px; border:1px solid #FECACA; border-radius:8px; background:#FEF2F2; color:#EF4444; font-weight:700; font-size:13.5px; cursor:pointer;">로그아웃</button>
   </div>
 </div>
 
@@ -71,7 +71,7 @@
   </div>
 
   <div data-target-panel style="background:#eff6ff; padding:10px 14px; border-bottom:1px solid var(--border);">
-    <div style="font-size:11.5px; font-weight:700; color:var(--text-2); margin-bottom:6px;">📍 전송 대상</div>
+    <div style="font-size:13px; font-weight:700; color:var(--text-2); margin-bottom:6px;">📍 전송 대상</div>
     <!-- 라디오 인풋(숨김) — 기존 JS 로직 유지 -->
     <input type="radio" name="targetMode" value="auto"         id="tm_auto"    style="display:none" checked>
     <input type="radio" name="targetMode" value="consult"      id="tm_consult" style="display:none">
@@ -92,29 +92,29 @@
       <label for="tm_paintpro" class="tm-btn">🎨 페인트 프로</label>
       <label for="tm_absence"  class="tm-btn">부재고객[경고]</label>
     </div>
-    <div id="targetModeHint" style="font-size:10.5px; color:var(--text-3); margin-top:4px;">데이터 종류에 따라 자동으로 적절한 페이지로 전송됩니다</div>
+    <div id="targetModeHint" style="font-size:12px; color:var(--text-3); margin-top:4px;">데이터 종류에 따라 자동으로 적절한 페이지로 전송됩니다</div>
   </div>
 
   <!-- 🎯 메인 워크플로 — 추출된 보험상품을 카드 형태로 선택 → mmlfcp 에 담보+금액 자동 전송 -->
   <div id="productPickerSection" style="display:none; background:linear-gradient(135deg,#eef2ff,#f5f3ff); padding:12px 14px; border-bottom:2px solid #6366f1;">
     <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:8px;">
-      <span style="font-size:13px; font-weight:800; color:#3730a3;">📦 보험상품 선택</span>
-      <span id="productPickerCount" style="font-size:10.5px; color:#6366f1; font-weight:600;"></span>
+      <span style="font-size:14.5px; font-weight:800; color:#3730a3;">📦 보험상품 선택</span>
+      <span id="productPickerCount" style="font-size:12px; color:#6366f1; font-weight:600;"></span>
     </div>
-    <div style="font-size:10.5px; color:#4f46e5; margin-bottom:8px; line-height:1.4;">
+    <div style="font-size:12px; color:#4f46e5; margin-bottom:8px; line-height:1.4;">
       추출된 보험을 <b>여러 개 선택</b>(체크)하면, <b>선택한 상품들의 담보+보험금이 합산</b>되어 mmlfcp 보험료 비교 페이지에 자동 입력됩니다. <span style="color:#9ca3af;">(같은 담보명은 금액 합산)</span>
     </div>
     <!-- 카드 리스트 — 클릭으로 선택 (체크박스 다중 선택) -->
     <div id="productCardList" style="display:flex; flex-direction:column; gap:6px; max-height:340px; overflow-y:auto; overflow-x:hidden; padding:2px;"></div>
     <!-- 미리보기 -->
-    <div id="productPickerPreview" style="margin-top:8px; font-size:10.5px; color:#4338ca; max-height:420px; overflow-y:auto; overflow-x:hidden; padding:6px 8px; background:#fff; border-radius:5px; border:1px solid #c7d2fe; display:none;"></div>
+    <div id="productPickerPreview" style="margin-top:8px; font-size:12px; color:#4338ca; max-height:420px; overflow-y:auto; overflow-x:hidden; padding:6px 8px; background:#fff; border-radius:5px; border:1px solid #c7d2fe; display:none;"></div>
     <!-- legacy select (호환용, 숨김) -->
     <select id="productPicker" style="display:none;"><option value=""></option></select>
   </div>
 
   <!-- ⚙️ 보험료 비교 자동 설정 패널 (상품 선택 흐름에서는 폼 기본정보만 필요) -->
   <div class="cfg-panel">
-    <div class="cfg-header" id="cfgHeader" style="font-size:11.5px;">
+    <div class="cfg-header" id="cfgHeader" style="font-size:13px;">
       <span>⚙️ 보낼 페이지 설정 — 생손보유형 · 상품유형 · 만기</span>
       <span id="cfgChevron">▲</span>
     </div>
@@ -165,21 +165,21 @@
       <div class="cfg-row">
         <button type="button" id="btn_sync_options" title="mmlfcp 페이지에서 선택한 생손보유형의 실제 상품유형·만기 옵션을 불러옵니다" style="width:100%; background:#eef2ff; color:#4338ca; font-weight:700; padding:6px; border-radius:6px; border:1px solid #c7d2fe; cursor:pointer;">🔄 mmlfcp 옵션 불러오기 (생손보유형 기준)</button>
       </div>
-      <div id="sync_options_msg" style="font-size:10px; color:#9ca3af; padding:0 2px 4px;"></div>
+      <div id="sync_options_msg" style="font-size:12px; color:#9ca3af; padding:0 2px 4px;"></div>
       <!-- 수동 담보 목록 — 상품 선택 흐름에서는 사용 안 함 (Advanced 영역으로 숨김) -->
       <div class="cfg-row" id="cfgAdvancedCovWrap" style="align-items:flex-start; flex-direction:column; gap:6px; display:none">
         <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
           <label style="min-width:0">담보 목록 (수동)</label>
           <div style="display:flex; gap:4px;">
-            <button type="button" class="btn-secondary" id="cfgCovAll" style="padding:3px 8px;font-size:10.5px;">전체</button>
-            <button type="button" class="btn-secondary" id="cfgCovClear" style="padding:3px 8px;font-size:10.5px;">해제</button>
-            <span id="cfgCovCount" style="font-size:10.5px; color:var(--text-3); padding:3px 6px;">0개</span>
+            <button type="button" class="btn-secondary" id="cfgCovAll" style="padding:3px 8px;font-size:12px;">전체</button>
+            <button type="button" class="btn-secondary" id="cfgCovClear" style="padding:3px 8px;font-size:12px;">해제</button>
+            <span id="cfgCovCount" style="font-size:12px; color:var(--text-3); padding:3px 6px;">0개</span>
           </div>
         </div>
-        <input type="text" id="cfgCovSearch" placeholder="🔍 담보명 검색..." style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;outline:none;" />
+        <input type="text" id="cfgCovSearch" placeholder="🔍 담보명 검색..." style="width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:5px;font-size:13px;outline:none;" />
         <div id="cfgCovList" style="width:100%; max-height:260px; overflow-y:auto; overflow-x:hidden; border:1px solid var(--border); border-radius:6px; background:var(--surface);"></div>
       </div>
-      <div style="font-size:10px; color:var(--text-3); padding:4px 0;">
+      <div style="font-size:12px; color:var(--text-3); padding:4px 0;">
         💡 담보+금액은 상단 "📦 보험상품 선택"에서 추출 상품을 고르면 자동 전송됩니다.
         <a href="#" id="cfgShowAdvancedCov" style="color:#6366f1; text-decoration:underline; margin-left:4px;">고급 수동 담보 보기</a>
       </div>
@@ -324,7 +324,7 @@
 
 <!-- 🔧 개발/보조 도구 — 맨 아래 배치 (평소엔 숨겨짐, 추출 후 표시) -->
 <div id="devToolbar" style="display:none; padding:8px 12px; border-top:1px solid var(--border); background:#f8fafc; gap:6px; flex-wrap:wrap; align-items:center;">
-  <span style="font-size:10px; color:#94a3b8; font-weight:600; margin-right:4px;">🔧 보조</span>
+  <span style="font-size:12px; color:#94a3b8; font-weight:600; margin-right:4px;">🔧 보조</span>
   <button class="btn-copy" id="btnCopyText">📝 텍스트 복사</button>
   <button class="btn-copy" id="btnCopyJson">{ } JSON 복사</button>
   <button class="btn-secondary" id="btnSave">💾 저장</button>

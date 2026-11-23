@@ -41,9 +41,9 @@ function renderPremiumCompare(data) {
     const rank = i + 1;
     const rankColor = rank === 1 ? '#16a34a' : (rank === 2 ? '#3182f6' : (rank === 3 ? '#f59e0b' : '#64748b'));
     html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid #f1f5f9;">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${rankColor};color:#fff;font-weight:800;font-size:11px;">${rank}</span>
-      <span style="flex:1;font-weight:700;font-size:13px;">${escapeHtml(c.name || c.code)}</span>
-      <span style="font-weight:800;font-size:13px;color:#1e293b;">${(c.total||0).toLocaleString()}원</span>
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:${rankColor};color:#fff;font-weight:800;font-size:12.5px;">${rank}</span>
+      <span style="flex:1;font-weight:700;font-size:14.5px;">${escapeHtml(c.name || c.code)}</span>
+      <span style="font-weight:800;font-size:14.5px;color:#1e293b;">${(c.total||0).toLocaleString()}원</span>
     </div>`;
   });
   html += `</div>`;
@@ -117,7 +117,7 @@ function renderCoverage(insurances) {
     return `<div class="notice"><div class="icon">📋</div><p>보장 내역이 없습니다</p></div>`;
   }
 
-  let html = `<div style="padding: 8px 8px 4px; font-size: 12px; color: #5f6368;">
+  let html = `<div style="padding: 8px 8px 4px; font-size: 13.5px; color: #5f6368;">
     총 ${insurances.length}건의 보험 내역
   </div>`;
 
