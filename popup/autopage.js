@@ -39,7 +39,7 @@ function _apResetResult(kind) {
   try { syncTargetCompatibility(); } catch (e) {}   // 이전 데이터 기준으로 흐리게 한 대상 버튼을 되살림
   const pp = document.getElementById('productPickerSection'); if (pp) pp.style.display = 'none';
   const msg = {
-    'toss-customer': ['👤', '고객 상세 페이지입니다', '[📋 데이터 추출] 을 누르면 이 고객의 정보를 읽습니다. 👤 고객 탭의 [📋 현재 페이지 고객 등록] 으로 바로 PC 에 저장할 수도 있습니다.'],
+    'toss-customer': ['👤', '고객 상세 페이지입니다', '위 👤 고객 등록 버튼으로 PC·워크스페이스에 바로 등록하거나, 보내기 버튼을 누르세요. 정보만 보려면 [📋 데이터 추출].'],
     'toss-cover': ['📊', '보장 페이지입니다', '[📋 데이터 추출] 로 보장 내용을 읽거나, [📊 보장분석 엑셀 다운로드] 를 누르세요. 형광펜·글자 수정은 토스 화면 오른쪽 위 🖍 버튼.'],
     'toss': ['🔍', '토스 CRM 입니다', '고객 상세 페이지나 보장 페이지를 열면 그에 맞는 기능이 나옵니다.'],
     'premium': ['💰', '보험료 비교 페이지입니다', '[📋 데이터 추출] 을 누르면 보험료 비교 내용을 읽습니다.'],

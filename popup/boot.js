@@ -129,6 +129,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 고객 페이지에서는 cfg 패널 숨김
     if (cfgPanel) cfgPanel.style.display = isCustomer ? 'none' : '';
 
+    // 🆕 페이지에 맞는 메뉴만 보이기 (고객정보 페이지 ↔ 보장분석 페이지). 그 밖의 페이지는 전부 보임.
+    //   고객정보: 데이터 추출 · 👤 고객 등록 · 보내기(자동 감지·상담등록)
+    //   보장분석: 데이터 추출 · 📊 보장분석 엑셀 · 🖍 화면 표시 · 보내기(보장분석·보험료비교·페인트프로·부재고객) · 보낼 페이지 설정·템플릿
+    //   보험료 비교: 데이터 추출 · 보내기(가설계) · 보낼 페이지 설정·템플릿
+    const known = isCustomer || isCoverage || isPremium;
+    const showIf = (sel, on) => document.querySelectorAll(sel).forEach(el => { el.style.display = (!known || on) ? '' : 'none'; });
+    showIf('#btnCoverageExcel', isCoverage);
+    showIf('.oc-reg-bar', isCustomer);
+    showIf('.anno-toggle', isCoverage);
+    showIf('.tpl-section', isCoverage || isPremium);
+    if (cfgPanel && known) cfgPanel.style.display = (isCoverage || isPremium) ? '' : 'none';
+    if (isCustomer) { const pp = document.getElementById('productPickerSection'); if (pp) pp.style.display = 'none'; }
+
     updateTargetHint();
     _syncTmBtns();
   }
