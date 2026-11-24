@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "토스인슈 CRM 데이터 추출기",
-  "version": "3.48.0",
+  "version": "3.49.0",
   "description": "토스인슈 CRM 데이터 추출 — 마스킹 자동 복원 + 로그인/관리자 승인 권한 게이트.",
   "permissions": [
     "activeTab",
@@ -163,6 +163,12 @@
         "default": "Alt+Shift+C"
       },
       "description": "고객 관리 팝업 창 열기"
+    },
+    "open-pc-workspace": {
+      "suggested_key": {
+        "default": "Alt+Shift+W"
+      },
+      "description": "PC 워크스페이스 열기"
     }
   }
 }

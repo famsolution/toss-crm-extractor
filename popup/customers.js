@@ -635,7 +635,7 @@ async function cuRegisterFromPage(mode) {
 function cuOpenSolo() {
   try { chrome.runtime.sendMessage({ action: 'cuOpenSolo' }, () => { void chrome.runtime.lastError; }); } catch (e) {}
 }
-if (/[?&]solo=1\b/.test(location.search)) {
+if (/[?&]solo=1\b/.test(location.search) && !/[?&]embed=1\b/.test(location.search)) {
   document.title = '👤 고객 관리';
   let last = '';
   const keep = () => {
@@ -743,6 +743,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('cuSaveSend')?.addEventListener('click', async () => { const c = await cuSave(); if (c) cuSend(c); });
   document.getElementById('cuBigBtn')?.addEventListener('click', cuOpenBigView);
   document.getElementById('cuSoloBtn')?.addEventListener('click', cuOpenSolo);
+  document.getElementById('wsOpenBtn')?.addEventListener('click', () => { try { chrome.runtime.sendMessage({ action: 'openPcWorkspace' }, () => { void chrome.runtime.lastError; }); } catch (e) {} });
   document.getElementById('cuFromPageBtn')?.addEventListener('click', () => cuRegisterFromPage('pc'));
   document.getElementById('cuFromPageWsBtn')?.addEventListener('click', () => cuRegisterFromPage('ws'));
   document.getElementById('cuFromPageBothBtn')?.addEventListener('click', () => cuRegisterFromPage('both'));

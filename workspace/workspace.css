@@ -1,0 +1,91 @@
+/* 🗂 PC 워크스페이스 — 노션 스타일(popup-notion.css 변수) 위에 전체 창 배치 */
+html, body.ws-body { width: 100% !important; height: 100% !important; max-width: none !important; overflow: hidden; }
+body.ws-body { display: block; font-size: 15px; background: #fff; }
+.ws-app { display: flex; height: 100vh; }
+.ws-auth { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: #F7F7F5; }
+.ws-auth-box { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 32px 36px; max-width: 420px; text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.ws-auth-ic { font-size: 40px; } .ws-auth-t { font-size: 18px; font-weight: 700; } .ws-auth-s { color: var(--text-2); line-height: 1.6; }
+
+/* 왼쪽 메뉴 (노션 사이드바) */
+.ws-nav { width: 232px; flex: none; background: #F7F7F5; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 14px 10px; gap: 2px; }
+.ws-brand { font-weight: 700; font-size: 16px; padding: 6px 10px 14px; color: var(--text-1); }
+.ws-nav-btn { text-align: left; background: transparent; border: none; border-radius: 6px; padding: 9px 10px; font-size: 15px; font-weight: 500; color: var(--text-2); cursor: pointer; }
+.ws-nav-btn:hover { background: rgba(55, 53, 47, 0.08); color: var(--text-1); }
+.ws-nav-btn.on { background: rgba(55, 53, 47, 0.08); color: var(--text-1); font-weight: 600; }
+.ws-nav-sp { flex: 1; }
+.ws-sf { font-size: 12.5px; padding: 6px 10px; line-height: 1.45; }
+.ws-lock { text-align: left; padding: 6px 10px; }
+.ws-nav-foot { font-size: 12px; color: var(--text-3); padding: 6px 10px 0; }
+
+.ws-main { flex: 1; min-width: 0; height: 100vh; overflow: auto; }
+.ws-view { display: none; height: 100%; }
+.ws-view.active { display: block; }
+.ws-view .vault-gate { margin: 60px auto; max-width: 380px; }
+
+/* 📅 달력 */
+.ws-cal { display: flex; height: 100%; }
+.ws-cal-main { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 18px 22px; }
+.ws-cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.ws-cal-title { font-size: 22px; font-weight: 700; min-width: 140px; text-align: center; }
+.ws-sm { min-height: 32px !important; padding: 4px 10px !important; }
+.ws-cal-search { width: 220px; min-width: 160px; }
+.ws-cal-dow { display: grid; grid-template-columns: repeat(7, 1fr); font-size: 13px; color: var(--text-3); font-weight: 600; border-bottom: 1px solid var(--border); }
+.ws-cal-dow span { padding: 6px 8px; } .ws-cal-dow .sun { color: #E03E3E; } .ws-cal-dow .sat { color: #2383E2; }
+.ws-cal-grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-template-rows: repeat(6, minmax(96px, 1fr)); border-left: 1px solid var(--border); }
+.ws-day { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 4px 5px; overflow: hidden; cursor: pointer; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ws-day:hover { background: #FBFBFA; }
+.ws-day.out { background: #FAFAF9; } .ws-day.out .ws-dnum { color: rgba(55, 53, 47, 0.3); }
+.ws-day.sel { background: #F1F7FD; box-shadow: inset 0 0 0 2px rgba(35, 131, 226, 0.45); }
+.ws-dnum { font-size: 13px; font-weight: 500; color: var(--text-2); padding: 1px 3px; align-self: flex-start; border-radius: 99px; min-width: 22px; text-align: center; }
+.ws-day.sun .ws-dnum { color: #E03E3E; } .ws-day.sat .ws-dnum { color: #2383E2; }
+.ws-day.today .ws-dnum { background: #E03E3E; color: #fff !important; }
+.ws-chip { font-size: 12.5px; padding: 2px 6px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.45; }
+.ws-chip.bday { background: #FBF3DB; color: #9F6B00; }
+.ws-chip.done { text-decoration: line-through; opacity: .55; }
+.ws-more { font-size: 12px; color: var(--text-3); padding-left: 4px; }
+.ws-cal-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--text-2); padding-top: 10px; }
+.ws-cal-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; vertical-align: 0; }
+
+/* 오른쪽 목록 */
+.ws-cal-side { width: 320px; flex: none; border-left: 1px solid var(--border); padding: 18px 16px; overflow: auto; background: #fff; }
+.ws-side-t { font-weight: 700; font-size: 15px; margin-bottom: 10px; }
+.ws-side-list { display: flex; flex-direction: column; gap: 8px; }
+.ws-item { display: flex; gap: 8px; border: 1px solid var(--border); border-radius: 6px; padding: 9px 10px; cursor: pointer; }
+.ws-item:hover { background: #F7F7F5; }
+.ws-item.done .ws-item-t { text-decoration: line-through; color: var(--text-3); }
+.ws-item-ck input { margin-top: 3px; }
+.ws-item-b { min-width: 0; flex: 1; }
+.ws-item-t { font-weight: 600; font-size: 14.5px; }
+.ws-item-s { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.ws-item-m { font-size: 13px; color: var(--text-3); margin-top: 4px; white-space: pre-wrap; }
+.ws-tag { font-size: 12px; font-weight: 600; padding: 1px 6px; border-radius: 3px; margin-right: 6px; }
+.ws-side-add { margin-top: 4px; }
+
+/* 👤 고객 화면 */
+.ws-cust { height: 100%; }
+#cuFrame { width: 100%; height: 100vh; border: 0; display: block; }
+
+/* ⚙️ 설정 */
+.ws-set { max-width: 760px; padding: 28px 32px; }
+.ws-set h2 { font-size: 24px; font-weight: 700; margin: 0 0 18px; }
+.ws-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+.ws-card-t { font-weight: 600; margin-bottom: 6px; }
+.ws-card-s { color: var(--text-2); font-size: 14px; line-height: 1.6; }
+.ws-stat { margin-top: 8px; font-weight: 600; }
+
+/* 일정 입력 창 */
+.ws-ev-back { position: fixed; inset: 0; background: rgba(15, 15, 15, 0.45); display: flex; align-items: center; justify-content: center; z-index: 50; }
+.ws-ev-back[hidden] { display: none; }
+.ws-ev { background: #fff; border-radius: 10px; box-shadow: var(--shadow-lg); width: 520px; max-width: calc(100vw - 32px); padding: 20px 22px; display: flex; flex-direction: column; gap: 10px; }
+.ws-ev-t { font-size: 18px; font-weight: 700; }
+.ws-ev label { display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; color: var(--text-2); font-weight: 500; }
+.ws-ev input, .ws-ev select, .ws-ev textarea { font-size: 15px; padding: 7px 10px; }
+.ws-ev-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 10px; }
+.ws-ev-hint { font-weight: 400; color: var(--text-3); }
+.ws-ev .ws-ev-done { flex-direction: row; align-items: center; gap: 6px; }
+.ws-ev-act { display: flex; gap: 8px; align-items: center; margin-top: 4px; }
+.cred-sp { flex: 1; }
+.cu-danger { color: var(--danger) !important; }
+
+@media (max-width: 1100px) { .ws-cal-side { width: 260px; } }
+@media (max-width: 900px) { .ws-cal { flex-direction: column; } .ws-cal-side { width: auto; border-left: 0; border-top: 1px solid var(--border); } .ws-nav { width: 180px; } }

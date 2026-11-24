@@ -285,7 +285,7 @@ function _vNotifyUnlocked() {
   try { document.dispatchEvent(new Event('vault-unlocked')); } catch (e) {}
 }
 
-const VAULT_NAMES = ['creds', 'customers'];
+const VAULT_NAMES = ['creds', 'customers', 'events'];   // events: 🗂 PC 워크스페이스 캘린더 일정
 
 // ── 💻 다른 PC 로 옮기기 — 암호화된 그대로 내보내고/가져온다 (PIN 은 파일에 없음) ──
 const VAULT_FILE_APP = 'toss-crm-extractor-vault';

@@ -298,3 +298,19 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   return true;
 });
 
+// 🗂 PC 워크스페이스 (workspace.html) — 이미 열려 있으면 그 탭으로, 없으면 새 탭
+async function _bgOpenPcWorkspace() {
+  const url = chrome.runtime.getURL('workspace.html');
+  try {
+    const tabs = await chrome.tabs.query({ url: url + '*' });
+    if (tabs && tabs[0]) { await chrome.tabs.update(tabs[0].id, { active: true }); await chrome.windows.update(tabs[0].windowId, { focused: true }); return; }
+  } catch (e) {}
+  await chrome.tabs.create({ url, active: true });
+}
+chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
+  if (!req || req.action !== 'openPcWorkspace') return;
+  _bgOpenPcWorkspace().then(() => sendResponse({ ok: true })).catch(e => sendResponse({ ok: false, error: String(e) }));
+  return true;
+});
+try { chrome.commands.onCommand.addListener(cmd => { if (cmd === 'open-pc-workspace') _bgOpenPcWorkspace(); }); } catch (e) {}
+

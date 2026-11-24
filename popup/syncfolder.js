@@ -210,7 +210,8 @@ async function sfSync(opt) {
     await _sfSetState({ folder: h.name, lastSync: Date.now(), lastError: '' });
     _sfQuiet = true;
     try { if (typeof credLoad === 'function') await credLoad(); if (typeof cuLoad === 'function') await cuLoad(); } finally { _sfQuiet = false; }
-    if (opt.interactive) showToast('📁 동기화했습니다 — 비번 ' + merged.creds.length + '개 · 고객 ' + merged.customers.length + '명');
+    try { document.dispatchEvent(new Event('vault-synced')); } catch (e) {}
+    if (opt.interactive) showToast('📁 동기화했습니다 — 비번 ' + merged.creds.length + '개 · 고객 ' + merged.customers.length + '명' + (merged.events ? ' · 일정 ' + merged.events.length + '개' : ''));
     return true;
   } catch (e) {
     await _sfSetState({ lastError: String(e && e.message || e) });
