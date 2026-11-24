@@ -153,7 +153,7 @@ async function sfSync(opt) {
   if (_sfBusy) return false;
   const h = await _sfHandle().catch(() => null);
   if (!h) return false;
-  if (!vaultIsUnlocked()) { if (opt.interactive) await showAlert('먼저 🔑 비번 탭에서 PIN 으로 금고를 열어 주세요.'); return false; }
+  if (!vaultIsUnlocked()) { if (!opt.interactive || !(await vaultAskPin('폴더 동기화를 하려면 PIN 이 필요합니다.'))) return false; }
   if (!(await _sfPerm(h, !!opt.interactive && sfIsFull()))) { await _sfSetState({ lastError: 'perm' }); return false; }
   _sfBusy = true;
   try {
@@ -224,7 +224,7 @@ async function sfSync(opt) {
 async function sfRestore() {
   const h = await _sfHandle().catch(() => null);
   if (!h) { await showAlert('먼저 동기화 폴더를 연결해 주세요.'); return; }
-  if (!vaultIsUnlocked()) { await showAlert('먼저 🔑 비번 탭에서 PIN 으로 금고를 열어 주세요.'); return; }
+  if (!vaultIsUnlocked() && !(await vaultAskPin('백업에서 되돌리려면 PIN 이 필요합니다.'))) return;
   if (!(await _sfPerm(h, sfIsFull()))) { await showAlert('폴더 권한을 다시 허용해야 합니다. [📁 다시 허용] 을 눌러 주세요.'); return; }
   let bd;
   try { bd = await h.getDirectoryHandle(SF_BACKUP_DIR); } catch (e) { await showAlert('아직 백업이 없습니다.'); return; }

@@ -620,7 +620,11 @@ async function cuRegisterFromPage(mode) {
         return;
       }
       // 이 PC 에서 아직 금고를 한 번도 연 적이 없으면(넣기 열쇠가 없음) 예전처럼 PIN 을 받은 뒤 저장
-      _cuPendingImport = data.customer; _cuPendingSend = mode === 'both'; showToast('🔒 처음 한 번은 PIN 이 필요합니다 — PIN 을 넣으면 바로 저장됩니다'); return;
+      //   → 그 자리에서 PIN 입력 창을 띄운다. 열리면 vault-unlocked 처리에서 이어서 저장(·워크스페이스 보내기)
+      _cuPendingImport = data.customer; _cuPendingSend = mode === 'both';
+      const ok = await vaultAskPin('처음 한 번은 PIN 이 필요합니다. 입력하면 바로 저장하고, 다음부터는 잠겨 있어도 저장됩니다.');
+      if (!ok) { _cuPendingImport = null; _cuPendingSend = false; showToast('저장하지 않았습니다 (PIN 입력 취소)'); }
+      return;
     }
     const saved = await cuImportExtracted(data.customer);
     if (saved && mode === 'both') await cuSend(saved);

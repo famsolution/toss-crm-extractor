@@ -372,6 +372,40 @@ async function vaultRenderGate(pane) {
   setTimeout(() => { try { inp.focus(); } catch (e) {} }, 30);
 }
 
+// 🔑 PIN 입력 창 — 지금 화면에서 바로 PIN 을 묻는다(잠금 화면이 있는 탭으로 옮기지 않아도 됨).
+//   금고가 아직 없으면 새 PIN 을 두 번 받아 만든다. 열리면 true.
+async function vaultAskPin(reason) {
+  if (_vaultKey) return true;
+  const ask = async (msg, title) => {
+    const pr = showPrompt(msg, title);
+    let inp = null;
+    try { inp = __dlgEls().input; inp.type = 'password'; inp.setAttribute('inputmode', 'numeric'); inp.value = ''; setTimeout(() => { try { inp.focus(); } catch (e) {} }, 30); } catch (e) {}
+    const v = await pr;
+    if (inp) inp.type = 'text';
+    return v == null ? null : String(v);
+  };
+  const why = reason ? reason + '\n\n' : '';
+  if (!(await vaultIsSetUp())) {
+    for (let i = 0; i < 3; i++) {
+      const p1 = await ask(why + '이 PC 금고를 처음 만듭니다. 사용할 PIN 을 정하세요 (4자리 이상).\nPIN 을 잊으면 복구할 수 없습니다.' + (i ? '\n\n❌ 다시 입력해 주세요.' : ''), '🔐 PIN 만들기');
+      if (p1 == null) return false;
+      if (p1.length < 4) continue;
+      const p2 = await ask('같은 PIN 을 한 번 더 입력하세요.', '🔐 PIN 확인');
+      if (p2 == null) return false;
+      if (p1 !== p2) continue;
+      await vaultSetup(p1);
+      return true;
+    }
+    return false;
+  }
+  for (let i = 0; i < 5; i++) {
+    const pin = await ask(why + 'PC 금고 PIN 을 입력하세요.' + (i ? '\n\n❌ PIN 이 맞지 않습니다. 다시 입력하세요.' : ''), '🔒 PIN 입력');
+    if (pin == null) return false;
+    if (pin && await vaultUnlock(pin)) return true;
+  }
+  return false;
+}
+
 async function vaultLockAndShowGates() {
   await vaultLock();
   document.querySelectorAll('.tab-content.active').forEach(p => { if (p.querySelector('.vault-body')) vaultRenderGate(p); });
