@@ -471,18 +471,31 @@ function _cuPickExtracted(raw) {
   const g = String(src['성별'] || ''); if (/여/.test(g)) pick['성별'] = '여'; else if (/남/.test(g)) pick['성별'] = '남';
   return pick;
 }
-async function cuImportExtracted(raw) {
-  const pick = _cuPickExtracted(raw);
+async function cuImportExtracted(raw, opt) {
+  opt = opt || {};
+  const pick = raw && raw.__picked ? Object.assign({}, raw) : _cuPickExtracted(raw);
+  delete pick.__picked;
   if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. 토스 CRM 고객정보 화면에서 다시 추출해 주세요.'); return null; }
-  // 같은 사람: 이름 같음 + (전화 숫자 같음 / 끝 4자리 같음 / 주민 앞 6자리 같음)
-  const pd = _cuDigits(pick['연락처']), rr = _cuDigits(pick['주민등록번호']).slice(0, 6);
-  const hit = _cuList.find(c => {
-    if ((c['고객명'] || '') !== pick['고객명']) return false;
+  // 같은 사람: 이름 같음 + (전화 숫자 같음 / 끝 4자리 같음 / 주민 앞 6자리 같음 / 생년월일 같음)
+  //   이름이 같은 고객이 딱 한 명이고, 비교할 번호가 서로 '다르다' 고 확인되지 않으면 같은 사람으로 본다.
+  //   → 기존 고객이 있으면 마지막에 가져온 정보로 덮어써서 저장 (건강정보·메모는 그대로 둠)
+  const pd = _cuDigits(pick['연락처']), rr = _cuDigits(pick['주민등록번호']).slice(0, 6), bd = _cuDigits(pick['생년월일']);
+  const sameName = _cuList.filter(c => (c['고객명'] || '').trim() === pick['고객명']);
+  const strong = c => {
     const cp = _cuDigits(c['연락처']);
-    if (pd && cp && (cp === pd || (pd.length >= 4 && cp.slice(-4) === pd.slice(-4)))) return true;
+    if (pd && cp && !_cuIsMasked(pick['연락처']) && (cp === pd || (pd.length >= 4 && cp.slice(-4) === pd.slice(-4)))) return true;
     const cr = _cuDigits(c['주민등록번호']).slice(0, 6);
-    return !!(rr && cr && rr === cr);
-  });
+    if (rr && cr && rr === cr) return true;
+    const cb = _cuDigits(c['생년월일']);
+    return !!(bd && cb && bd.length >= 6 && cb === bd);
+  };
+  const conflict = c => {
+    const cp = _cuDigits(c['연락처']), cb = _cuDigits(c['생년월일']);
+    const phoneDiff = pd && cp && !_cuIsMasked(pick['연락처']) && cp.slice(-4) !== pd.slice(-4);
+    const birthDiff = bd && cb && bd.length >= 6 && cb.length >= 6 && bd !== cb;
+    return phoneDiff && (birthDiff || !bd || !cb);
+  };
+  const hit = sameName.find(strong) || (sameName.length === 1 && !conflict(sameName[0]) ? sameName[0] : null);
   const before = _cuList.slice();
   const target = hit ? Object.assign({}, hit) : { id: _cuNewId(), health: { cat: _cuTpl.categories[0] || '일반체', state: {} } };
   const masked = [];
@@ -496,9 +509,31 @@ async function cuImportExtracted(raw) {
   if (hit) _cuList[_cuList.indexOf(hit)] = target; else _cuList.push(target);
   try { await _cuPersist(); }
   catch (e) { _cuList = before; await showAlert('저장 실패: ' + (e.message || e)); return null; }
-  showToast((hit ? '🔐 기존 고객 정보를 갱신했습니다' : '🔐 새 고객으로 저장했습니다') + (masked.length ? ` — ⚠ 마스킹 남음: ${masked.join(', ')}` : ''));
+  if (opt.quiet) return target;
+  showToast((hit ? '🔐 기존 고객 정보를 최신으로 덮어써 저장했습니다' : '🔐 새 고객으로 저장했습니다') + (masked.length ? ` — ⚠ 마스킹 남음: ${masked.join(', ')}` : ''));
   cuOpenForm(target);   // 바로 확인·건강상태 입력
   return target;
+}
+
+// 잠긴 동안 저장한 고객을 금고에 합치기 (오래된 것부터 → 같은 고객이면 마지막 것으로 덮어씀)
+async function cuDrainInbox() {
+  let items = [];
+  try { items = await vaultInboxTake(); } catch (e) { items = []; }
+  const custs = items.filter(x => x && x.kind === 'customer-import' && x.data);
+  if (custs.length) {
+    let n = 0;
+    for (const it of custs) { if (await cuImportExtracted(it.data, { quiet: true })) n++; }
+    try { cuRenderList(); } catch (e) {}
+    showToast(`📥 잠긴 동안 저장한 고객 ${n}명을 고객 목록에 합쳤습니다`);
+  }
+  cuRenderInboxNote();
+}
+async function cuRenderInboxNote() {
+  let n = 0; try { n = await vaultInboxCount(); } catch (e) {}
+  document.querySelectorAll('.cu-inbox-note').forEach(el => {
+    el.textContent = n ? `📥 잠금 상태에서 저장한 고객 ${n}명 — PIN 을 넣으면 목록에 합쳐집니다` : '';
+    el.style.display = n ? '' : 'none';
+  });
 }
 
 function _cuShowTab() { const t = document.querySelector('.tab[data-tab="cust"]'); if (t) t.click(); }
@@ -573,7 +608,20 @@ async function cuRegisterFromPage(mode) {
       await cuSend(Object.assign({ id: '', health: { cat: _cuTpl.categories[0] || '일반체', state: {} } }, pick));
       return;
     }
-    if (!vaultIsUnlocked()) { _cuPendingImport = data.customer; _cuPendingSend = mode === 'both'; showToast('🔒 PIN 을 입력하면 바로 저장됩니다'); return; }
+    if (!vaultIsUnlocked()) {
+      // 🔒 잠겨 있어도 저장 — 받은편지함에 암호화해 넣고, 다음에 PIN 을 넣으면 고객 목록에 합쳐진다(같은 고객은 덮어씀)
+      const pick = _cuPickExtracted(data.customer);
+      if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. 토스 CRM 고객정보 화면에서 다시 눌러 주세요.'); return; }
+      if (await vaultInboxReady() && await vaultInboxAdd('customer-import', Object.assign({ __picked: true }, pick))) {
+        const n = await vaultInboxCount();
+        showToast(`💾 '${pick['고객명']}' 저장됨 (잠금 상태) — 다음에 PIN 을 넣으면 고객 목록에 합쳐집니다` + (n > 1 ? ` · 대기 ${n}명` : ''));
+        if (mode === 'both') await cuSend(Object.assign({ id: '', health: { cat: _cuTpl.categories[0] || '일반체', state: {} } }, pick));
+        cuRenderInboxNote();
+        return;
+      }
+      // 이 PC 에서 아직 금고를 한 번도 연 적이 없으면(넣기 열쇠가 없음) 예전처럼 PIN 을 받은 뒤 저장
+      _cuPendingImport = data.customer; _cuPendingSend = mode === 'both'; showToast('🔒 처음 한 번은 PIN 이 필요합니다 — PIN 을 넣으면 바로 저장됩니다'); return;
+    }
     const saved = await cuImportExtracted(data.customer);
     if (saved && mode === 'both') await cuSend(saved);
   } catch (e) {
@@ -702,6 +750,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await _cuLoadTpl();
   document.addEventListener('vault-unlocked', async () => {
     await cuLoad();
+    await cuDrainInbox();
     if (_cuPendingImport) {
       const p = _cuPendingImport, send = _cuPendingSend; _cuPendingImport = null; _cuPendingSend = false;
       const saved = await cuImportExtracted(p);
@@ -709,6 +758,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
   if (vaultIsUnlocked()) cuLoad();
+  cuRenderInboxNote();
   // 크게 보기 창(popup.html?full=1&tab=cust) — 고객 탭으로 바로
   if (/[?&]tab=cust\b/.test(location.search)) _cuShowTab();
 });

@@ -173,10 +173,16 @@ async function vaultDecryptWith(key, box) { return _vDecrypt(key, box); }
 // PIN 변경 — 모든 항목을 새 키로 다시 암호화
 async function vaultChangePin(oldPin, newPin, names) {
   if (!(await vaultUnlock(oldPin))) return false;
+  let inboxPriv = null, inboxPub = null;
+  _vInboxHold = true;
+  try { const st = await _vStoreGet('local', [VAULT_INBOX_PRIV, VAULT_INBOX_PUB]); if (st[VAULT_INBOX_PRIV]) { inboxPriv = await _vDecrypt(_vaultKey, st[VAULT_INBOX_PRIV]); inboxPub = st[VAULT_INBOX_PUB]; } } catch (e) {}
   const data = {};
   for (const n of names) data[n] = await vaultGet(n);
   await vaultSetup(newPin);
   for (const n of names) await vaultPut(n, data[n], { raw: true });   // 고친 시각(_u)은 그대로
+  try { if (inboxPriv && inboxPub) await _vStoreSet('local', { [VAULT_INBOX_PUB]: inboxPub, [VAULT_INBOX_PRIV]: await _vEncrypt(_vaultKey, inboxPriv) }); }   // 받은편지함 열쇠도 새 PIN 으로
+  finally { _vInboxHold = false; }
+  await _vInboxEnsureKeys();
   try { document.dispatchEvent(new CustomEvent('vault-changed', { detail: { name: '*pin' } })); } catch (e) {}
   return true;
 }
@@ -211,10 +217,68 @@ async function vaultReset(names) {
   await vaultLock();
 }
 
+// ── 📥 잠긴 상태에서도 저장 — '받은편지함' (공개키 암호화) ──
+//   금고가 잠겨 있으면 PIN 키가 없어 금고에 바로 쓸 수 없다. 그래서 금고를 열 때 만들어 둔
+//   '넣기 전용 열쇠'(ECDH 공개키)로 새 항목을 암호화해 vault_inbox 에 넣어 둔다.
+//   꺼내는 열쇠(개인키)는 PIN 키로 암호화돼 있어서, 다음에 PIN 을 넣어야만 열어서 금고에 합친다.
+//   → 잠겨 있어도 저장은 되고, 저장된 내용은 여전히 PIN 없이는 못 본다.
+const VAULT_INBOX_KEY = 'vault_inbox', VAULT_INBOX_PUB = 'vault_inbox_pub', VAULT_INBOX_PRIV = 'vault_inbox_priv';
+const _vEC = { name: 'ECDH', namedCurve: 'P-256' };
+let _vInboxHold = false;   // PIN 바꾸는 동안에는 열쇠를 새로 만들지 않음(옛 열쇠를 새 PIN 으로 옮김)
+async function _vInboxEnsureKeys() {
+  if (!_vaultKey || _vInboxHold) return false;
+  const st = await _vStoreGet('local', [VAULT_INBOX_PUB, VAULT_INBOX_PRIV]);
+  if (st[VAULT_INBOX_PUB] && st[VAULT_INBOX_PRIV]) {
+    try { await _vDecrypt(_vaultKey, st[VAULT_INBOX_PRIV]); return true; } catch (e) {}   // 다른 PIN 으로 바뀌었으면 새로 만듦
+  }
+  const kp = await crypto.subtle.generateKey(_vEC, true, ['deriveKey']);
+  const pub = await crypto.subtle.exportKey('jwk', kp.publicKey);
+  const priv = await crypto.subtle.exportKey('jwk', kp.privateKey);
+  await _vStoreSet('local', { [VAULT_INBOX_PUB]: pub, [VAULT_INBOX_PRIV]: await _vEncrypt(_vaultKey, JSON.stringify(priv)) });
+  return true;
+}
+async function vaultInboxReady() { const st = await _vStoreGet('local', [VAULT_INBOX_PUB]); return !!st[VAULT_INBOX_PUB]; }
+// 잠긴 상태에서 넣기. kind: 'customer-import' 등. 성공하면 true
+async function vaultInboxAdd(kind, data) {
+  const st = await _vStoreGet('local', [VAULT_INBOX_PUB, VAULT_INBOX_KEY]);
+  if (!st[VAULT_INBOX_PUB]) return false;
+  const pub = await crypto.subtle.importKey('jwk', st[VAULT_INBOX_PUB], _vEC, false, []);
+  const eph = await crypto.subtle.generateKey(_vEC, true, ['deriveKey']);
+  const k = await crypto.subtle.deriveKey({ name: 'ECDH', public: pub }, eph.privateKey, { name: 'AES-GCM', length: 256 }, false, ['encrypt']);
+  const box = await _vEncrypt(k, JSON.stringify({ kind, data, at: Date.now() }));
+  const list = Array.isArray(st[VAULT_INBOX_KEY]) ? st[VAULT_INBOX_KEY] : [];
+  list.push({ epk: await crypto.subtle.exportKey('jwk', eph.publicKey), box });
+  await _vStoreSet('local', { [VAULT_INBOX_KEY]: list });
+  return true;
+}
+async function vaultInboxCount() { const st = await _vStoreGet('local', [VAULT_INBOX_KEY]); return (st[VAULT_INBOX_KEY] || []).length; }
+// 열린 상태에서 꺼내기 — 꺼낸 항목 배열(오래된 것부터). 꺼내면 받은편지함은 비운다.
+async function vaultInboxTake() {
+  if (!_vaultKey) return [];
+  const st = await _vStoreGet('local', [VAULT_INBOX_KEY, VAULT_INBOX_PRIV]);
+  const list = Array.isArray(st[VAULT_INBOX_KEY]) ? st[VAULT_INBOX_KEY] : [];
+  if (!list.length || !st[VAULT_INBOX_PRIV]) return [];
+  let priv;
+  try { priv = await crypto.subtle.importKey('jwk', JSON.parse(await _vDecrypt(_vaultKey, st[VAULT_INBOX_PRIV])), _vEC, false, ['deriveKey']); }
+  catch (e) { return []; }
+  const out = [], keep = [];
+  for (const it of list) {
+    try {
+      const epk = await crypto.subtle.importKey('jwk', it.epk, _vEC, false, []);
+      const k = await crypto.subtle.deriveKey({ name: 'ECDH', public: epk }, priv, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+      out.push(JSON.parse(await _vDecrypt(k, it.box)));
+    } catch (e) { keep.push(it); }
+  }
+  await _vStoreSet('local', { [VAULT_INBOX_KEY]: keep });
+  out.sort((a, b) => (a.at || 0) - (b.at || 0));
+  return out;
+}
+
 function vaultWhenUnlocked() {
   return _vaultKey ? Promise.resolve(true) : new Promise(r => _vaultUnlockWaiters.push(r));
 }
 function _vNotifyUnlocked() {
+  _vInboxEnsureKeys().catch(() => {});
   while (_vaultUnlockWaiters.length) { try { _vaultUnlockWaiters.shift()(true); } catch (e) {} }
   document.querySelectorAll('.vault-gate').forEach(g => g.remove());
   document.querySelectorAll('.vault-body').forEach(b => { b.style.display = ''; });
