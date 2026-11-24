@@ -304,7 +304,9 @@ function _cuPayload(c) {
   // 질문 목록도 보낸다 — 질문을 편집했으면 워크스페이스가 같은 번호를 다른 질문으로 읽지 않도록
   const qs = {};
   Object.keys(state).forEach(cat => { qs[cat] = _cuQs(cat).map((q, i) => `${i + 1}. ${_cuQText(q)}`); });
-  return { fields, health: { cat: (c.health && c.health.cat) || '일반체', state, qs } };
+  // autoSave: 워크스페이스가 채운 뒤 [저장] 까지 대신 누른다(기존 고객은 기존 정보 보존하며 수정 저장).
+  //   가려진(****) 값이 있으면 워크스페이스가 자동 저장하지 않고 확인 창으로 남긴다.
+  return { fields, health: { cat: (c.health && c.health.cat) || '일반체', state, qs }, autoSave: true };
 }
 
 async function cuSend(c) {
@@ -337,7 +339,8 @@ async function cuSend(c) {
   if (!res || !res.ok) { await showAlert('보내기 실패: ' + ((res && res.error) || '알 수 없는 오류')); return; }
   const i = _cuList.findIndex(x => x.id === c.id);
   if (i >= 0) { _cuList[i]['보낸날'] = _cuNow(); try { await _cuPersist(); } catch (e) {} }
-  showToast(res.mode === 'edit' ? '📤 기존 고객 수정 창에 채웠습니다 — 워크스페이스에서 [저장]' : '📤 새 고객 등록 창에 채웠습니다 — 워크스페이스에서 [저장]');
+  if (res.autoSaved) showToast(res.mode === 'edit' ? '📤 워크스페이스 기존 고객에 저장합니다 (기존 정보 보존 + 새 정보 반영)' : '📤 워크스페이스에 새 고객으로 저장합니다');
+  else showToast(res.mode === 'edit' ? '📤 기존 고객 수정 창에 채웠습니다 — 워크스페이스에서 [저장]' : '📤 새 고객 등록 창에 채웠습니다 — 워크스페이스에서 [저장]');
   await chrome.tabs.update(tab.id, { active: true });
   try { await chrome.windows.update(tab.windowId, { focused: true }); } catch (e) {}
 }
