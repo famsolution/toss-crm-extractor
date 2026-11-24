@@ -89,3 +89,7 @@ body.ws-body { display: block; font-size: 15px; background: #fff; }
 
 @media (max-width: 1100px) { .ws-cal-side { width: 260px; } }
 @media (max-width: 900px) { .ws-cal { flex-direction: column; } .ws-cal-side { width: auto; border-left: 0; border-top: 1px solid var(--border); } .ws-nav { width: 180px; } }
+
+.ws-chip.appt { background: #E7F3F8; color: #0B6BCB; border-left: 3px solid #2383E2; }
+.ws-chip.reg { background: #EEF6EE; color: #2F6F3E; }
+.ws-item-c .ws-item-ck { font-size: 16px; line-height: 1; padding-top: 2px; }

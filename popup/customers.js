@@ -64,6 +64,7 @@ const CU_FIELDS = [
   { k: '몸무게', label: '몸무게(kg)', mode: 'decimal' },
   { k: '운전여부', label: '운전여부', opts: [''].concat(CU_DRV_OPTS.filter(o => o !== '기타(직접입력)')) },
   { k: '이메일', label: '이메일', mode: 'email' },
+  { k: '다음예약일시', label: '다음 상담 예약', type: 'datetime-local' },   // 🗂 PC 워크스페이스 캘린더에 표시
   { k: '주소', label: '주소', wide: true },
   { k: '메모', label: '메모', wide: true, area: true }
 ];
@@ -168,7 +169,7 @@ function cuOpenForm(c) {
     let input;
     if (f.opts) input = `<select data-k="${f.k}">${f.opts.map(o => `<option value="${_cuEsc(o)}"${o === (_cuEdit[f.k] || '') ? ' selected' : ''}>${o ? _cuEsc(o) : '선택'}</option>`).join('')}</select>`;
     else if (f.area) input = `<textarea data-k="${f.k}" rows="2">${v}</textarea>`;
-    else input = `<input data-k="${f.k}" type="${f.secret ? 'password' : 'text'}" ${f.mode ? `inputmode="${f.mode}"` : ''} placeholder="${_cuEsc(f.ph || '')}" value="${v}" autocomplete="off">`;
+    else input = `<input data-k="${f.k}" type="${f.secret ? 'password' : (f.type || 'text')}" ${f.mode ? `inputmode="${f.mode}"` : ''} placeholder="${_cuEsc(f.ph || '')}" value="${v}" autocomplete="off">`;
     return `<label class="${f.wide ? 'wide' : ''}">${_cuEsc(f.label)}${f.req ? ' *' : ''}${f.secret ? '<button type="button" class="cred-ic cu-eye" data-act="eye" title="보기/숨김">👁</button>' : ''}${input}</label>`;
   }).join('');
   cuRenderHealth();

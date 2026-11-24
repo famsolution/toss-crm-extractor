@@ -45,6 +45,19 @@ function _wsBirthMD(c) {
   return '';
 }
 
+// 고객에서 나온 달력 항목 — 📞 상담 예약(다음예약일시) · 🆕 고객 등록(등록일)
+function _wsCustItems() {
+  const out = [];
+  _wsCusts.forEach(c => {
+    const nm = c['고객명'] || '(이름 없음)';
+    const ap = String(c['다음예약일시'] || '').replace(' ', 'T');
+    if (/^\d{4}-\d{2}-\d{2}/.test(ap)) out.push({ id: 'ca:' + c.id, kind: 'appt', customerId: c.id, customerName: nm, date: ap.slice(0, 10), time: ap.slice(11, 16), title: nm + ' 상담 예약', type: '상담' });
+    const rg = String(c['등록일'] || '');
+    if (/^\d{4}-\d{2}-\d{2}/.test(rg)) out.push({ id: 'cr:' + c.id, kind: 'reg', customerId: c.id, customerName: nm, date: rg.slice(0, 10), time: rg.slice(11, 16), title: nm + ' 고객 등록', type: '등록' });
+  });
+  return out;
+}
+
 // ── 달력 ──
 function wsRenderCal() {
   const y = _wsMonth.getFullYear(), m = _wsMonth.getMonth();
@@ -54,21 +67,31 @@ function wsRenderCal() {
   const byDay = {};
   _wsEvents.forEach(e => { if (!q || _wsMatch(e, q)) (byDay[e.date] = byDay[e.date] || []).push(e); });
   Object.values(byDay).forEach(l => l.sort((a, b) => String(a.time || '99').localeCompare(String(b.time || '99'))));
+  const regs = {};
+  _wsCustItems().forEach(it => {
+    if (q && !_wsMatch(it, q)) return;
+    if (it.kind === 'appt') (byDay[it.date] = byDay[it.date] || []).push(it);
+    else (regs[it.date] = regs[it.date] || []).push(it);
+  });
+  Object.values(byDay).forEach(l => l.sort((a, b) => String(a.time || '99').localeCompare(String(b.time || '99'))));
   const births = {};
   if (!q) _wsCusts.forEach(c => { const md = _wsBirthMD(c); if (md) (births[md] = births[md] || []).push(c); });
   let html = '';
   for (let i = 0; i < 42; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
     const key = _wsYmd(d), md = key.slice(5, 7) + key.slice(8, 10);
-    const evs = byDay[key] || [], bs = births[md] || [];
+    const evs = byDay[key] || [], bs = births[md] || [], rg = regs[key] || [];
     const cls = ['ws-day', d.getMonth() !== m ? 'out' : '', key === today ? 'today' : '', key === _wsSel ? 'sel' : '', d.getDay() === 0 ? 'sun' : '', d.getDay() === 6 ? 'sat' : ''].join(' ');
     const chips = bs.map(c => `<div class="ws-chip bday" title="${_wsEsc(c['고객명'])} 생일">🎂 ${_wsEsc(c['고객명'])}</div>`).join('') +
-      evs.slice(0, 4).map(e => { const t = _wsType(e.type); return `<div class="ws-chip${e.done ? ' done' : ''}" data-ev="${e.id}" style="background:${t.bg};color:${t.c}">${e.time ? `<b>${_wsEsc(e.time)}</b> ` : ''}${_wsEsc(e.title || e.customerName || e.type)}</div>`; }).join('') +
+      (rg.length ? `<div class="ws-chip reg" data-reg="${key}" title="${_wsEsc(rg.map(x => x.customerName).join(', '))}">🆕 ${rg.length === 1 ? _wsEsc(rg[0].customerName) + ' 등록' : '고객 등록 ' + rg.length + '명'}</div>` : '') +
+      evs.slice(0, 4).map(e => { const t = _wsType(e.type); return e.kind === 'appt'
+        ? `<div class="ws-chip appt" data-cust="${_wsEsc(e.customerId)}" title="고객 다음 상담 예약 — 누르면 고객 열기">📞 ${e.time ? `<b>${_wsEsc(e.time)}</b> ` : ''}${_wsEsc(e.customerName)}</div>`
+        : `<div class="ws-chip${e.done ? ' done' : ''}" data-ev="${e.id}" style="background:${t.bg};color:${t.c}">${e.time ? `<b>${_wsEsc(e.time)}</b> ` : ''}${_wsEsc(e.title || e.customerName || e.type)}</div>`; }).join('') +
       (evs.length > 4 ? `<div class="ws-more">+${evs.length - 4}개 더</div>` : '');
     html += `<div class="${cls}" data-day="${key}"><div class="ws-dnum">${d.getDate()}</div>${chips}</div>`;
   }
   document.getElementById('calGrid').innerHTML = html;
-  document.getElementById('calLegend').innerHTML = WS_TYPES.map(t => `<span><i style="background:${t.c}"></i>${t.k}</span>`).join('') + '<span>🎂 고객 생일</span>';
+  document.getElementById('calLegend').innerHTML = WS_TYPES.map(t => `<span><i style="background:${t.c}"></i>${t.k}</span>`).join('') + '<span>📞 고객 상담 예약</span><span>🆕 고객 등록</span><span>🎂 고객 생일</span>';
 }
 function _wsMatch(e, q) { return [e.title, e.customerName, e.memo, e.type].join(' ').toLowerCase().includes(q.toLowerCase()); }
 
@@ -77,16 +100,26 @@ function wsRenderSide() {
   const t = document.getElementById('sideTitle'), box = document.getElementById('sideList');
   let list, head;
   const q = _wsQuery.trim();
-  if (q) { list = _wsEvents.filter(e => _wsMatch(e, q)); head = `🔍 '${q}' 검색 결과 ${list.length}개`; }
-  else if (_wsSel) { list = _wsEvents.filter(e => e.date === _wsSel); head = `${_wsSel.replace(/-/g, '.')} 일정`; }
+  const all = _wsEvents.concat(_wsCustItems());
+  if (q) { list = all.filter(e => _wsMatch(e, q)); head = `🔍 '${q}' 검색 결과 ${list.length}개`; }
+  else if (_wsSel) { list = all.filter(e => e.date === _wsSel); head = `${_wsSel.replace(/-/g, '.')} 일정`; }
   else {
     const from = _wsToday(), to = new Date(); to.setDate(to.getDate() + 14);
-    list = _wsEvents.filter(e => e.date >= from && e.date <= _wsYmd(to) && !e.done); head = '다가오는 일정 (2주)';
+    list = all.filter(e => e.kind !== 'reg' && e.date >= from && e.date <= _wsYmd(to) && !e.done); head = '다가오는 일정 (2주)';
   }
   list = list.slice().sort((a, b) => (a.date + (a.time || '99')).localeCompare(b.date + (b.time || '99')));
   t.textContent = head;
   const add = _wsSel && !q ? `<button class="btn-secondary ws-side-add" data-add="${_wsSel}">＋ 이 날 일정 추가</button>` : '';
-  box.innerHTML = (list.length ? list.map(e => { const ty = _wsType(e.type); return `
+  box.innerHTML = (list.length ? list.map(e => { const ty = _wsType(e.type);
+    if (e.kind) return `
+    <div class="ws-item ws-item-c" data-cust="${_wsEsc(e.customerId)}">
+      <div class="ws-item-ck">${e.kind === 'appt' ? '📞' : '🆕'}</div>
+      <div class="ws-item-b">
+        <div class="ws-item-t">${_wsEsc(e.title)}</div>
+        <div class="ws-item-s">${_wsEsc(e.date.replace(/-/g, '.'))}${e.time ? ' ' + _wsEsc(e.time) : ''} · 누르면 고객 정보 열기</div>
+      </div>
+    </div>`;
+    return `
     <div class="ws-item${e.done ? ' done' : ''}" data-ev="${e.id}">
       <label class="ws-item-ck" title="완료"><input type="checkbox" data-done="${e.id}"${e.done ? ' checked' : ''}></label>
       <div class="ws-item-b">
@@ -231,6 +264,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('calAdd').onclick = () => wsOpenEvent(null);
   document.getElementById('calSearch').addEventListener('input', e => { _wsQuery = e.target.value; wsRenderCal(); wsRenderSide(); });
   document.getElementById('calGrid').addEventListener('click', e => {
+    const cc = e.target.closest('[data-cust]'); if (cc) { wsOpenCustomer(cc.dataset.cust); return; }
+    const rg = e.target.closest('[data-reg]'); if (rg) { _wsSel = rg.dataset.reg; wsRenderCal(); wsRenderSide(); return; }
     const chip = e.target.closest('[data-ev]');
     if (chip) { const ev = _wsEvents.find(x => x.id === chip.dataset.ev); if (ev) wsOpenEvent(ev); return; }
     const day = e.target.closest('[data-day]'); if (!day) return;
@@ -240,6 +275,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('sideList').addEventListener('click', e => {
     const ck = e.target.closest('[data-done]'); if (ck) { wsToggleDone(ck.dataset.done, ck.checked); return; }
     const add = e.target.closest('[data-add]'); if (add) { wsOpenEvent(null, add.dataset.add); return; }
+    const cc = e.target.closest('[data-cust]'); if (cc) { wsOpenCustomer(cc.dataset.cust); return; }
     const it = e.target.closest('[data-ev]'); if (it) { const ev = _wsEvents.find(x => x.id === it.dataset.ev); if (ev) wsOpenEvent(ev); }
   });
   document.getElementById('evSave').onclick = wsSaveEvent;
