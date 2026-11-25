@@ -4,7 +4,7 @@ function _getAuthHeaders() {
   // 1) meta CSRF
   const csrfMeta = document.querySelector('meta[name="csrf-token"], meta[name="X-CSRF-TOKEN"]');
   if (csrfMeta) h['X-CSRF-TOKEN'] = csrfMeta.getAttribute('content') || '';
-  // 2) localStorage 인증 토큰 (Toss SSO 의 흔한 패턴)
+  // 2) localStorage 인증 토큰 (CRM SSO 의 흔한 패턴)
   try {
     for (const k of Object.keys(localStorage)) {
       if (/token|auth|jwt|bearer/i.test(k)) {
@@ -50,21 +50,21 @@ async function fetchPrivacyData(customerId) {
     try {
       const res = await fetch(url, { credentials: 'include', headers });
       if (!res.ok) {
-        console.log(`[Toss Extractor] ${url} → ${res.status}`);
+        console.log(`[상담도우미] ${url} → ${res.status}`);
         continue;
       }
       const data = await res.json();
-      console.log(`[Toss Extractor] ✅ ${url} 성공:`, data);
+      console.log(`[상담도우미] ✅ ${url} 성공:`, data);
       if (data?.resultType === 'SUCCESS' && data?.success) return data.success;
       if (data?.success) return data.success;
       if (data?.customerName || data?.customerEmail || data?.phoneNumber) return data;
       // body 안에 nested 가능
       if (data?.data) return data.data;
     } catch (e) {
-      console.warn(`[Toss Extractor] ${url} 에러:`, e.message);
+      console.warn(`[상담도우미] ${url} 에러:`, e.message);
     }
   }
-  console.warn('[Toss Extractor] 모든 privacy endpoint 실패 — DOM/popover 시도로 폴백');
+  console.warn('[상담도우미] 모든 privacy endpoint 실패 — DOM/popover 시도로 폴백');
   return null;
 }
 
@@ -85,13 +85,13 @@ async function fetchPhoneData(customerId) {
     try {
       const res = await fetch(url, { credentials: 'include', headers });
       if (!res.ok) {
-        console.log(`[Toss Extractor] ${url} → ${res.status}`);
+        console.log(`[상담도우미] ${url} → ${res.status}`);
         continue;
       }
       const text = await res.text();
       try {
         const json = JSON.parse(text);
-        console.log(`[Toss Extractor] ✅ ${url} 성공:`, json);
+        console.log(`[상담도우미] ✅ ${url} 성공:`, json);
         if (json?.success && typeof json.success === 'string') return json.success;
         if (json?.success?.phoneNumber) return json.success.phoneNumber;
         if (json?.phoneNumber) return json.phoneNumber;
@@ -103,10 +103,10 @@ async function fetchPhoneData(customerId) {
         if (/^\d{2,3}-?\d{3,4}-?\d{4}$/.test(phone)) return phone;
       }
     } catch (e) {
-      console.warn(`[Toss Extractor] ${url} 에러:`, e.message);
+      console.warn(`[상담도우미] ${url} 에러:`, e.message);
     }
   }
-  console.warn('[Toss Extractor] 모든 phone endpoint 실패');
+  console.warn('[상담도우미] 모든 phone endpoint 실패');
   return null;
 }
 
@@ -138,7 +138,7 @@ function collectCustomerIdCandidates() {
   return [...new Set(ids)];   // 중복 제거(우선순위 순서 유지)
 }
 
-// 🆕 페이지 자체의 인증된 fetch 컨텍스트를 활용 — 토스 CRM 의 React/Redux 상태 직접 조회
+// 🆕 페이지 자체의 인증된 fetch 컨텍스트를 활용 — CRM 의 React/Redux 상태 직접 조회
 //   대부분의 SPA 는 전역 state 에 사용자가 보고 있는 데이터가 평문으로 저장됨
 function findUnmaskedFromAppState(customerId) {
   try {
@@ -192,7 +192,7 @@ function findUnmaskedFromAppState(customerId) {
       }
     }
     if (Object.keys(result).length > 0) {
-      console.log('[Toss Extractor] ✅ App State 에서 추출:', result);
+      console.log('[상담도우미] ✅ App State 에서 추출:', result);
     }
     return result;
   } catch (e) {
@@ -202,7 +202,7 @@ function findUnmaskedFromAppState(customerId) {
 }
 
 // 🆕 페이지 DOM 에서 마스킹 해제된 전화번호 찾기
-//   사용자가 토스 CRM 에서 "전화번호 보기" 버튼을 한 번이라도 클릭했다면
+//   사용자가 CRM 에서 "전화번호 보기" 버튼을 한 번이라도 클릭했다면
 //   DOM 어딘가에 010-XXXX-XXXX 형태의 전체 번호가 노출되어 있음
 function findUnmaskedPhoneInDOM() {
   try {
@@ -227,7 +227,7 @@ function findUnmaskedPhoneInDOM() {
     // 중복 제거 후 첫 번째 후보 반환 (보통 하나만 노출됨)
     const list = Array.from(candidates);
     if (list.length === 0) return null;
-    console.log('[Toss Extractor] DOM 에서 마스킹 해제 전화번호 발견:', list);
+    console.log('[상담도우미] DOM 에서 마스킹 해제 전화번호 발견:', list);
     return list[0];
   } catch (e) {
     console.warn('[findUnmaskedPhoneInDOM] 실패:', e);
@@ -269,7 +269,7 @@ async function tryRevealAllMaskedFields() {
       }
     });
     if (clicked.size > 0) {
-      console.log(`[Toss Extractor] 🔓 ${clicked.size}개 reveal 트리거 클릭`);
+      console.log(`[상담도우미] 🔓 ${clicked.size}개 reveal 트리거 클릭`);
       // 클릭 후 popover/tooltip 열림 대기
       await new Promise(r => setTimeout(r, 1200));
     }
@@ -279,7 +279,7 @@ async function tryRevealAllMaskedFields() {
 }
 
 // 🆕 popover 버튼 클릭으로 전화번호 노출 시도
-//   토스 CRM 의 "전화번호 보기" 버튼을 프로그래매틱하게 클릭
+//   CRM 의 "전화번호 보기" 버튼을 프로그래매틱하게 클릭
 async function tryRevealPhoneViaUI() {
   try {
     // 가능성 있는 버튼들 — 텍스트가 "보기", "전화번호" 포함
@@ -290,7 +290,7 @@ async function tryRevealPhoneViaUI() {
              b.querySelector('[data-tds-icon="eye"]') !== null;
     });
     if (!phoneBtn) return null;
-    console.log('[Toss Extractor] 전화번호 보기 버튼 클릭 시도');
+    console.log('[상담도우미] 전화번호 보기 버튼 클릭 시도');
     phoneBtn.click();
     // 0.8초 대기 후 DOM 재스캔
     await new Promise(r => setTimeout(r, 800));

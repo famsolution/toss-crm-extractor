@@ -10,7 +10,7 @@ async function applyToPremiumFormUnified(payload) {
     try {
       if (!statusBox) {
         statusBox = document.createElement('div');
-        statusBox.id = '__tossExtStatus';
+        statusBox.id = '__sdhExtStatus';
         statusBox.style.cssText = 'position:fixed;top:20px;right:20px;z-index:2147483647;background:#3182f6;color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;font-weight:600;box-shadow:0 4px 12px rgba(0,0,0,0.3);min-width:280px;max-width:380px;line-height:1.4;';
         document.body.appendChild(statusBox);
       }
@@ -19,11 +19,11 @@ async function applyToPremiumFormUnified(payload) {
     } catch {}
     out.steps.push({ t: elapsed(), msg });
   };
-  const logStep = (msg) => { console.log(`[Toss Extractor] [${elapsed()}] ${msg}`); updateStatus(msg); };
+  const logStep = (msg) => { console.log(`[상담도우미] [${elapsed()}] ${msg}`); updateStatus(msg); };
 
   try {
     logStep('🔌 자동입력 시작');
-    console.log('[Toss Extractor] payload:', payload);
+    console.log('[상담도우미] payload:', payload);
 
     // 폼 요소 등장 대기 헬퍼 (최대 15초)
     const waitForEl = async (id, requireOptions = false, maxMs = 10000) => {
@@ -51,7 +51,7 @@ async function applyToPremiumFormUnified(payload) {
       } catch {}
       try { if (window.jQuery) window.jQuery(el).val(val).trigger('change').trigger('input'); } catch {}
       const final = el.value;
-      console.log(`[Toss Extractor] setInputVal ${el.id}: target=${val}, final=${final}`);
+      console.log(`[상담도우미] setInputVal ${el.id}: target=${val}, final=${final}`);
       return final === String(val);
     };
     const setSelectVal = (el, val) => {
@@ -87,14 +87,14 @@ async function applyToPremiumFormUnified(payload) {
       try { if (window.jQuery) window.jQuery(el).val(val).trigger('change'); } catch {}
       // 5) 검증 — 실제 값이 반영됐는지 확인
       const final = el.value;
-      console.log(`[Toss Extractor] setSelectVal ${el.id}: target=${val}, final=${final}, idx=${el.selectedIndex}, options=${el.options.length}`);
+      console.log(`[상담도우미] setSelectVal ${el.id}: target=${val}, final=${final}, idx=${el.selectedIndex}, options=${el.options.length}`);
       return final === String(val);
     };
 
 
     const cust = payload.customer || {};
     const cfg = payload.cfg || {};
-    console.log('[Toss Extractor] 🧑 customer 객체:', cust, '키:', Object.keys(cust));
+    console.log('[상담도우미] 🧑 customer 객체:', cust, '키:', Object.keys(cust));
 
     // 핵심 요소 등장 대기
     logStep('🔍 폼 요소 등장 대기 (최대 10초)…');
@@ -172,7 +172,7 @@ async function applyToPremiumFormUnified(payload) {
         setSelectVal(genderEl, code);
         out.filled['성별'] = `${gender} (${code})`;
         out.ok = true;
-        console.log('[Toss Extractor] ✅ 성별:', code);
+        console.log('[상담도우미] ✅ 성별:', code);
       }
     }
     // ── 생손보 유형 / 상품 유형 / 만기 — cascading selects ──
@@ -265,7 +265,7 @@ async function applyToPremiumFormUnified(payload) {
         if (!pick) pick = optTexts[0];
       }
       if (pick) {
-        console.log(`[Toss Extractor] 🔁 ${kind} 코드 보정: ${wantedCode} → ${pick.v}(${pick.t}) [현재 생손보/손보 체계]`);
+        console.log(`[상담도우미] 🔁 ${kind} 코드 보정: ${wantedCode} → ${pick.v}(${pick.t}) [현재 생손보/손보 체계]`);
         return pick.v;
       }
       return wantedCode;
@@ -326,7 +326,7 @@ async function applyToPremiumFormUnified(payload) {
     return out;
   } catch (e) {
     out.error = e.message;
-    console.error('[Toss Extractor] applyToPremiumFormUnified 에러:', e);
+    console.error('[상담도우미] applyToPremiumFormUnified 에러:', e);
     if (statusBox) {
       statusBox.style.background = '#dc2626';
       statusBox.innerHTML = `❌ 에러: ${e.message}<br><span style="font-size:10px;opacity:0.85;">${elapsed()} 경과</span>`;
@@ -391,10 +391,10 @@ function buildCoverageTargets(payload, cfg, out) {
       amount: parseAmount(c.amount),
       rawAmount: c.amount
     }));
-    console.log('[Toss Extractor] 상품에서 담보+금액 사용:', target);
+    console.log('[상담도우미] 상품에서 담보+금액 사용:', target);
   } else if (Array.isArray(cfg.coverages) && cfg.coverages.length > 0) {
     target = cfg.coverages.map(n => ({ name: n, keys: candidateKeys(n), standardName: n, amount: null }));
-    console.log('[Toss Extractor] cfg.coverages 사용:', target);
+    console.log('[상담도우미] cfg.coverages 사용:', target);
   }
 
   // 🆕 통합담보 합산 규칙 — 원본에선 분리(뇌혈관수술 / 심장수술 각각)됐지만
@@ -424,7 +424,7 @@ function buildCoverageTargets(payload, cfg, out) {
         rawAmount: String(val) + '만원',
         _combined: true
       });
-      console.log(`[Toss Extractor] 🔗 통합담보 합산: ${srcs.map(t => `${t.standardName}(${t.amount||0})`).join(' + ')} = ${sum} ÷2 → "${rule.targetName}" ${val}만원`);
+      console.log(`[상담도우미] 🔗 통합담보 합산: ${srcs.map(t => `${t.standardName}(${t.amount||0})`).join(' + ')} = ${sum} ÷2 → "${rule.targetName}" ${val}만원`);
     }
   });
 
@@ -458,7 +458,7 @@ function buildCoverageTargets(payload, cfg, out) {
     if (!keep) keep = arr.reduce((a, b) => ((b.t.amount || 0) > (a.t.amount || 0) ? b : a));
     const removeSet = new Set(arr.filter(x => x !== keep).map(x => x.t));
     target = target.filter(t => !removeSet.has(t));
-    console.log(`[Toss Extractor] 🔢 1-5종 수술비 통합: ${arr.length}건 중 "${keep.t.name}"(${keep.jong ? keep.jong + '종' : '최대'} ${keep.t.amount || 0}만원)만 입력`);
+    console.log(`[상담도우미] 🔢 1-5종 수술비 통합: ${arr.length}건 중 "${keep.t.name}"(${keep.jong ? keep.jong + '종' : '최대'} ${keep.t.amount || 0}만원)만 입력`);
   });
 
   // 🆕 질병종/상해종 수술비(1-5종 5종) — 유형별로 다른 칸에 입력:
@@ -493,14 +493,14 @@ function buildCoverageTargets(payload, cfg, out) {
         target = target.filter(t => t !== sang);
         target.push({ name: NM, keys: candidateKeys(NM), standardName: NM, amount: sAmt, rawAmount: sAmt + '만원', _combined: true });
       }
-      console.log(`[Toss Extractor] 🔢 손보 — 질병종 ${jAmt}만→"질병(1~5종)수술비" / 상해종 ${sAmt}만→"상해(1~5종)수술비" 각각`);
+      console.log(`[상담도우미] 🔢 손보 — 질병종 ${jAmt}만→"질병(1~5종)수술비" / 상해종 ${sAmt}만→"상해(1~5종)수술비" 각각`);
     } else {
       // 생손보/생보: 통합 칸 1개
       const val = (jAmt > sAmt) ? jAmt : Math.round((jAmt + sAmt) / 2);
       target = target.filter(t => t !== jil && t !== sang);
       const NM = '질병상해(1~5종)수술(5종기준)';
       target.push({ name: NM, keys: candidateKeys(NM), standardName: NM, amount: val, rawAmount: val + '만원', _combined: true });
-      console.log(`[Toss Extractor] 🔗 생손보/생보 통합: 질병 ${jAmt}만 / 상해 ${sAmt}만 → "${NM}" ${val}만원 (${jAmt > sAmt ? '질병값' : '평균값'})`);
+      console.log(`[상담도우미] 🔗 생손보/생보 통합: 질병 ${jAmt}만 / 상해 ${sAmt}만 → "${NM}" ${val}만원 (${jAmt > sAmt ? '질병값' : '평균값'})`);
     }
   })();
 
@@ -509,7 +509,7 @@ function buildCoverageTargets(payload, cfg, out) {
   const _beforeExclude = target.length;
   target = target.filter(t => {
     if (_excludeName(t.standardName) || _excludeName(t.name)) {
-      console.log(`[Toss Extractor] ⏭️ 제외(주계약 칸 미사용): "${t.standardName || t.name}"`);
+      console.log(`[상담도우미] ⏭️ 제외(주계약 칸 미사용): "${t.standardName || t.name}"`);
       return false;
     }
     return true;
@@ -522,7 +522,7 @@ function buildCoverageTargets(payload, cfg, out) {
 // 만들어진 담보 목록을 실제 mmlfcp 폼에 체크·금액 입력한다.
 // ─────────────────────────────────────────────────────────────
 // 담보 매칭 학습 저장 키 — chrome.storage.sync 에 사용자가 고친 매칭을 남긴다.
-const LEARN_KEY = 'tossCovMap_v1';
+const LEARN_KEY = 'covMap_v1';
 
 // 금액 input 찾기 헬퍼 (3단계 + 감시에서 공용)
 const _amtInputOf = (cb) => {
@@ -575,7 +575,7 @@ async function fillCoverageInputs(target, out) {
   });
   if (_uncheckedCnt > 0) {
     out.applied['기존체크 해제'] = `담보 ${_uncheckedCnt}개`;
-    console.log(`[Toss Extractor] ☐ 담보 체크박스 ${_uncheckedCnt}개만 해제 (보험사 체크박스는 유지)`);
+    console.log(`[상담도우미] ☐ 담보 체크박스 ${_uncheckedCnt}개만 해제 (보험사 체크박스는 유지)`);
     await new Promise(r => setTimeout(r, 300));  // 해제 반영 대기
   }
 
@@ -592,7 +592,16 @@ async function fillCoverageInputs(target, out) {
   // 🆕 학습된 매핑 로드 — chrome.storage.sync 라 같은 Chrome 계정으로 로그인된 모든 컴퓨터에서 공유된다.
   //   구조: { [추출담보 표준명]: 폼담보 coverage_name }  ('__SKIP__' = 연결 안 함)
   const learnMap = await new Promise(res => {
-    try { chrome.storage.sync.get(LEARN_KEY, d => res((d && d[LEARN_KEY]) || {})); }
+    try {
+      chrome.storage.sync.get(null, d => {
+        d = d || {};
+        if (d[LEARN_KEY]) return res(d[LEARN_KEY]);
+        // 예전 키 이름(…CovMap_v1)으로 저장된 학습 매핑이 있으면 새 이름으로 옮김
+        const old = Object.keys(d).find(k => k !== LEARN_KEY && /covmap_v1$/i.test(k));
+        if (old) { try { chrome.storage.sync.set({ [LEARN_KEY]: d[old] }); } catch (e) {} return res(d[old]); }
+        res({});
+      });
+    }
     catch (e) { res({}); }
   });
   // 🆕 이미 매칭된 체크박스는 다른 담보가 재사용하지 못하도록 — 한 칸에 여러 담보 뭉침 방지
@@ -640,7 +649,7 @@ async function fillCoverageInputs(target, out) {
     }
   }
   if (_newlyChecked > 0) {
-    console.log(`[Toss Extractor] ☑️ ${_newlyChecked}개 담보 체크 완료 — 재계산 안정 대기(1.8s)`);
+    console.log(`[상담도우미] ☑️ ${_newlyChecked}개 담보 체크 완료 — 재계산 안정 대기(1.8s)`);
     await new Promise(r => setTimeout(r, 1800));  // 체크 자동입력 + 재계산이 끝날 시간
   }
   // 3-B: 금액 일괄 입력 (체크는 이미 끝나 cb.click 재계산 없음) — 자동값 비우고 받아온 값 입력
@@ -655,14 +664,14 @@ async function fillCoverageInputs(target, out) {
         typeAmount(amountInput, String(t.amount));    // 실제 키보드 타이핑 모방 (자동 clear 포함)
         await new Promise(r => setTimeout(r, 120));
         amountsFilled++;
-        console.log(`[Toss Extractor] 💰 ${t._found.cname} (mmlfcp) ← "${t.standardName}" 금액: ${t.amount}만원 (${cd}) [키보드 타이핑]`);
+        console.log(`[상담도우미] 💰 ${t._found.cname} (mmlfcp) ← "${t.standardName}" 금액: ${t.amount}만원 (${cd}) [키보드 타이핑]`);
       }
     }
   }
   out.applied['담보'] = `${matched}/${target.length} 체크 (전체 ${checks.length})`;
   if (amountsFilled > 0) out.applied['담보 금액'] = `${amountsFilled}건 입력`;
   if (unmatched.length > 0) out.applied['미매칭 담보'] = unmatched.slice(0, 5).join(', ') + (unmatched.length > 5 ? ` 외 ${unmatched.length-5}개` : '');
-  console.log('[Toss Extractor] ✅ 담보 체크:', matched, '/', target.length, '/ 금액:', amountsFilled);
+  console.log('[상담도우미] ✅ 담보 체크:', matched, '/', target.length, '/ 금액:', amountsFilled);
 
   renderCoverageMatchPanel(target, checkInfo, learnMap);
 
@@ -685,7 +694,7 @@ async function applyCoverageSection(payload, cfg, out) {
 // ─────────────────────────────────────────────────────────────
 function renderCoverageMatchPanel(target, checkInfo, learnMap) {
   try {
-    const oldP = document.getElementById('__toss_match_panel');
+    const oldP = document.getElementById('__sdh_match_panel');
     if (oldP) oldP.remove();
     // 폼 담보 목록(중복 제거) — 재매핑 드롭다운 옵션
     const formCovs = [];
@@ -693,7 +702,7 @@ function renderCoverageMatchPanel(target, checkInfo, learnMap) {
     checkInfo.forEach(ci => { if (ci.cname && !_seen.has(ci.cname)) { _seen.add(ci.cname); formCovs.push(ci.cname); } });
 
     const p = document.createElement('div');
-    p.id = '__toss_match_panel';
+    p.id = '__sdh_match_panel';
     p.style.cssText = 'position:fixed;top:60px;right:18px;width:440px;max-height:82vh;overflow:auto;background:#fff;border:2px solid #2563eb;border-radius:12px;box-shadow:0 10px 36px rgba(0,0,0,.22);z-index:2147483646;font-family:"Malgun Gothic",sans-serif;font-size:13px;';
 
     const head = document.createElement('div');
@@ -790,7 +799,7 @@ function renderCoverageMatchPanel(target, checkInfo, learnMap) {
     });
 
     document.body.appendChild(p);
-  } catch (e) { console.warn('[Toss Extractor] 매칭 패널 표시 실패', e); }
+  } catch (e) { console.warn('[상담도우미] 매칭 패널 표시 실패', e); }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -824,7 +833,7 @@ if (_toCorrect.length > 0) {
     if (fixed > 0) {
       lastFix = Date.now();
       totalFix += fixed;
-      console.log(`[Toss Extractor] 🔁 감시 재입력(round ${rounds}): ${fixed}건 교정`);
+      console.log(`[상담도우미] 🔁 감시 재입력(round ${rounds}): ${fixed}건 교정`);
     }
     if (Date.now() - lastFix >= STABLE_MS) break;  // 안정 → 종료
     await new Promise(r => setTimeout(r, STEP));
@@ -836,7 +845,7 @@ if (_toCorrect.length > 0) {
     const cur = String(inp?.value || '').replace(/[^\d]/g, '');
     return `${cur === String(t.amount) ? '✅' : '❌'} ${t.standardName}: 원함=${t.amount} 현재=${inp?.value}`;
   });
-  console.log('[Toss Extractor] 🔍 최종 금액 검증:\n  ' + finalReport.join('\n  '));
+  console.log('[상담도우미] 🔍 최종 금액 검증:\n  ' + finalReport.join('\n  '));
   const stillWrong = _toCorrect.filter(t => {
     const inp = _amtInputOf(t._found.cb);
     return String(inp?.value || '').replace(/[^\d]/g, '') !== String(t.amount);
@@ -854,8 +863,8 @@ if (_toCorrect.length > 0) {
       searchBtn = Array.from(document.querySelectorAll('button, a, input[type=button], input[type=submit]'))
         .find(el => /조회|검색/i.test((el.innerText || el.textContent || el.value || '').trim()));
     }
-    if (searchBtn && !searchBtn._tossAmtGuard) {
-      searchBtn._tossAmtGuard = true;
+    if (searchBtn && !searchBtn._sdhAmtGuard) {
+      searchBtn._sdhAmtGuard = true;
       const _guardTargets = _toCorrect.map(t => ({ cb: t._found.cb, amount: t.amount, name: t.standardName }));
       searchBtn.addEventListener('click', () => {
         let tries = 0;
@@ -871,13 +880,13 @@ if (_toCorrect.length > 0) {
               fixed++;
             }
           });
-          if (fixed > 0) console.log(`[Toss Extractor] 🛡️ 조회 후 금액 복원: ${fixed}건`);
+          if (fixed > 0) console.log(`[상담도우미] 🛡️ 조회 후 금액 복원: ${fixed}건`);
           if (++tries < 7) setTimeout(restore, 800);  // 재계산이 늦게 끝나도 잡도록 반복 점검
         };
         setTimeout(restore, 1500);  // 재조회 재계산이 끝난 뒤부터 복원 시작
       });
-      console.log('[Toss Extractor] 🛡️ 조회하기 버튼 금액 가드 설치됨 — 이후 조회를 눌러도 금액이 유지됩니다');
+      console.log('[상담도우미] 🛡️ 조회하기 버튼 금액 가드 설치됨 — 이후 조회를 눌러도 금액이 유지됩니다');
     }
-  } catch (e) { console.warn('[Toss Extractor] 금액 가드 설치 실패:', e); }
+  } catch (e) { console.warn('[상담도우미] 금액 가드 설치 실패:', e); }
 }
 }

@@ -68,7 +68,7 @@ function renderCustomer(customer) {
   } else if (customer._마스킹복원 === 'partial') {
     html += `<div class="alert">⚠️ 일부 정보만 복원되었습니다 (전화번호만 가능)</div>`;
   } else if (customer._마스킹복원 === false) {
-    html += `<div class="alert error">❌ 마스킹 복원 실패 — 권한이 없거나 API 호출이 실패했습니다.<br>토스인슈 CRM에 로그인된 상태인지 확인해주세요.</div>`;
+    html += `<div class="alert error">❌ 마스킹 복원 실패 — 권한이 없거나 API 호출이 실패했습니다.<br>CRM에 로그인된 상태인지 확인해주세요.</div>`;
   }
 
   if (customer._마스킹잔여 && customer._마스킹잔여.length > 0) {

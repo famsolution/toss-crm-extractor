@@ -76,7 +76,7 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   return true;
 });
 
-// 🆕 페인트프로 전송용 — 토스 '이미지 복사'는 탭 배율이 100% 가 아니면 글자가 겹친 이미지를 만든다.
+// 🆕 페인트프로 전송용 — CRM '이미지 복사'는 탭 배율이 100% 가 아니면 글자가 겹친 이미지를 만든다.
 //   content/paint-pro.js 가 캡처 직전 100% 로 맞추고(op:set100), 끝나면 원래 배율로 되돌린다(op:restore).
 chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
   if (!req || req.action !== 'paintProZoom') return;
@@ -221,7 +221,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// 🖍 토스 보장분석 화면 표시 저장 (content/annotate.js)
+// 🖍 보장분석 화면 표시 저장 (content/annotate.js)
 //   고객별 형광펜·고친 글자·보험 순서를 이 PC 전용 키(anno_dev_key)로 암호화해 anno_c_<고객번호> 에 둔다.
 //   (고친 글자에 고객 정보가 들어갈 수 있어서 평문으로 두지 않음)
 // ═══════════════════════════════════════════════════════════════════

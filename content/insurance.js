@@ -1,5 +1,5 @@
 function extractInsuranceData() {
-  // 1) 메인 보험 비교 테이블 찾기 — 여러 selector 시도 (toss UI 변경 대응)
+  // 1) 메인 보험 비교 테이블 찾기 — 여러 selector 시도 (CRM UI 변경 대응)
   let tbody = document.querySelector('tbody[data-tds-desktop-table-body]');
   if (!tbody) {
     const firstInsCell = document.querySelector('td.insurance-table-cell');
@@ -23,10 +23,10 @@ function extractInsuranceData() {
       th;
     const headerText = (headerEl.innerText || '').trim().split('\n')[0].trim();
     // 진단: 처리되는 모든 헤더 출력 (한 번만)
-    if (!window.__tossDebugSeenHeaders) window.__tossDebugSeenHeaders = new Set();
-    if (!window.__tossDebugSeenHeaders.has(headerText)) {
-      window.__tossDebugSeenHeaders.add(headerText);
-      console.log('[Toss Ext] row header 감지:', JSON.stringify(headerText), '(길이:', headerText.length, ')', '- 매칭:', INSURANCE_ROW_HEADERS.has(headerText) ? '✓' : '✗');
+    if (!window.__sdhDebugSeenHeaders) window.__sdhDebugSeenHeaders = new Set();
+    if (!window.__sdhDebugSeenHeaders.has(headerText)) {
+      window.__sdhDebugSeenHeaders.add(headerText);
+      console.log('[상담도우미] row header 감지:', JSON.stringify(headerText), '(길이:', headerText.length, ')', '- 매칭:', INSURANCE_ROW_HEADERS.has(headerText) ? '✓' : '✗');
     }
     if (!INSURANCE_ROW_HEADERS.has(headerText)) return;
     // 헤더 alias 적용 (예: "보험 개수" → "보험명")
@@ -81,7 +81,7 @@ function extractInsuranceData() {
       }
 
       // 추가 fallback: 셀 내부의 <span>들에서 실제 상품명 탐색
-      // 토스 CRM 일부 셀은 placeholder를 표시하면서 실제 값을 내부 span에 보관 (숨겨진 경우 포함)
+      // CRM 일부 셀은 placeholder를 표시하면서 실제 값을 내부 span에 보관 (숨겨진 경우 포함)
       // 예: <span class="pc22-1e3yv2i0 css-...">프로미카개인용</span>
       const STATUS_TOKENS = new Set([
         '정상', '만기', '소멸', '해지', '실효',
@@ -121,7 +121,7 @@ function extractInsuranceData() {
           if (isValidProductName(cleaned)) bestCandidate = cleaned;
         }
         // 진단 로그 — 항상 출력 (cellIndex로 어떤 컬럼인지 추적)
-        console.log('[Toss Ext] 보험명 셀', {
+        console.log('[상담도우미] 보험명 셀', {
           colIdx: rowData.values.length,
           innerText: text,
           textContent: fullCellText.substring(0, 150),
@@ -144,7 +144,7 @@ function extractInsuranceData() {
 
   if (dataMatrix.length === 0) return [];
 
-  // 🆕 thead에서 상품명 추출 — 토스 CRM 업데이트로 "보험명"이 body row가 아닌 thead로 이동
+  // 🆕 thead에서 상품명 추출 — CRM 업데이트로 "보험명"이 body row가 아닌 thead로 이동
   //   각 insurance column의 thead 셀에 상품명이 있음 (보통 span.pc22-1e3yv2i0 안)
   const productNamesFromThead = [];
   {
@@ -179,14 +179,14 @@ function extractInsuranceData() {
           }
           if (best) productNamesFromThead.push(best);
         });
-        console.log('[Toss Ext] thead에서 추출한 상품명들:', productNamesFromThead);
+        console.log('[상담도우미] thead에서 추출한 상품명들:', productNamesFromThead);
       }
     }
   }
 
   const numInsurances = dataMatrix[0].values.length;
   // 🆕 1차: 컬럼(보험상품)별 가시성 판정.
-  //   토스 보장분석 페이지에서 '보험상품 선택'으로 일부만 고르면 미선택 상품 컬럼이 hidden 처리된다.
+  //   보장분석 페이지에서 '보험상품 선택'으로 일부만 고르면 미선택 상품 컬럼이 hidden 처리된다.
   const _hiddenCol = [];
   let _visibleCount = 0;
   for (let i = 0; i < numInsurances; i++) {
@@ -201,18 +201,18 @@ function extractInsuranceData() {
         hiddenCount++;
       }
     }
-    // 절반 이상의 셀이 숨겨져 있으면 이 컬럼은 토스 페이지에서 가려진(미선택) 것
+    // 절반 이상의 셀이 숨겨져 있으면 이 컬럼은 CRM 페이지에서 가려진(미선택) 것
     _hiddenCol[i] = (totalChecked > 0 && hiddenCount > totalChecked / 2);
     if (!_hiddenCol[i]) _visibleCount++;
   }
   // 🆕 선택 규칙: 일부만 선택 → 그 상품만 / 아무것도 선택 안 함(전부 숨김) 또는 전부 선택 → 전체 상품 전달.
   const _useAllCols = (_visibleCount === 0);
-  if (_useAllCols) console.log('[Toss Extractor] 선택된 보험상품 없음(전부 숨김) → 전체 상품 전달');
+  if (_useAllCols) console.log('[상담도우미] 선택된 보험상품 없음(전부 숨김) → 전체 상품 전달');
 
   const insurances = [];
   for (let i = 0; i < numInsurances; i++) {
     if (!_useAllCols && _hiddenCol[i]) {
-      console.log(`[Toss Extractor] 미선택(숨김) 컬럼 #${i + 1} 제외`);
+      console.log(`[상담도우미] 미선택(숨김) 컬럼 #${i + 1} 제외`);
       continue;
     }
 
@@ -326,7 +326,7 @@ async function expandAllAccordions() {
     const collapsed = document.querySelectorAll('.p-accordion__item-header[aria-expanded="false"]');
     collapsed.forEach(header => {
       try { header.click(); totalExpanded++; } catch (e) {
-        console.warn('[Toss Extractor] accordion click failed:', e);
+        console.warn('[상담도우미] accordion click failed:', e);
       }
     });
     if (collapsed.length === 0) break;
@@ -337,7 +337,7 @@ async function expandAllAccordions() {
 }
 
 // 🆕 모든 accordion 의 보장/특약 segmented control 을 지정된 탭(label) 으로 강제 전환
-//   다양한 selector + 텍스트 매칭 fallback 으로 Toss CRM 의 DOM 구조 변경에도 대응
+//   다양한 selector + 텍스트 매칭 fallback 으로 CRM 의 DOM 구조 변경에도 대응
 async function switchAllTabsTo(label) {
   const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   let rounds = 0, totalSwitched = 0;
@@ -389,7 +389,7 @@ async function switchAllTabsTo(label) {
     const btns = findCandidates();
     if (btns.length === 0) break;
     btns.forEach(b => { try { b.click(); totalSwitched++; } catch (e) {
-      console.warn('[Toss Extractor] tab switch click failed:', e);
+      console.warn('[상담도우미] tab switch click failed:', e);
     } });
     await sleep(450);
     rounds++;
@@ -400,12 +400,12 @@ async function switchAllTabsTo(label) {
   // 검증: 실제로 활성화된 라벨이 무엇인지 로깅 (디버그)
   const activeBtns = Array.from(document.querySelectorAll('button[role="radio"][data-state="checked"], button[role="tab"][aria-selected="true"], button[role="radio"][aria-checked="true"]'));
   const activeLabels = activeBtns.map(b => (b.getAttribute('title') || b.innerText || '').trim()).filter(Boolean);
-  console.log(`[Toss Extractor] switchAllTabsTo('${label}'): clicked ${totalSwitched}회, 활성화된 탭=`, activeLabels);
+  console.log(`[상담도우미] switchAllTabsTo('${label}'): clicked ${totalSwitched}회, 활성화된 탭=`, activeLabels);
   return totalSwitched;
 }
 
 // 보장 페이지의 상품별 보장 상세 테이블 추출
-// 🆕 보장 행의 표준 컬럼 순서 — 토스 CRM 표와 동일
+// 🆕 보장 행의 표준 컬럼 순서 — CRM 표와 동일
 //   계약자/피보험자 → 보장 대분류 → 보장 소분류 → 보장명 → 보장 금액 → 납입기간 → 보장시작일 → 보장종료일
 const COVERAGE_STD_ORDER = [
   '계약자/피보험자',
@@ -472,15 +472,15 @@ function _isCoverageTable(table) {
 }
 
 function extractCoverageDetails() {
-  // 🆕 클래스명에 의존하지 않고 헤더 라벨로 담보 테이블 식별 (Toss CRM DOM 변경 대응)
+  // 🆕 클래스명에 의존하지 않고 헤더 라벨로 담보 테이블 식별 (CRM DOM 변경 대응)
   //    1순위: 기존 알려진 클래스, 2순위: 헤더 라벨로 판정한 모든 table
   let allTables = Array.from(document.querySelectorAll('table.table.table--small'));
   if (allTables.length === 0) {
     allTables = Array.from(document.querySelectorAll('table')).filter(_isCoverageTable);
-    console.log(`[Toss Extractor] table--small 0개 → 헤더 라벨로 담보 테이블 ${allTables.length}개 식별`);
+    console.log(`[상담도우미] table--small 0개 → 헤더 라벨로 담보 테이블 ${allTables.length}개 식별`);
   }
   const tables = allTables.filter(_isElementVisible);
-  console.log(`[Toss Extractor] extractCoverageDetails: 전체 ${allTables.length}개 테이블 중 보이는 ${tables.length}개`);
+  console.log(`[상담도우미] extractCoverageDetails: 전체 ${allTables.length}개 테이블 중 보이는 ${tables.length}개`);
   const allRows = [];
   const productSummary = []; // 상품별 추출 요약
 
@@ -635,7 +635,7 @@ function matchInsuranceNamesFromAccordion(insurances, productSummary) {
       matchLog.push(`✗ ${insCompany} (${insDate}, ${insPremiumDigits}원) → no accordion match`);
     }
   }
-  console.log('[Toss Extractor] 매칭 로그:\n' + matchLog.join('\n'));
+  console.log('[상담도우미] 매칭 로그:\n' + matchLog.join('\n'));
   return matched;
 }
 

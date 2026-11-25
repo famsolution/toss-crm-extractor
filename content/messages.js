@@ -8,8 +8,8 @@ const _extAuthCheck = () => new Promise(function (res) {
 // 팝업에서 메시지를 받아 데이터 추출.
 // 재주입(popup 의 ensureContentScript)으로 리스너가 두 번 붙으면 sendResponse 가
 // 중복 호출되므로 한 번만 등록한다.
-if (!window.__tossCrmExtractorMsgBound) {
-window.__tossCrmExtractorMsgBound = true;
+if (!window.__sdhMsgBound) {
+window.__sdhMsgBound = true;
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // 🆕 모든 수신 메시지 시각 표시 — 디버깅용 (action명만 빠르게 표시)
   try {
@@ -19,7 +19,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     document.body.appendChild(tag);
     setTimeout(() => tag.remove(), 3000);
   } catch (e) {}
-  console.log('[Toss Extractor] 📬 메시지 수신:', request?.action, request);
+  console.log('[상담도우미] 📬 메시지 수신:', request?.action, request);
   if (request.action === 'ping') {
     try { sendResponse({ ok: true, hasApplyHandler: true, version: __EXT_VERSION }); } catch (e) {}
     return false;
@@ -71,7 +71,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
       try {
         applyToPremiumFormUnified(request.payload || {})
-          .then(result => { try { sendResponse(result); } catch (e) { console.warn('[Toss Ext] sendResponse 실패:', e); } })
+          .then(result => { try { sendResponse(result); } catch (e) { console.warn('[상담도우미] sendResponse 실패:', e); } })
           .catch(e => { try { sendResponse({ ok: false, error: e.message }); } catch (err) {} });
       } catch (e) {
         try { sendResponse({ ok: false, error: 'handler 동기 에러: ' + e.message }); } catch (err) {}
@@ -89,7 +89,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const result = await extractCoverageExcelRowsFromPage();
         sendResponse(result);
       } catch (e) {
-        console.error('[Toss Extractor] 보장분석 엑셀 추출 실패:', e);
+        console.error('[상담도우미] 보장분석 엑셀 추출 실패:', e);
         sendResponse({ ok: false, error: e && e.message ? e.message : String(e), rows: [] });
       }
     })();
@@ -129,7 +129,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           //   ⚠️ 항상 extractCoverageDetails 호출 — 전환된 탭 수가 0이어도
           //      이미 활성화돼있거나 다른 페이지 구조일 수 있음. 빈 결과는 자연스럽게 걸러짐.
           const switchedRider = await switchAllTabsTo('특약');
-          console.log(`[Toss Extractor] switchAllTabsTo('특약') → ${switchedRider}회 클릭됨 (0회여도 추출 시도)`);
+          console.log(`[상담도우미] switchAllTabsTo('특약') → ${switchedRider}회 클릭됨 (0회여도 추출 시도)`);
           // 안정화 대기 — DOM 업데이트 보장
           await new Promise(r => setTimeout(r, 600));
           const riderDetails = extractCoverageDetails();
@@ -142,7 +142,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           const mainKeys = new Set(mainDetails.rows.map(_coverageDupKey));
           const beforeDedup = riderRows.length;
           riderRows = riderRows.filter(r => !mainKeys.has(_coverageDupKey(r)));
-          console.log(`[Toss Extractor] 특약 추출: ${beforeDedup}건 → 중복 제외 후 ${riderRows.length}건`);
+          console.log(`[상담도우미] 특약 추출: ${beforeDedup}건 → 중복 제외 후 ${riderRows.length}건`);
           riderRows.forEach(r => { r._tabType = '특약'; });
 
           // 다시 보장 탭으로 복귀 (UI 사용자 경험)
@@ -157,7 +157,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           details.summary.forEach(sec => {
             sec.담보수 = details.rows.filter(r => r._섹션번호 === sec.섹션번호).length;
           });
-          console.log(`[Toss Extractor] 보장 ${mainDetails.rows.length}건 + 특약 ${riderRows.length}건 = 총 ${details.rows.length}건`);
+          console.log(`[상담도우미] 보장 ${mainDetails.rows.length}건 + 특약 ${riderRows.length}건 = 총 ${details.rows.length}건`);
 
           // 🆕 accordion 별 보장/특약 분포 — 메인 앱에서 그룹화 검증용
           const byAcc = {};
@@ -166,7 +166,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             if (!byAcc[k]) byAcc[k] = { 보장: 0, 특약: 0, idx: r._accordionIdx, name: r._상품명 || '(이름 없음)' };
             byAcc[k][r._tabType || '없음'] = (byAcc[k][r._tabType || '없음'] || 0) + 1;
           });
-          console.log('[Toss Extractor] 📊 accordion 별 보장/특약 분포:');
+          console.log('[상담도우미] 📊 accordion 별 보장/특약 분포:');
           Object.values(byAcc).sort((a, b) => a.idx - b.idx).forEach(v => {
             const status = v.보장 > 0 && v.특약 > 0 ? '✅' : (v.보장 > 0 ? '⚠️ 보장만' : (v.특약 > 0 ? '⚠️ 특약만' : '?'));
             console.log(`   [accordionIdx=${v.idx}] ${status} "${v.name}" → 보장 ${v.보장}건 + 특약 ${v.특약}건`);
@@ -188,10 +188,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return true;
           });
           const filteredCount = beforeCount - insurances.length;
-          console.log(`[Toss Extractor] 의미 없는 단기보험 ${filteredCount}건 자동 제외 (전체 ${beforeCount} → 유효 ${insurances.length})`);
+          console.log(`[상담도우미] 의미 없는 단기보험 ${filteredCount}건 자동 제외 (전체 ${beforeCount} → 유효 ${insurances.length})`);
           // 상위표 보험명이 비었거나 "보험명 없음"인 경우 → accordion 상품명으로 자동 채움
           const matchedNames = matchInsuranceNamesFromAccordion(insurances, details.summary);
-          console.log(`[Toss Extractor] 보험명 자동 매칭: ${matchedNames}건`);
+          console.log(`[상담도우미] 보험명 자동 매칭: ${matchedNames}건`);
           // 🆕 보장내역 페이지 '기본정보' 전체 추출 (이름/성별/생년월일/상령일/최초보험연결일/상담문의)
           const _custId = match ? match[1] : '';
           const basicInfo = await extractCustomerBasicInfo(_custId);
@@ -225,16 +225,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             // ② 없으면 여러 customerId 후보로 phone API 시도 (쿠키 인증, 페이지 이동 없음)
             if (!_phone) {
               const _cands = collectCustomerIdCandidates();
-              console.log('[Toss Extractor] ☎ customerId 후보:', _cands);
+              console.log('[상담도우미] ☎ customerId 후보:', _cands);
               for (const cid of _cands) {
                 const p = await fetchPhoneData(cid);
                 if (p) { _phone = p; break; }
               }
             }
-            if (_phone) { coverCustomer['연락처'] = _phone; coverCustomer['phone'] = _phone; console.log('[Toss Extractor] ☎ 보장분석 전화번호 확보:', _phone); }
-            else console.warn('[Toss Extractor] ☎ 보장분석 전화번호 미확보 (앱상태/모든 customerId 후보 실패)');
-          } catch (e) { console.warn('[Toss Extractor] 보장 전화번호 조회 실패:', e); }
-          console.log('[Toss Extractor] 👤 보장내역 기본정보 customer:', coverCustomer);
+            if (_phone) { coverCustomer['연락처'] = _phone; coverCustomer['phone'] = _phone; console.log('[상담도우미] ☎ 보장분석 전화번호 확보:', _phone); }
+            else console.warn('[상담도우미] ☎ 보장분석 전화번호 미확보 (앱상태/모든 customerId 후보 실패)');
+          } catch (e) { console.warn('[상담도우미] 보장 전화번호 조회 실패:', e); }
+          console.log('[상담도우미] 👤 보장내역 기본정보 customer:', coverCustomer);
           sendResponse({
             type: 'coverage',
             url: window.location.href,
@@ -259,4 +259,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-} // end of __tossCrmExtractorMsgBound guard
+} // end of __sdhMsgBound guard

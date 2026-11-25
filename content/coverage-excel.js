@@ -114,13 +114,13 @@ async function extractCoverageExcelRowsFromPage() {
   mainDetails.rows.forEach(r => { r._tabType = '보장'; });
 
   const switchedRider = await switchAllTabsTo('특약');
-  console.log(`[Toss Extractor] Excel switchAllTabsTo('특약') → ${switchedRider}회 클릭됨`);
+  console.log(`[상담도우미] Excel switchAllTabsTo('특약') → ${switchedRider}회 클릭됨`);
   await new Promise(r => setTimeout(r, 600));
   const riderDetails = extractCoverageDetails();
   const mainKeys = new Set(mainDetails.rows.map(_coverageDupKey));
   const _beforeDedupX = riderDetails.rows.length;
   let riderRows = riderDetails.rows.filter(r => !mainKeys.has(_coverageDupKey(r)));
-  console.log(`[Toss Extractor] Excel 특약 추출: ${_beforeDedupX}건 → 중복 제외 후 ${riderRows.length}건`);
+  console.log(`[상담도우미] Excel 특약 추출: ${_beforeDedupX}건 → 중복 제외 후 ${riderRows.length}건`);
   riderRows.forEach(r => { r._tabType = '특약'; });
   await switchAllTabsTo('보장');
 
@@ -144,7 +144,7 @@ async function extractCoverageExcelRowsFromPage() {
   });
   const matchedNames = matchInsuranceNamesFromAccordion(insurances, details.summary);
   const rows = normalizeCoverageRowsForExcel(details.rows, details.summary, insurances);
-  console.log('[Toss Extractor] 보장분석 엑셀용 정규화 완료:', {
+  console.log('[상담도우미] 보장분석 엑셀용 정규화 완료:', {
     rows: rows.length,
     productSummary: details.summary.length,
     insurances: insurances.length,

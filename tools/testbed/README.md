@@ -1,6 +1,6 @@
 # 테스트베드 — 격리 샌드박스에서 확장 돌리기
 
-브라우저 테스트가 **실제 토스 CRM·보험사 사이트·운영 Firebase 에 닿지 못하도록** 묶어 놓고
+브라우저 테스트가 **실제 CRM·보험사 사이트·운영 Firebase 에 닿지 못하도록** 묶어 놓고
 확장을 실제로 실행해 본다. 테스트가 없는 프로젝트라 `tools/verify.js` 와 함께 쓴다.
 (이 폴더는 릴리스 zip 에 들어가지 않는다 — 워크플로가 `tools/*` 를 제외한다.)
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | `build.js` | git 추적 파일만 모아 **확장 사본**을 만들고 manifest 를 로컬 전용으로 좁힌다 |
 | `server.js` | Host 헤더로 가짜 사이트를 구분해 응답하는 픽스처 서버 (127.0.0.1:8899) |
-| `fixtures/crm.html` | 가짜 토스 보장분석 페이지 (상단 가입보험 표 + 카테고리별 보장 표) |
+| `fixtures/crm.html` | 가짜 보장분석 페이지 (상단 가입보험 표 + 카테고리별 보장 표) |
 | `fixtures/crm-empty.html` | 데이터 없는 페이지 — 실패 경로(pageAlert) 확인용 |
 | `fixtures/mmlfcp.html` | 가짜 보험료비교 폼. **생손보 전환 시 상품유형을 비동기로 리셋하는 실제 버그 상황까지 재현** |
 
@@ -20,7 +20,7 @@
 node tools/testbed/build.js            # 사본 생성 + 확장 ID 출력
 node tools/testbed/server.js &         # 픽스처 서버
 
-agent-browser --session tosstest --headed \
+agent-browser --session sdhtest --headed \
   --extension "<build.js 가 출력한 경로>" \
   --args "--host-resolver-rules=MAP * 127.0.0.1,--no-first-run,--disable-background-networking" \
   open "http://crm.tossinsu.com:8899/cover/12345"

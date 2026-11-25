@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       try { chrome.storage.local.set({ [TARGET_MODE_KEY]: getTargetMode() }); } catch {}
     });
   });
-  // 🆕 부재고객[경고] 버튼 — 현재 활성 탭(토스 보장분석)에 sendToStudio 트리거
+  // 🆕 부재고객[경고] 버튼 — 현재 활성 탭(보장분석)에 sendToStudio 트리거
   // Absence warning button: send current extraction with product-selection rule.
   const _absBtn = document.getElementById('btn_absence_warn');
   if (_absBtn) {
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     _ppBtn.addEventListener('click', async () => {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (!tab) return;
-      // 토스 보장분석 페이지(앵커 존재)인지 확인
+      // 보장분석 페이지(앵커 존재)인지 확인
       let hasAnchor = false;
       try {
         const r = await chrome.scripting.executeScript({
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         hasAnchor = !!(r && r[0] && r[0].result);
       } catch {}
-      if (!hasAnchor) { showAlert('토스 보장분석 페이지에서 실행해 주세요.'); return; }
+      if (!hasAnchor) { showAlert('보장분석 페이지에서 실행해 주세요.'); return; }
       // 🔑 popup 을 닫아 페이지 focus 복귀 → content.js 가 clipboard.read() 실행 가능
       //    (popup 이 떠 있으면 페이지에 focus 가 없어 클립보드 읽기가 브라우저 보안으로 차단됨)
       try { chrome.tabs.sendMessage(tab.id, { action: 'triggerPaintPro' }, () => { void chrome.runtime.lastError; }); } catch {}
@@ -80,8 +80,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 🆕 페이지별 버튼 표시/숨김 — 현재 활성 탭 URL로 컨텍스트 감지
   function applyPageContext(url) {
     const u = decodeURIComponent(url || '');
-    const isCoverage   = /crm\.tossinsu\.com.*\/cover\//i.test(u);           // 토스 보장분석
-    const isCustomer   = /crm\.tossinsu\.com.*\/customers?\//i.test(u);      // 토스 고객 페이지
+    const isCoverage   = /crm\.tossinsu\.com.*\/cover\//i.test(u);           // 보장분석
+    const isCustomer   = /crm\.tossinsu\.com.*\/customers?\//i.test(u);      // CRM 고객 페이지
     const isPremium    = /mmlfcp\.ohmymanager\.com/i.test(u);                // 보험료 비교 폼
     const isVercel     = /tossinssu-pro\.vercel\.app/i.test(u);
     const isPlan       = isVercel && /plan\.html/i.test(u);                   // 가설계

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>토스인슈 CRM 추출기</title>
+  <title>상담 도우미</title>
   <!-- 폭 규칙을 팝업/사이드패널에 맞게 가르는 표시자. 반드시 스타일보다 먼저. -->
   <script src="popup-ctx.js"></script>
   <link rel="stylesheet" href="popup.css">
@@ -16,7 +16,7 @@
 <!-- 🔐 확장 권한 게이트 — 로그인 + 관리자 승인(active) 통과 전까지 기능 차단 -->
 <div id="__ext_gate" style="position:fixed; inset:0; z-index:99999; background:#fff; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; font-family:'Segoe UI',system-ui,sans-serif;">
   <div style="font-size:34px; margin-bottom:6px;">🔐</div>
-  <div style="font-weight:800; font-size:16px; color:#0F172A; margin-bottom:2px;">토스인슈 CRM 추출기</div>
+  <div style="font-weight:800; font-size:16px; color:#0F172A; margin-bottom:2px;">상담 도우미</div>
   <div id="__ext_gate_sub" style="font-size:13.5px; color:#64748B; margin-bottom:16px; text-align:center;">사용하려면 로그인하세요.</div>
 
   <!-- 로그인 폼 -->
@@ -41,7 +41,7 @@
 <div class="header">
   <div class="header-left">
     <div class="header-icon">📋</div>
-    <h1>토스인슈 CRM 추출기</h1>
+    <h1>상담 도우미</h1>
   </div>
   <button class="hd-pcmove" id="wsOpenBtn" title="캘린더·고객정보·건강상태를 PC 에 저장해 쓰는 큰 창 (Alt+Shift+W)">🗂 PC 워크스페이스</button>
   <button class="pc-move-btn hd-pcmove" title="다른 PC 에서 이 확장 프로그램과 저장한 비번·고객정보를 쓰는 방법">💻 다른 PC에서 쓰기</button>
@@ -65,11 +65,11 @@
   <div class="cu-inbox-note" style="display:none"></div>
   <div class="cred-bar cu-reg-bar oc-reg-bar">
     <span class="cu-reg-lab">👤 고객 등록</span>
-    <button id="ocRegBoth" class="btn-primary cred-new" title="지금 토스 고객정보 화면을 읽어 PC 에 저장하고 워크스페이스 고객 등록 창에도 채움">💾📤 PC + 워크스페이스</button>
-    <button id="ocRegPc" class="btn-secondary cred-new" title="지금 토스 고객정보 화면을 읽어 이 PC 에만 저장">💾 PC에 저장</button>
-    <button id="ocRegWs" class="btn-secondary cred-new" title="지금 토스 고객정보 화면을 읽어 워크스페이스 고객 등록 창에만 채움 (PC 저장 안 함)">📤 워크스페이스에 등록</button>
+    <button id="ocRegBoth" class="btn-primary cred-new" title="지금 고객정보 화면을 읽어 PC 에 저장하고 워크스페이스 고객 등록 창에도 채움">💾📤 PC + 워크스페이스</button>
+    <button id="ocRegPc" class="btn-secondary cred-new" title="지금 고객정보 화면을 읽어 이 PC 에만 저장">💾 PC에 저장</button>
+    <button id="ocRegWs" class="btn-secondary cred-new" title="지금 고객정보 화면을 읽어 워크스페이스 고객 등록 창에만 채움 (PC 저장 안 함)">📤 워크스페이스에 등록</button>
   </div>
-  <label class="cred-auto anno-toggle"><input type="checkbox" id="annoEnabledChk" checked> 🖍 토스 보장분석 화면 표시 (형광펜·보험 순서 기억·글자 수정) <span class="cred-auto-note">— 끄면 토스 원래 화면</span></label>
+  <label class="cred-auto anno-toggle"><input type="checkbox" id="annoEnabledChk" checked> 🖍 보장분석 화면 표시 (형광펜·보험 순서 기억·글자 수정) <span class="cred-auto-note">— 끄면 원래 화면</span></label>
 
   <!-- 🆕 전송 대상 선택 — 어느 페이지/모드로 데이터를 보낼지 -->
 
@@ -220,7 +220,7 @@
   <div class="content" id="resultContent">
     <div class="notice">
       <div class="icon">🔍</div>
-      <p>토스인슈 CRM 페이지에서<br>데이터 추출 버튼을 클릭하세요</p>
+      <p>CRM 페이지에서<br>데이터 추출 버튼을 클릭하세요</p>
       <p class="sub">상세 페이지 또는 보장 페이지에서 사용 가능합니다</p>
     </div>
   </div>
@@ -296,9 +296,9 @@
       <div class="cu-inbox-note" style="display:none"></div>
       <div class="cred-bar cu-reg-bar">
         <span class="cu-reg-lab">📋 현재 페이지 고객 등록</span>
-        <button id="cuFromPageBothBtn" class="btn-primary cred-new" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 PC 에 저장하고 워크스페이스 고객 등록 창에도 채움">💾📤 PC + 워크스페이스</button>
-        <button id="cuFromPageBtn" class="btn-secondary cred-new cu-frompage-btn" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 이 PC 에만 저장">💾 PC에 저장</button>
-        <button id="cuFromPageWsBtn" class="btn-secondary cred-new" title="열려 있는 토스 CRM 고객정보 화면에서 읽어 워크스페이스 고객 등록 창에만 채움 (PC 에는 저장 안 함, PIN 필요 없음)">📤 워크스페이스에 등록</button>
+        <button id="cuFromPageBothBtn" class="btn-primary cred-new" title="열려 있는 CRM 고객정보 화면에서 읽어 PC 에 저장하고 워크스페이스 고객 등록 창에도 채움">💾📤 PC + 워크스페이스</button>
+        <button id="cuFromPageBtn" class="btn-secondary cred-new cu-frompage-btn" title="열려 있는 CRM 고객정보 화면에서 읽어 이 PC 에만 저장">💾 PC에 저장</button>
+        <button id="cuFromPageWsBtn" class="btn-secondary cred-new" title="열려 있는 CRM 고객정보 화면에서 읽어 워크스페이스 고객 등록 창에만 채움 (PC 에는 저장 안 함, PIN 필요 없음)">📤 워크스페이스에 등록</button>
       </div>
       <div class="cred-bar">
         <input id="cuSearch" class="cred-search" type="search" placeholder="이름·전화번호 검색">

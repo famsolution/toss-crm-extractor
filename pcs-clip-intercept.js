@@ -1,18 +1,18 @@
 // ──────────────────────────────────────────────────────────────────────────
 // pcs-clip-intercept.js — 페이지(MAIN world)에 주입되어 navigator.clipboard.write
-//   를 가로챈다. 토스 '이미지 복사'가 클립보드에 이미지를 쓰는 순간 그 blob 을
+//   를 가로챈다. CRM '이미지 복사'가 클립보드에 이미지를 쓰는 순간 그 blob 을
 //   dataURL 로 변환해 window.postMessage 로 content script 에 전달한다.
 //   → 클립보드를 "다시 읽지" 않으므로 document 포커스가 필요 없다(팝업 실행 OK).
 // ──────────────────────────────────────────────────────────────────────────
 (function () {
-  const _clipAlready = !!window.__tossClipPatched;
-  window.__tossClipPatched = true;
+  const _clipAlready = !!window.__sdhClipPatched;
+  window.__sdhClipPatched = true;
 
   function emit(blob) {
     try {
       const fr = new FileReader();
       fr.onload = function () {
-        try { window.postMessage({ __tossImageCaptured: true, dataURL: fr.result, at: Date.now() }, '*'); } catch (e) {}
+        try { window.postMessage({ __sdhImageCaptured: true, dataURL: fr.result, at: Date.now() }, '*'); } catch (e) {}
       };
       fr.readAsDataURL(blob);
     } catch (e) {}

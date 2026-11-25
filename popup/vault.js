@@ -288,7 +288,7 @@ function _vNotifyUnlocked() {
 const VAULT_NAMES = ['creds', 'customers', 'events'];   // events: 🗂 PC 워크스페이스 캘린더 일정
 
 // ── 💻 다른 PC 로 옮기기 — 암호화된 그대로 내보내고/가져온다 (PIN 은 파일에 없음) ──
-const VAULT_FILE_APP = 'toss-crm-extractor-vault';
+const VAULT_FILE_APP = 'sangdam-helper-vault';
 const VAULT_EXTRA_KEYS = ['cu_health_tpl', 'credCardAuto', 'cred_sites'];   // 암호화 대상은 아니지만 같이 옮길 설정
 async function vaultExportFile() {
   if (!_vaultKey) throw new Error('먼저 PIN 으로 금고를 열어 주세요.');
@@ -300,8 +300,8 @@ async function vaultExportFile() {
   return { app: VAULT_FILE_APP, v: 1, exportedAt: new Date().toISOString(), counts, data: st };
 }
 function vaultParseFile(obj) {
-  if (!obj || obj.app !== VAULT_FILE_APP || !obj.data || !obj.data[VAULT_META_KEY] || !obj.data[VAULT_META_KEY].check)
-    throw new Error('토스인슈 CRM 추출기 금고 백업 파일이 아닙니다.');
+  if (!obj || !/-vault$/.test(String(obj.app || '')) || !obj.data || !obj.data[VAULT_META_KEY] || !obj.data[VAULT_META_KEY].check)
+    throw new Error('상담 도우미 금고 백업 파일이 아닙니다.');
   return obj;
 }
 async function vaultImportFile(obj) {

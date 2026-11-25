@@ -25,7 +25,7 @@ RELAY-STATUS: DONE
   (boot/util/privacy/customer/insurance/coverage-excel/premium/premium-apply/messages/paint-pro).
   본문은 바이트 동일. 감싸던 `if(로드됨){}else{...}` 가드만 없앴다 —
   블록 스코프 const/let 이 파일 간에 공유되지 않기 때문. 대신 부작용만 개별로 막는다
-  (`__tossCrmExtractorMsgBound`, `__tossCrmPaintProBound`).
+  (`__sdhMsgBound`, `__sdhPaintProBound`).
   주입 목록은 `popup/boot.js` 의 `CONTENT_SCRIPT_FILES` + `injectContentScripts()` 로 일원화.
   `tools/verify.js` 추가 + 릴리스 워크플로가 zip 전에 실행.
 

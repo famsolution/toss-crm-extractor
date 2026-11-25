@@ -1,12 +1,12 @@
 // ═══════════════════════════════════════════════════════════════════
-// 🆕 토스 보장분석 → 페인트프로(editor.html) 이미지 전송
-//   토스 페이지: '이미지 복사'(클립보드) 자동 클릭 → 클립보드 읽기 → storage 저장 → 새 탭 editor 열기
+// 🆕 보장분석 → 페인트프로(editor.html) 이미지 전송
+//   CRM 페이지: '이미지 복사'(클립보드) 자동 클릭 → 클립보드 읽기 → storage 저장 → 새 탭 editor 열기
 //   editor 페이지: storage 의 이미지를 sessionStorage 로 넘기고 editor 의 로더를 트리거
 // ═══════════════════════════════════════════════════════════════════
 (function () {
   // 재주입되면 setInterval 이 겹쳐 돌고 버튼이 두 번 붙으므로 한 번만 실행한다.
-  if (window.__tossCrmPaintProBound) return;
-  window.__tossCrmPaintProBound = true;
+  if (window.__sdhPaintProBound) return;
+  window.__sdhPaintProBound = true;
   // 이 스크립트 인스턴스 표식 — 확장 새로고침 후 남은 옛 앵커를 구분하는 데 쓴다
   const _OWNER = (chrome.runtime.getManifest().version || '') + ':' + Math.random().toString(36).slice(2);
 
@@ -22,7 +22,7 @@
         if (!payload || !payload.dataURL) return;
         try {
           sessionStorage.setItem('toss_analysis_image', payload.dataURL);
-          sessionStorage.setItem('toss_analysis_filename', payload.fileName || '토스보장분석.png');
+          sessionStorage.setItem('toss_analysis_filename', payload.fileName || '보장분석.png');
         } catch (e) {}
         const trigger = function () { try { window.postMessage({ __paintProLoad: true }, '*'); } catch (e) {} };
         trigger(); setTimeout(trigger, 400); setTimeout(trigger, 1200); setTimeout(trigger, 2500);
@@ -33,11 +33,11 @@
   }
 
   // ───────── vercel 메인 앱(app.html 등): storage 의 적용 대기 데이터를 페이지로 중개 ─────────
-  //   확장 popup 이 chrome.storage.local['__tossPendingApply'] 에 저장 → 앱이 로그인/렌더 완료돼
+  //   확장 popup 이 chrome.storage.local['__sdhPendingApply'] 에 저장 → 앱이 로그인/렌더 완료돼
   //   receiver(__applyTossDataFromExtension)가 준비되는 순간 적용 (탭 열림/로그인 타이밍 무관).
   if (/tossinssu-pro\.vercel\.app$/.test(host)) {
     (function () {
-      const PKEY = '__tossPendingApply';
+      const PKEY = '__sdhPendingApply';
       let done = false, iv = null;
       const stop = function () { done = true; if (iv) { clearInterval(iv); iv = null; } };
       // 앱이 적용 완료를 알리면 storage 삭제 후 중단
@@ -62,8 +62,8 @@
     return;
   }
 
-  // ───────── 토스 보장분석 페이지: 전송 버튼 추가 ─────────
-  // 🆕 토스 CRM(보장분석) 도메인이 아니면 전송 버튼을 절대 설치하지 않음
+  // ───────── 보장분석 페이지: 전송 버튼 추가 ─────────
+  // 🆕 CRM(보장분석) 도메인이 아니면 전송 버튼을 절대 설치하지 않음
   //    (vercel 제안서의 '표', mmlfcp 등 다른 사이트에서 잘못 뜨던 문제 차단)
   if (!/(^|\.)tossinsu\.com$/i.test(host)) return;
   const findCopyBtn = function () {
@@ -75,13 +75,13 @@
   const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
   const blobToDataURL = function (blob) { return new Promise(function (res, rej) { const fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(blob); }); };
 
-  // ── 클립보드 가로채기: 토스가 이미지를 클립보드에 쓰는 순간 그 dataURL 을 받는다 ──
+  // ── 클립보드 가로채기: CRM이 이미지를 클립보드에 쓰는 순간 그 dataURL 을 받는다 ──
   //   (clipboard.read 와 달리 포커스가 필요 없어 팝업 실행에서도 동작)
   let _capturedImageURL = null, _capturedAt = 0;
   (function injectClipInterceptor() {
     try {
       window.addEventListener('message', function (ev) {
-        if (ev.source === window && ev.data && ev.data.__tossImageCaptured && ev.data.dataURL) {
+        if (ev.source === window && ev.data && ev.data.__sdhImageCaptured && ev.data.dataURL) {
           _capturedImageURL = ev.data.dataURL; _capturedAt = Date.now();
         }
       });
@@ -115,7 +115,7 @@
     return null;
   }
 
-  // 🆕 보장분석 요약(고객명/나이/성별/상령일/보험개수/월납합계/잔여합계)을 토스 인슈어런스 스튜디오로 전송
+  // 🆕 보장분석 요약(고객명/나이/성별/상령일/보험개수/월납합계/잔여합계)을 보장분석 스튜디오로 전송
   const STUDIO_URL = 'https://toss-insurance-studio.web.app';
   async function sendToStudio(btn) {
     const old = btn.textContent; btn.textContent = '⏳ 추출 중…'; btn.disabled = true;
@@ -158,7 +158,7 @@
         추출시각: new Date().toISOString()
       };
       if (!payload.고객명 && insurances.length === 0) {
-        pageAlert('추출할 보장분석 데이터를 찾지 못했습니다.\n토스 보장분석(보장내역) 페이지에서 사용해 주세요.');
+        pageAlert('추출할 보장분석 데이터를 찾지 못했습니다.\n보장분석(보장내역) 페이지에서 사용해 주세요.');
         return;
       }
       const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
@@ -182,7 +182,7 @@
 
   // ───────── 페이지 내 알림/확인 다이얼로그 (alert/confirm 대체) ─────────
   //   content script 는 popup 의 showAlert/showConfirm 을 쓸 수 없으므로 페이지에 직접 띄운다.
-  //   토스 페이지 CSS 가 섞이지 않도록 Shadow DOM 안에 그린다.
+  //   CRM 페이지 CSS 가 섞이지 않도록 Shadow DOM 안에 그린다.
   //     · pageAlert(msg, title)   → Promise<void>    (확인 1개)
   //     · pageConfirm(msg, title) → Promise<boolean> (확인/취소)
   const _DLG_CSS = `
@@ -253,7 +253,7 @@
   // ═══════════════════════════════════════════════════════════════════
   // ⏳ 미리보기 창이 '완전히 자리 잡은 뒤' 이미지 복사 누르기 (글자 겹침의 근본 원인 수정, 2026-11)
   //   '표' 를 누르면 '보장분석 표 미리보기' 창이 작게 시작해 커지는 애니메이션으로 열린다.
-  //   그 도중에 '이미지 복사' 를 누르면 토스는 칸 크기를 '줄어든 상태'로 재고 글자는 원래 크기로
+  //   그 도중에 '이미지 복사' 를 누르면 CRM은 칸 크기를 '줄어든 상태'로 재고 글자는 원래 크기로
   //   그려서, 글자가 칸보다 커져 겹치고 잘린다(사용자 이미지: 기준의 88% 크기로 나옴).
   //   사람이 직접 누를 때는 애니메이션이 이미 끝나 있어서 정상이었다.
   //   → 애니메이션·크기 변화가 멈추고 글꼴이 다 불러와질 때까지 기다린 뒤 누른다.
@@ -301,8 +301,8 @@
     try { await document.fonts.ready; } catch (e) {}
     await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
   }
-  // 토스 이미지가 '줄어든 상태'로 찍혔는지 — 보고서 폭 대비 이미지 폭이 화면 배율의 정수배(1·2·3배)가 아니면 의심
-  async function _tossImageLooksScaled(url) {
+  // CRM 이미지가 '줄어든 상태'로 찍혔는지 — 보고서 폭 대비 이미지 폭이 화면 배율의 정수배(1·2·3배)가 아니면 의심
+  async function _imgLooksScaled(url) {
     try {
       const im = await new Promise(function (res, rej) { const i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = url; });
       const title = _reportTitle();
@@ -362,10 +362,10 @@
         const tab = findTableTab();
         if (tab) { tab.click(); for (let i = 0; i < 12 && !btn; i++) { await sleep(250); btn = findCopyBtn(); } }
       }
-      if (!btn) { pageAlert('표 탭 또는 "이미지 복사" 버튼을 찾지 못했습니다.\n토스 보장분석 페이지에서 사용해 주세요.'); return; }
+      if (!btn) { pageAlert('표 탭 또는 "이미지 복사" 버튼을 찾지 못했습니다.\n보장분석 페이지에서 사용해 주세요.'); return; }
 
       // 2) 🆕 브라우저 확대/축소를 100% 로 맞춘 뒤 캡처한다 (근본 원인 수정, 2026-11).
-      //    토스 '이미지 복사'는 화면 배치를 재서 글자를 다시 그리는데, 탭 배율이 100% 가 아니면
+      //    CRM '이미지 복사'는 화면 배치를 재서 글자를 다시 그리는데, 탭 배율이 100% 가 아니면
       //    배치는 줄어든 크기로 재고 글자는 원래 크기로 그려 글자가 커지고 겹치고 잘린다.
       //    (예전에 이미지가 약 99% 크기로 들어오던 것도 같은 원인.) 캡처가 끝나면 원래 배율로 되돌린다.
       let dataURL = null;
@@ -377,7 +377,7 @@
       }
       try {
 
-      // 2) 가로채기 리셋 후 토스 '이미지 복사' 클릭 → 토스가 clipboard.write 하는 순간
+      // 2) 가로채기 리셋 후 CRM '이미지 복사' 클릭 → CRM이 clipboard.write 하는 순간
       //    가로채기 스크립트가 dataURL 을 postMessage 로 보내준다(포커스 불필요).
       // 미리보기 창 애니메이션이 끝나 자리 잡을 때까지 기다린 뒤 누른다 (위 _waitPreviewSettled 설명)
       for (let attempt = 0; attempt < 2 && !dataURL; attempt++) {
@@ -396,8 +396,8 @@
           for (let i = 0; i < 8 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
         }
         // 그래도 줄어든 상태로 찍혔으면 한 번 더 기다렸다 다시 누른다
-        if (dataURL && attempt === 0 && await _tossImageLooksScaled(dataURL)) {
-          console.warn('[paint-pro] 토스 이미지가 줄어든 상태로 찍힘 — 기다렸다 다시 복사');
+        if (dataURL && attempt === 0 && await _imgLooksScaled(dataURL)) {
+          console.warn('[paint-pro] CRM 이미지가 줄어든 상태로 찍힘 — 기다렸다 다시 복사');
           dataURL = null;
           await sleep(800);
         }
@@ -407,11 +407,11 @@
       }
       if (!dataURL) {
         _ppStatus('', 1);
-        pageAlert('이미지를 읽지 못했습니다.\n\n· 토스 "이미지 복사" 버튼이 정상 동작하는지 확인해 주세요.\n· 확장 새로고침 후 다시 시도해 보세요.' +
+        pageAlert('이미지를 읽지 못했습니다.\n\n· CRM "이미지 복사" 버튼이 정상 동작하는지 확인해 주세요.\n· 확장 새로고침 후 다시 시도해 보세요.' +
           (_lastClipErr ? '\n\n[오류: ' + _lastClipErr + ']' : ''));
         return;
       }
-      await new Promise(function (r) { chrome.storage.local.set({ [STORAGE_KEY]: { dataURL: dataURL, fileName: '토스보장분석.png', ts: Date.now() } }, r); });
+      await new Promise(function (r) { chrome.storage.local.set({ [STORAGE_KEY]: { dataURL: dataURL, fileName: '보장분석.png', ts: Date.now() } }, r); });
       _ppStatus('🎨 페인트프로를 여는 중…');
       const opened = await _ppOpenEditor();
       if (opened) _ppStatus('✅ 페인트프로를 새 탭으로 열었습니다', 3500);
@@ -654,8 +654,8 @@
     try {
       const cols = _silsonScanColumns();
       const hits = _silsonBuildHits(cols);
-      console.log('[Toss Extractor] 실손 세대 분석 후보:', hits);
-      if (!hits.length) { pageAlert('실손/실비 보험을 찾지 못했습니다.\n토스 보장분석 표가 보이는 상태에서 사용하세요.'); return; }
+      console.log('[상담도우미] 실손 세대 분석 후보:', hits);
+      if (!hits.length) { pageAlert('실손/실비 보험을 찾지 못했습니다.\n보장분석 표가 보이는 상태에서 사용하세요.'); return; }
       const summary = hits.map(h =>
         `· ${(h.name).slice(0, 26)} (${h.date}) → ${h.text}` +
         (h.reason ? ` [${h.reason}]` : '') +
@@ -699,7 +699,7 @@
     _ensureSidebar().appendChild(b);
   }
   function ensureButton() {
-    // 🆕 오직 토스 보장분석(보장내역 /cover/ 경로) 페이지에서만 노출 — 다른 토스 페이지/앱에서는 표시 안 함
+    // 🆕 오직 보장분석(보장내역 /cover/ 경로) 페이지에서만 노출 — 다른 CRM 페이지/앱에서는 표시 안 함
     if (!/\/cover\//.test(location.pathname) && !findCopyBtn()) {
       const _bar = document.getElementById('__ext_sidebar');
       if (_bar) _bar.remove();   // 보장분석 페이지를 벗어나면(SPA 전환) 버튼 제거

@@ -101,7 +101,7 @@ async function extractCustomerData() {
     if (unmasked) {
       customer['연락처'] = unmasked;
       customer['_마스킹복원'] = customer['_마스킹복원'] || 'dom-partial';
-      console.log('[Toss Extractor] ✅ DOM 에서 전화번호 복원:', unmasked);
+      console.log('[상담도우미] ✅ DOM 에서 전화번호 복원:', unmasked);
     }
   }
 
@@ -139,7 +139,7 @@ async function extractCustomerData() {
   return customer;
 }
 
-// 알려진 보험 메타데이터 헤더 (토스 페이지의 행 라벨)
+// 알려진 보험 메타데이터 헤더 (CRM 페이지의 행 라벨)
 const INSURANCE_ROW_HEADERS = new Set([
   '보험명', '보험사명', '계약일', '계약상태', '갱신 유무', '갱신유무',
   '계약자/피보험자', '증권번호', '납입 여부', '납입여부',
@@ -147,10 +147,10 @@ const INSURANCE_ROW_HEADERS = new Set([
   '월납보험료', '기납보험료', '잔여보험료', '총보험료',
   '매니저 의견', '매니저 코멘트', '대분류', '소분류',
   '성별', '생년월일', '상령일', '최초 보험연결일', '상담 문의',
-  // 토스 UI 업데이트로 추가된 헤더 — 셀에 상품명+카운트 등이 함께 들어있음
+  // CRM UI 업데이트로 추가된 헤더 — 셀에 상품명+카운트 등이 함께 들어있음
   '보험 개수'
 ]);
-// 헤더 라벨 정규화: 토스 UI 변경으로 첫 행이 "보험 개수"로 바뀌었지만 실제로는 상품명 row 역할
+// 헤더 라벨 정규화: CRM UI 변경으로 첫 행이 "보험 개수"로 바뀌었지만 실제로는 상품명 row 역할
 const ROW_HEADER_ALIAS = {
   '보험 개수': '보험명',
   '갱신유무': '갱신 유무',
@@ -158,7 +158,7 @@ const ROW_HEADER_ALIAS = {
 };
 
 // 🆕 보장내역(cover) 페이지 '기본정보' 전체 추출 (이름 + 성별/생년월일/상령일/최초보험연결일/상담문의)
-//   토스 보장분석 페이지의 기본정보는 <td aria-label="성별/생년월일/상령일/..."> 라벨셀 + 다음 형제 값셀 구조.
+//   보장분석 페이지의 기본정보는 <td aria-label="성별/생년월일/상령일/..."> 라벨셀 + 다음 형제 값셀 구조.
 //   반환: { 고객명, 성별, 생년월일(YYYYMMDD), 생년월일표시, 상령일, 최초보험연결일, 상담문의, 보험나이 }
 async function extractCustomerBasicInfo(customerId) {
   const out = {};
@@ -188,7 +188,7 @@ async function extractCustomerBasicInfo(customerId) {
     if (name) out.고객명 = name;
   } catch (e) {}
 
-  // ── 1) 기본정보 — 토스 구조: <th>라벨</th> <td aria-label="라벨">값</td>
+  // ── 1) 기본정보 — CRM 구조: <th>라벨</th> <td aria-label="라벨">값</td>
   //   즉 aria-label 이 붙은 셀(TD) 자신의 텍스트가 '값'. (라벨은 별도 th)
   const LABELS = { '성별': '성별', '생년월일': '생년월일', '상령일': '상령일', '최초 보험연결일': '최초보험연결일', '상담 문의': '상담문의' };
   try {
@@ -200,7 +200,7 @@ async function extractCustomerBasicInfo(customerId) {
       const val = (cell.innerText || cell.textContent || '').trim();   // 셀 자신 = 값
       if (val && val !== lbl) out[key] = val;
     }
-  } catch (e) { console.warn('[Toss Extractor] 기본정보 aria-label 스캔 실패:', e); }
+  } catch (e) { console.warn('[상담도우미] 기본정보 aria-label 스캔 실패:', e); }
 
   // ── 2) 폴백: 라벨 텍스트 기반(aria-label 없을 때) ──
   if (!out.성별 || !out.생년월일) {
@@ -235,7 +235,7 @@ async function extractCustomerBasicInfo(customerId) {
       }
     } catch (e) {}
   }
-  console.log('[Toss Extractor] 👤 보장내역 기본정보 추출:', out);
+  console.log('[상담도우미] 👤 보장내역 기본정보 추출:', out);
   return out;
 }
 // 하위호환 별칭 (기존 호출부 유지)

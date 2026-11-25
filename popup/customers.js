@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════
 // 👤 고객 — 회원 개인정보·건강상태를 이 PC 금고(popup/vault.js, PIN 암호화)에 저장하고,
-//   원할 때 [워크스페이스로 보내기] 로 토스 워크스페이스 고객 등록 화면에 채워 넣는다.
+//   원할 때 [워크스페이스로 보내기] 로 워크스페이스 고객 등록 화면에 채워 넣는다.
 //
 //   · 건강상태는 워크스페이스 건강고지와 같은 질문·같은 저장 형식(healthState)을 쓴다.
 //     → 워크스페이스에서 그대로 보이고, 기존 고객이면 먼저 등록된 병력과 합쳐진다(덮어쓰지 않음).
@@ -10,7 +10,7 @@
 //   · 건강상태 질문은 [✏️ 질문 편집] 으로 카테고리·질문을 추가/이름변경/삭제/순서변경 할 수 있다
 //     (이 PC 의 chrome.storage.local 'cu_health_tpl' — 질문 문구는 개인정보가 아니라 암호화 안 함).
 //     질문을 지우거나 순서를 바꾸면 저장된 모든 고객의 답변 위치도 함께 옮긴다.
-//   · 토스 CRM 추출 → [📤 프로그램 적용] 에서 '🔐 내 확장에 저장' 을 고르면 routeVault 로 여기 저장된다.
+//   · CRM 추출 → [📤 프로그램 적용] 에서 '🔐 내 확장에 저장' 을 고르면 routeVault 로 여기 저장된다.
 //   · [⛶ 크게 보기] — 같은 화면을 큰 창(popup.html?full=1&tab=cust)으로 연다.
 // ═══════════════════════════════════════════════════════════════════
 
@@ -521,11 +521,11 @@ async function _cuTplAction(act, b) {
   }
 }
 
-// ── 🔐 토스 CRM 추출 데이터 → 이 PC 금고에 저장 (📤 프로그램 적용 · '내 확장에 저장') ──
+// ── 🔐 CRM 추출 데이터 → 이 PC 금고에 저장 (📤 프로그램 적용 · '내 확장에 저장') ──
 const _cuIsMasked = v => /[\*●·]/.test(String(v || ''));
 const _cuDigits = v => String(v || '').replace(/[^0-9]/g, '');
 
-// 토스에서 읽은 고객정보 → 확장 고객 항목 (저장하지 않음)
+// CRM에서 읽은 고객정보 → 확장 고객 항목 (저장하지 않음)
 function _cuPickExtracted(raw) {
   const src = raw || {};
   const pick = {};
@@ -540,7 +540,7 @@ async function cuImportExtracted(raw, opt) {
   opt = opt || {};
   const pick = raw && raw.__picked ? Object.assign({}, raw) : _cuPickExtracted(raw);
   delete pick.__picked;
-  if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. 토스 CRM 고객정보 화면에서 다시 추출해 주세요.'); return null; }
+  if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. CRM 고객정보 화면에서 다시 추출해 주세요.'); return null; }
   // 같은 사람: 이름 같음 + (전화 숫자 같음 / 끝 4자리 같음 / 주민 앞 6자리 같음 / 생년월일 같음)
   //   이름이 같은 고객이 딱 한 명이고, 비교할 번호가 서로 '다르다' 고 확인되지 않으면 같은 사람으로 본다.
   //   → 기존 고객이 있으면 마지막에 가져온 정보로 덮어써서 저장 (건강정보·메모는 그대로 둠)
@@ -609,7 +609,7 @@ async function routeVault(ctx) {
   try { clearTimeout(safetyTimer); } catch (e) {}
   if (btn) { btn.textContent = '📤 프로그램 적용'; btn.disabled = false; }
   const cust = (typeof extractedData !== 'undefined' && extractedData && extractedData.type === 'customer') ? extractedData.customer : null;
-  if (!cust) { await showAlert('토스 CRM 고객정보 화면에서 추출한 데이터만 내 확장에 저장할 수 있습니다.'); return; }
+  if (!cust) { await showAlert('CRM 고객정보 화면에서 추출한 데이터만 내 확장에 저장할 수 있습니다.'); return; }
   _cuShowTab();
   if (!vaultIsUnlocked()) { _cuPendingImport = cust; showToast('🔒 PIN 을 입력하면 바로 저장됩니다'); return; }
   await cuImportExtracted(cust);
@@ -627,19 +627,19 @@ async function cuOpenBigView() {
   catch (e) { await chrome.tabs.create({ url }); }
 }
 
-// ── 📋 현재 페이지 고객 등록 — 토스 CRM 고객정보 화면에서 읽어 바로 PC 금고에 저장 ──
+// ── 📋 현재 페이지 고객 등록 — CRM 고객정보 화면에서 읽어 바로 PC 금고에 저장 ──
 //   '현재 페이지' 탭의 [데이터 추출] → [🔐 내 확장에 저장] 과 같은 일을 고객 탭에서 한 번에.
-//   고객관리 팝업 창에서 눌러도 되도록, 마지막으로 보던 일반 브라우저 창의 토스 탭을 찾는다.
-async function _cuFindTossTab() {
-  const isToss = t => /^https:\/\/crm\.tossinsu\.com\//.test(t.url || '');
+//   고객관리 팝업 창에서 눌러도 되도록, 마지막으로 보던 일반 브라우저 창의 CRM 탭을 찾는다.
+async function _cuFindCrmTab() {
+  const isCrm = t => /^https:\/\/crm\.tossinsu\.com\//.test(t.url || '');
   try {
     const w = await chrome.windows.getLastFocused({ populate: true, windowTypes: ['normal'] });
     const t = w && w.tabs && w.tabs.find(x => x.active);
-    if (t && isToss(t)) return t;
+    if (t && isCrm(t)) return t;
   } catch (e) {}
   try {
     const [t] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (t && isToss(t)) return t;
+    if (t && isCrm(t)) return t;
   } catch (e) {}
   try {
     const all = await chrome.tabs.query({ url: 'https://crm.tossinsu.com/*' });
@@ -651,15 +651,15 @@ async function _cuFindTossTab() {
 async function cuRegisterFromPage(mode) {
   mode = mode || 'pc';
   const btn = document.getElementById({ pc: 'cuFromPageBtn', ws: 'cuFromPageWsBtn', both: 'cuFromPageBothBtn' }[mode]) || document.getElementById('cuFromPageBtn');
-  const tab = await _cuFindTossTab();
-  if (!tab) { await showAlert('토스 CRM 고객정보 화면을 연 뒤 눌러 주세요.', '현재 페이지 고객 등록'); return; }
+  const tab = await _cuFindCrmTab();
+  if (!tab) { await showAlert('CRM 고객정보 화면을 연 뒤 눌러 주세요.', '현재 페이지 고객 등록'); return; }
   const label = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = '읽는 중...'; }
   try {
-    if (typeof ensureContentScript === 'function' && !(await ensureContentScript(tab.id))) throw new Error('토스 화면에 연결하지 못했습니다. 토스 탭을 새로고침한 뒤 다시 눌러 주세요.');
+    if (typeof ensureContentScript === 'function' && !(await ensureContentScript(tab.id))) throw new Error('CRM 화면에 연결하지 못했습니다. CRM 탭을 새로고침한 뒤 다시 눌러 주세요.');
     const data = await chrome.tabs.sendMessage(tab.id, { action: 'extractData' });
     if (!data || data.type !== 'customer' || !data.customer) {
-      await showAlert('지금 토스 화면은 고객정보 화면이 아닙니다.\n토스 CRM 에서 고객을 열어 고객정보(이름·연락처)가 보이는 화면에서 눌러 주세요.', '현재 페이지 고객 등록');
+      await showAlert('지금 CRM 화면은 고객정보 화면이 아닙니다.\nCRM 에서 고객을 열어 고객정보(이름·연락처)가 보이는 화면에서 눌러 주세요.', '현재 페이지 고객 등록');
       return;
     }
     try { extractedData = data; } catch (e) {}
@@ -667,7 +667,7 @@ async function cuRegisterFromPage(mode) {
     if (mode === 'ws') {
       // 워크스페이스에만 — PC 금고에 저장하지 않으므로 PIN 도 필요 없다
       const pick = _cuPickExtracted(data.customer);
-      if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. 토스 CRM 고객정보 화면에서 다시 눌러 주세요.'); return; }
+      if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. CRM 고객정보 화면에서 다시 눌러 주세요.'); return; }
       const masked = Object.keys(pick).filter(k => _cuIsMasked(pick[k]));
       if (masked.length && !(await showConfirm('아직 가려진(****) 값이 있습니다: ' + masked.join(', ') + '\n그대로 워크스페이스에 보낼까요?', '워크스페이스에 등록'))) return;
       await cuSend(Object.assign({ id: '', health: { cat: _cuTpl.categories[0] || '일반체', state: {} } }, pick));
@@ -676,7 +676,7 @@ async function cuRegisterFromPage(mode) {
     if (!vaultIsUnlocked()) {
       // 🔒 잠겨 있어도 저장 — 받은편지함에 암호화해 넣고, 다음에 PIN 을 넣으면 고객 목록에 합쳐진다(같은 고객은 덮어씀)
       const pick = _cuPickExtracted(data.customer);
-      if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. 토스 CRM 고객정보 화면에서 다시 눌러 주세요.'); return; }
+      if (!pick['고객명']) { await showAlert('고객명을 찾지 못했습니다. CRM 고객정보 화면에서 다시 눌러 주세요.'); return; }
       if (await vaultInboxReady() && await vaultInboxAdd('customer-import', Object.assign({ __picked: true }, pick))) {
         const n = await vaultInboxCount();
         showToast(`💾 '${pick['고객명']}' 저장됨 (잠금 상태) — 다음에 PIN 을 넣으면 고객 목록에 합쳐집니다` + (n > 1 ? ` · 대기 ${n}명` : ''));

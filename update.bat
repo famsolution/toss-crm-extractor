@@ -1,13 +1,13 @@
 @echo off
 chcp 65001 >nul
 setlocal
-title 토스인슈 CRM 추출기 업데이트
+title 상담 도우미 업데이트
 rem ─────────────────────────────────────────────────────────────
 rem  이 파일이 있는 폴더(= 확장 프로그램 폴더)에 최신 버전 파일을 덮어씁니다.
 rem  저장한 비번·고객정보는 크롬 안에 있으므로 지워지지 않습니다.
 rem ─────────────────────────────────────────────────────────────
 set "DIR=%~dp0"
-set "URL=https://github.com/famsolution/toss-crm-extractor/releases/latest/download/toss-crm-extractor.zip"
+set "URL=https://github.com/famsolution/toss-crm-extractor/releases/latest/download/sangdam-helper.zip"
 set "WORK=%TEMP%\tce_update"
 
 if not exist "%DIR%manifest.json" (
@@ -47,6 +47,6 @@ rmdir /s /q "%WORK%" >nul 2>&1
 echo  [3/3] 완료!
 echo.
 echo  이제 크롬에서 확장 프로그램 아이콘을 눌러 초록색 띠의 [적용] 을 누르세요.
-echo  ^(또는 chrome://extensions 에서 토스인슈 CRM 추출기의 새로고침 버튼^)
+echo  ^(또는 chrome://extensions 에서 상담 도우미의 새로고침 버튼^)
 echo.
 pause

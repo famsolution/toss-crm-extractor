@@ -1,11 +1,11 @@
 // ──────────────────────────────────────────────────────────────
 // 보험사 GA/설계사 포털 로그인 자동입력
-//   CRM 비번탭에서 "🔗 접속" 클릭 시 열리는 URL 의 hash(#__tossfill=base64)에
+//   CRM 비번탭에서 "🔗 접속" 클릭 시 열리는 URL 의 hash(#__sdhfill=base64)에
 //   담긴 {id, pw, clear} 를 읽어 → 기존 값 삭제 후 기록된 ID/비번 자동입력
 // ──────────────────────────────────────────────────────────────
 (function () {
   try {
-    var m = (location.hash || '').match(/__tossfill=([^&]+)/);
+    var m = (location.hash || '').match(/__sdhfill=([^&]+)/);
     if (!m) return;
     var cred;
     try { cred = JSON.parse(decodeURIComponent(escape(atob(m[1])))); } catch (e) { return; }

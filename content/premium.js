@@ -23,9 +23,9 @@ function extractPremiumComparison() {
     // 보험나이 — span#insur_age 텍스트
     const ageSpan = document.getElementById('insur_age');
     if (ageSpan) result.form.insur_age_label = ageSpan.textContent.trim();
-    console.log('[Toss Extractor] mmlfcp form 추출:', result.form);
+    console.log('[상담도우미] mmlfcp form 추출:', result.form);
   } catch (e) {
-    console.warn('[Toss Extractor] form 추출 실패:', e);
+    console.warn('[상담도우미] form 추출 실패:', e);
   }
 
   // ── 보험사 카드 ──
@@ -125,7 +125,7 @@ function applyConfigToPremiumPage(cfg) {
     });
     result.applied['담보'] = `${matched}/${cfg.coverages.length} 선택됨`;
   }
-  console.log('[Toss Extractor] 보험료 비교 페이지 설정 적용:', result);
+  console.log('[상담도우미] 보험료 비교 페이지 설정 적용:', result);
   return result;
 }
 window.__applyConfigToPremiumPage = applyConfigToPremiumPage;
@@ -183,7 +183,7 @@ function applyCustomerToPremiumPage(customer) {
       result.filled['성별'] = `${gender} (${code})`;
     }
   }
-  console.log('[Toss Extractor] 보험료 비교 페이지 폼 자동 입력:', result);
+  console.log('[상담도우미] 보험료 비교 페이지 폼 자동 입력:', result);
   return result;
 }
 // 전역 노출 — popup.js 가 chrome.scripting.executeScript 로 호출

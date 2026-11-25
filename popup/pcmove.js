@@ -5,7 +5,7 @@
 //   ③ 금고 백업 가져오기  : 다른 PC 에서 그 파일을 넣고 원래 PIN 으로 연다
 //   PIN 은 파일에 들어가지 않는다 — 파일만으로는 내용을 볼 수 없다.
 // ═══════════════════════════════════════════════════════════════════
-const PC_MOVE_ZIP_URL = 'https://github.com/famsolution/toss-crm-extractor/releases/latest/download/toss-crm-extractor.zip';
+const PC_MOVE_ZIP_URL = 'https://github.com/famsolution/toss-crm-extractor/releases/latest/download/sangdam-helper.zip';
 
 function _pmEsc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
@@ -36,7 +36,7 @@ function pcMoveOpen() {
       <div class="pm-step pm-sf">
         <div class="pm-t">📁 원드라이브·구글드라이브 폴더로 자동 동기화 <span class="pm-rec">추천</span></div>
         <div class="pm-s">보험사 비번·고객정보(건강정보 포함)를 고른 폴더에 <b>PIN 으로 암호화된 파일 1개</b>로 둡니다.
-          원드라이브/구글드라이브 PC 프로그램이 동기화하는 폴더(예: <code>OneDrive\토스확장</code>)를 고르세요.
+          원드라이브/구글드라이브 PC 프로그램이 동기화하는 폴더(예: <code>OneDrive\상담도우미</code>)를 고르세요.
           다른 PC 에서도 같은 폴더를 연결하면 어느 PC 에서 고쳐도 서로 반영됩니다(같은 PIN 사용).
           바뀔 때마다 <b>백업</b> 폴더에 단계별로 남깁니다 — 최근 20개 · 하루 1개(30일) · 한 달 1개(12개월).</div>
         <div class="sf-status"></div>
@@ -85,7 +85,7 @@ async function pcMoveExport(msgEl) {
     await showAlert('내보내기 실패: ' + (e.message || e)); return;
   }
   const d = new Date(), p = n => String(n).padStart(2, '0');
-  const name = `토스확장_금고백업_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`;
+  const name = `상담도우미_금고백업_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.json`;
   const url = URL.createObjectURL(new Blob([JSON.stringify(obj)], { type: 'application/json' }));
   const a = document.createElement('a');
   a.href = url; a.download = name;

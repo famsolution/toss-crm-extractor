@@ -255,7 +255,7 @@ function wsShowView(v) {
 // ── .ics 내보내기 ──
 function wsExportIcs() {
   const esc = s => String(s || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, m => '\\' + m);
-  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//toss-crm-extractor//pc-workspace//KO', 'CALSCALE:GREGORIAN'];
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//sangdam-helper//pc-workspace//KO', 'CALSCALE:GREGORIAN'];
   _wsEvents.forEach(e => {
     const d = e.date.replace(/-/g, '');
     lines.push('BEGIN:VEVENT', 'UID:' + e.id + '@pc-workspace');

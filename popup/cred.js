@@ -45,7 +45,7 @@ function _credRefreshLookup() { _credLk = _credLookupUrl(_credTab && _credTab.ur
 async function _credPokeTab() {
   if (!_credTab || !_credTab.id) return;
   try {
-    const [r] = await chrome.scripting.executeScript({ target: { tabId: _credTab.id }, func: () => !!window.__tossCredCardBound });
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: _credTab.id }, func: () => !!window.__sdhCredCardBound });
     if (r && r.result) chrome.tabs.sendMessage(_credTab.id, { action: 'credCardRetry' }, () => { void chrome.runtime.lastError; });
     else await chrome.scripting.executeScript({ target: { tabId: _credTab.id }, files: ['insurer-card.js'] });
   } catch (e) { /* 크롬 내부 페이지 등은 넣을 수 없음 */ }

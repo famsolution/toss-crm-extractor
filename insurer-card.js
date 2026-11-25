@@ -13,8 +13,8 @@
 // ═══════════════════════════════════════════════════════════════════
 (function () {
   if (window.top !== window) return;               // iframe 안에서는 띄우지 않음
-  if (window.__tossCredCardBound) return;
-  window.__tossCredCardBound = true;
+  if (window.__sdhCredCardBound) return;
+  window.__sdhCredCardBound = true;
 
   const SHOW_SEC = 40;
   let host = null, root = null, timer = null, left = SHOW_SEC, paused = false;
@@ -50,7 +50,7 @@
   function ensureHost() {
     if (host && document.documentElement.contains(host)) return;
     host = document.createElement('div');
-    host.setAttribute('data-toss-cred', '');
+    host.setAttribute('data-sdh-cred', '');
     root = host.attachShadow({ mode: 'closed' });
     (document.body || document.documentElement).appendChild(host);
   }

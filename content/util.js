@@ -24,7 +24,7 @@ function getCellValue(ariaLabel, opts) {
   return pickBestValue(getAllCellValues(ariaLabel), opts);
 }
 
-// 직업 코드 → 한글 매핑 (토스인슈 enum)
+// 직업 코드 → 한글 매핑 (CRM enum)
 const JOB_LABELS = {
   OFFICE_WORKER: '직장인', PROFESSIONAL: '전문직', PUBLIC_OFFICER: '공무원',
   SELF_EMPLOYED: '자영업자', FREELANCE: '프리랜서', HOUSEKEEPER: '주부',

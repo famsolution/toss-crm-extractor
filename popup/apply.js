@@ -197,7 +197,7 @@ async function routeConsult(ctx) {
       try {
         chrome.notifications.create({
           type: 'basic', iconUrl: 'icons/icon128.png',
-          title: '토스인슈 CRM 추출기 — 상담등록', message, priority: 2
+          title: '상담 도우미 — 상담등록', message, priority: 2
         });
       } catch (e) { console.warn('[btnApply/consult] 알림 실패:', e); }
     };
@@ -348,7 +348,7 @@ async function routeStandard(ctx) {
     const textData = formatAsText(extractedData);
     // 🆕 적용 데이터를 storage 에 저장 → 앱 페이지의 content.js 가 앱(receiver) 준비되는 순간 자동 적용.
     //   (탭 열림/로그인/렌더 타이밍에 의존하지 않음 — 새로 열려도 준비되면 스스로 가져감)
-    await new Promise(r => { try { chrome.storage.local.set({ __tossPendingApply: { text: textData, ts: Date.now() } }, r); } catch { r(); } });
+    await new Promise(r => { try { chrome.storage.local.set({ __sdhPendingApply: { text: textData, ts: Date.now() } }, r); } catch { r(); } });
 
     let programTab = findProgramTab(allTabs);
     if (!programTab) {
@@ -614,7 +614,7 @@ async function routePremiumPage(ctx) {
         console.warn('[btnApply] ⚠️ 고객 데이터 없음 — 그 외 값만 입력됩니다');
       }
       // 🆕 NEW PATH — content.js sendMessage 사용 (executeScript world:MAIN 우회)
-      //   content.js 가 mmlfcp 페이지에 정상 로드되어 있음 ([Toss Extractor] v3.0.0 로드됨 확인)
+      //   content.js 가 mmlfcp 페이지에 정상 로드되어 있음 ([상담도우미] v3.0.0 로드됨 확인)
       //   하나의 메시지로 폼 입력 + 조회하기 + 담보 체크 까지 통합 처리
       try {
         console.log('[btnApply] content.js 통합 메시지 전송 시작 → tabId:', activeTab.id);
@@ -747,12 +747,12 @@ async function routePremiumPage(ctx) {
               '해결 방법:\n' +
               '① mmlfcp 페이지(' + (activeTab.url || '').substring(0, 60) + '...) 로 가서 Ctrl+Shift+R 새로고침\n' +
               '② 새로고침 후 다시 데이터 추출 + 프로그램 적용\n' +
-              '③ 그래도 안 되면: chrome://extensions → 토스인슈 CRM 데이터 추출기 → 새로고침 아이콘 클릭'
+              '③ 그래도 안 되면: chrome://extensions → 상담 도우미 → 새로고침 아이콘 클릭'
             ) : (
               '확인사항:\n' +
               '① mmlfcp 페이지에서 Ctrl+Shift+R 로 새로고침 후 다시 시도\n' +
               '② chrome://extensions → 사이트 접근 권한 확인\n' +
-              '③ F12 콘솔에서 [Toss Extractor] 로그 확인'
+              '③ F12 콘솔에서 [상담도우미] 로그 확인'
             ))
           );
         }
@@ -942,7 +942,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
       try {
         newTab = await chrome.tabs.create({ url: lastUrl, active: true });
       } catch (e) {
-        showAlert('탭 자동 오픈 실패: ' + (e.message || e) + '\n\n· file:// URL 권한이 필요합니다.\n· chrome://extensions → 토스인슈 CRM 데이터 추출기 → "파일 URL 액세스 허용" ON');
+        showAlert('탭 자동 오픈 실패: ' + (e.message || e) + '\n\n· file:// URL 권한이 필요합니다.\n· chrome://extensions → 상담 도우미 → "파일 URL 액세스 허용" ON');
         return;
       }
       // 페이지가 로드되어 window.__applyTossDataFromExtension 이 정의될 때까지 폴링 (최대 15초)
@@ -994,7 +994,7 @@ document.getElementById('btnApply').addEventListener('click', async () => {
     } catch (e) {
       // file:// 권한 부족 시
       if (e.message.includes('Cannot access') || e.message.includes('file URLs')) {
-        showAlert('❌ file:// URL 접근 권한이 필요합니다.\n\n1. chrome://extensions 열기\n2. 토스인슈 CRM 데이터 추출기의 "상세" 클릭\n3. "파일 URL에 대한 액세스 허용" 토글 활성화\n4. 확장프로그램 reload 후 다시 시도');
+        showAlert('❌ file:// URL 접근 권한이 필요합니다.\n\n1. chrome://extensions 열기\n2. 상담 도우미의 "상세" 클릭\n3. "파일 URL에 대한 액세스 허용" 토글 활성화\n4. 확장프로그램 reload 후 다시 시도');
         return;
       }
       throw e;

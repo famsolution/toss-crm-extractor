@@ -1,6 +1,6 @@
-# 토스인슈 CRM 추출기 (크롬 확장)
+# 상담 도우미 (크롬 확장)
 
-토스인슈 CRM 데이터 추출 + 보험료비교 폼 자동입력. **로그인 + 관리자 승인** 권한 게이트가
+상담 도우미 + 보험료비교 폼 자동입력. **로그인 + 관리자 승인** 권한 게이트가
 들어 있습니다.
 
 - 저장소: `https://github.com/famsolution/toss-crm-extractor.git` (branch `main`)
@@ -40,7 +40,7 @@ zip 을 만들기 전에 이걸 실행하므로, 실패하면 배포가 멈춥�
 
 ## 배포
 
-`.github` 워크플로가 releases/latest의 `toss-crm-extractor.zip`을 자동 갱신합니다.
+`.github` 워크플로가 releases/latest의 `sangdam-helper.zip`을 자동 갱신합니다.
 사용자는 그 zip을 받아 `chrome://extensions`에서 압축해제 로드합니다.
 버전을 올릴 때 `manifest.json`의 `version`을 함께 올리세요.
 

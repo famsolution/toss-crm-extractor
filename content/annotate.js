@@ -1,25 +1,25 @@
 // ═══════════════════════════════════════════════════════════════════
-// 🖍 토스 보장분석 화면 표시 (crm.tossinsu.com/crm-v2/cover/*)
+// 🖍 보장분석 화면 표시 (crm.tossinsu.com/crm-v2/cover/*)
 //   ① 형광펜 — 칸·줄을 눌러 칠하기. '이 고객' 은 그 고객에게만, '모든 고객' 은 같은 줄 이름에 공통 적용
-//   ② 보험 순서 기억 — 토스에서 드래그로 바꾼 순서를 고객별로 기억했다가 다시 열면 그대로 맞춘다
-//   ③ 글자 수정 — 칸의 글자를 화면에서만 바꾼다(토스 서버 데이터는 그대로)
+//   ② 보험 순서 기억 — CRM에서 드래그로 바꾼 순서를 고객별로 기억했다가 다시 열면 그대로 맞춘다
+//   ③ 글자 수정 — 칸의 글자를 화면에서만 바꾼다(CRM 서버 데이터는 그대로)
 //
-//   · 토스 화면 자체를 바꾸지 않고, 열 때마다 내 표시를 다시 입힌다. 기능을 끄면(팝업 체크 또는
-//     도구 막대 ⏻) 화면은 토스 원래 모습 그대로다.
+//   · CRM 화면 자체를 바꾸지 않고, 열 때마다 내 표시를 다시 입힌다. 기능을 끄면(팝업 체크 또는
+//     도구 막대 ⏻) 화면은 원래 모습 그대로다.
 //   · 표시는 '줄 이름(예: 질병입원의료비) × 보험(증권번호)' 로 찾는다 → 보험 순서가 바뀌거나
-//     '보장분석 표 미리보기' 창에서도 같은 칸에 표시된다. 토스 '이미지 복사' 는 화면을 그대로
+//     '보장분석 표 미리보기' 창에서도 같은 칸에 표시된다. CRM '이미지 복사' 는 화면을 그대로
 //     그리므로 형광펜·수정 글자가 페인트프로로 가는 이미지에도 그대로 들어간다(2026-11 실측).
-//   · 순서 맞추기는 토스의 끌어 옮기기 기능을 키보드(스페이스·화살표)로 대신 움직인다 —
-//     화면 칸을 직접 옮기지 않으므로 토스 화면이 꼬이지 않는다.
-//   · 글자 수정은 칸 안 글자 노드의 내용만 바꾼다(노드를 새로 만들거나 지우지 않음) — 토스(React)
+//   · 순서 맞추기는 CRM의 끌어 옮기기 기능을 키보드(스페이스·화살표)로 대신 움직인다 —
+//     화면 칸을 직접 옮기지 않으므로 CRM 화면이 꼬이지 않는다.
+//   · 글자 수정은 칸 안 글자 노드의 내용만 바꾼다(노드를 새로 만들거나 지우지 않음) — CRM(React)
 //     화면이 깨지지 않게.
 //   · 안전장치: 되돌리기(↶, Ctrl+Z) · 고객별 '원래대로' · 기능 끄기. 저장은 background 가
 //     이 PC 전용 키로 암호화(anno_c_<고객번호>). 공통 규칙은 anno_rules.
 // ═══════════════════════════════════════════════════════════════════
 (function () {
   if (!/(^|\.)tossinsu\.com$/i.test(location.hostname)) return;
-  if (window.__tossAnnoBound) return;
-  window.__tossAnnoBound = true;
+  if (window.__sdhAnnoBound) return;
+  window.__sdhAnnoBound = true;
 
   const COLORS = [
     { k: 'y', name: '노랑', bg: 'rgba(255, 230, 0, 0.55)' },
@@ -115,7 +115,7 @@
 
   // ── 칠하기 / 지우기 ────────────────────────────────
   // 형광펜 = 글자 위에만 칠하기. 칸 안 글자 자리(Range 사각형)에 맞춘 색 띠를 칸 안에 깔고
-  // 글자 '뒤' 에 둔다(z-index -1, 칸을 쌓임 맥락으로). 토스 글자 노드는 건드리지 않음(React 안전).
+  // 글자 '뒤' 에 둔다(z-index -1, 칸을 쌓임 맥락으로). CRM 글자 노드는 건드리지 않음(React 안전).
   // 이 띠도 화면의 일부라 '이미지 복사' 이미지에 그대로 들어간다.
   const HL = 'data-tce-hl';
   const painted = new Map();          // cell → color
@@ -236,7 +236,7 @@
     return { sec: pt.sec, row: row.p.label, col: j >= 0 ? keys[j] : '*', isLabel: j < 0 };
   }
 
-  // ── 클릭 처리 (형광펜·글자 수정 모드일 때만 토스 동작을 막고 가로챔) ──
+  // ── 클릭 처리 (형광펜·글자 수정 모드일 때만 CRM 동작을 막고 가로챔) ──
   function onClick(e) {
     if (!enabled || !mode || !cid) return;
     if (e.composedPath && e.composedPath().includes(barHost)) return;
@@ -339,7 +339,7 @@
     if (!enabled || !Array.isArray(want) || !want.length) return;
     let cur = currentOrder();
     if (!cur.length) return;
-    // 저장된 순서에 있는 보험만 그 순서로, 새로 생긴 보험은 토스 순서대로 뒤에
+    // 저장된 순서에 있는 보험만 그 순서로, 새로 생긴 보험은 CRM 순서대로 뒤에
     const target = want.filter(k => cur.includes(k)).concat(cur.filter(k => !want.includes(k)));
     if (target.join(',') === cur.join(',')) { lastOrderSig = cur.join(','); return; }
     replaying = true;
@@ -349,7 +349,7 @@
         const j = cur.indexOf(target[i]);
         if (j === i) continue;
         const ok = await moveColumn(j, i);
-        if (!ok) { toast('⚠ 기억한 보험 순서를 맞추지 못했습니다 — 토스 순서 그대로 둡니다'); break; }
+        if (!ok) { toast('⚠ 기억한 보험 순서를 맞추지 못했습니다 — CRM 순서 그대로 둡니다'); break; }
       }
     } finally { lastOrderSig = currentOrder().join(','); replaying = false; }
     if (lastOrderSig === target.join(',')) toast('↔ 기억한 보험 순서로 맞췄습니다');
@@ -406,7 +406,7 @@
         <button class="fab ${mode ? 'on' : ''}" data-a="toggle">🖍 ${!enabled ? '표시 꺼짐' : mode === 'hl' ? '형광펜 중' : mode === 'edit' ? '글자 수정 중' : '표시 도구'}</button>
         ${barOpen ? `<div class="p">
           ${enabled ? `
-          <div class="r"><span class="lab">모드 (켜져 있는 동안 표를 누르면 토스 기능 대신 표시가 됩니다)</span>
+          <div class="r"><span class="lab">모드 (켜져 있는 동안 표를 누르면 CRM 기능 대신 표시가 됩니다)</span>
             <button data-a="mode-hl" class="${mode === 'hl' ? 'sel' : ''}">🖍 형광펜</button>
             <button data-a="mode-edit" class="${mode === 'edit' ? 'sel' : ''}">✏️ 글자 수정</button>
             <button data-a="mode-off" class="${!mode ? 'sel' : ''}">보기만</button></div>
@@ -417,15 +417,15 @@
             <button data-a="s-one" class="${scope === 'one' ? 'sel' : ''}">이 고객만</button>
             <button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객(줄 단위)</button></div>
           <div class="hint">칸을 누르면 그 칸의 글자, 줄 이름(예: 질병입원의료비)을 누르면 그 줄 글자 전체에 칠해집니다. 같은 색으로 다시 누르면 지워집니다.${scope === 'all' ? '<br><b>모든 고객</b>: 누른 줄이 모든 고객 화면에서 칠해집니다.' : ''}</div>` : ''}
-          ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르면 입력창이 뜹니다. 화면에서만 바뀌고 토스 데이터는 그대로입니다. 고친 칸은 점선 테두리 · 마우스를 올리면 원래 글자.</div>` : ''}
-          <div class="r"><span class="lab">보험 순서 ${ordered ? '— <b>기억됨</b>' : '— 토스에서 끌어 옮기면 자동으로 기억'}</span>
-            ${ordered ? '<button data-a="order-reset">토스 원래 순서로</button>' : ''}</div>
+          ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르면 입력창이 뜹니다. 화면에서만 바뀌고 CRM 데이터는 그대로입니다. 고친 칸은 점선 테두리 · 마우스를 올리면 원래 글자.</div>` : ''}
+          <div class="r"><span class="lab">보험 순서 ${ordered ? '— <b>기억됨</b>' : '— CRM에서 끌어 옮기면 자동으로 기억'}</span>
+            ${ordered ? '<button data-a="order-reset">원래 순서로</button>' : ''}</div>
           <div class="r"><button data-a="undo" ${undo.length ? '' : 'disabled'}>↶ 되돌리기${undo.length ? ' (' + undo.length + ')' : ''}</button></div>
           <div class="r dz"><span class="lab">원래대로 (이 고객)</span>
             <button data-a="clr-hl">형광펜 지우기</button><button data-a="clr-ed">글자 원래대로</button><button data-a="clr-all">전부</button></div>
           ${rules.length ? `<div class="r dz"><span class="lab">모든 고객 규칙 ${rules.length}개</span><button data-a="clr-rules">규칙 모두 지우기</button></div>` : ''}
           <div class="r"><button data-a="disable" class="off">⏻ 표시 기능 끄기</button></div>
-          ` : `<div class="hint">표시 기능이 꺼져 있어 토스 원래 화면입니다. 켜면 저장해 둔 형광펜·글자·순서가 다시 적용됩니다.</div>
+          ` : `<div class="hint">표시 기능이 꺼져 있어 원래 화면입니다. 켜면 저장해 둔 형광펜·글자·순서가 다시 적용됩니다.</div>
           <div class="r"><button data-a="enable">⏻ 표시 기능 켜기</button></div>`}
         </div>` : ''}
         <div class="t"></div>
@@ -443,7 +443,7 @@
     else if (a === 's-all') scope = 'all';
     else if (a === 'undo') return doUndo();
     else if (a === 'order-reset') {
-      if (!confirmBox('기억한 보험 순서를 지우고 토스 원래 순서로 돌아갈까요? (페이지를 새로 불러옵니다)')) return;
+      if (!confirmBox('기억한 보험 순서를 지우고 원래 순서로 돌아갈까요? (페이지를 새로 불러옵니다)')) return;
       snapshot(); data.order = null; await saveCustomer(); location.reload(); return;
     }
     else if (a === 'clr-hl' || a === 'clr-ed' || a === 'clr-all') {
@@ -463,7 +463,7 @@
     else if (a === 'enable') { await setEnabled(true); return; }
     renderBar();
   }
-  // 페이지 안 확인 창 — 토스 페이지의 confirm 대신 우리 막대 안에서 (확장 규칙: confirm/alert 금지)
+  // 페이지 안 확인 창 — CRM 페이지의 confirm 대신 우리 막대 안에서 (확장 규칙: confirm/alert 금지)
   let pendingConfirm = null;
   function confirmBox(msg) {
     // 같은 버튼을 3초 안에 한 번 더 누르면 실행 (실수 방지)
@@ -477,10 +477,10 @@
     try { chrome.storage.local.set({ anno_enabled: on }); } catch (e) {}
     applyAll(); renderBar();
     if (on) replayOrder();
-    toast(on ? '표시 기능을 켰습니다' : '표시 기능을 껐습니다 — 토스 원래 화면');
+    toast(on ? '표시 기능을 켰습니다' : '표시 기능을 껐습니다 — 원래 화면');
   }
 
-  // ── 페이지 감시 (토스는 화면을 자주 다시 그린다 / 고객을 옮겨 다녀도 주소만 바뀜) ──
+  // ── 페이지 감시 (CRM은 화면을 자주 다시 그린다 / 고객을 옮겨 다녀도 주소만 바뀜) ──
   const onCover = () => /\/crm-v2\/cover\/\d+/.test(location.pathname);
   const cidOf = () => { const m = location.pathname.match(/\/crm-v2\/cover\/(\d+)/); return m ? m[1] : ''; };
   let applyTimer = null;
@@ -519,7 +519,7 @@
     if (muts.every(m => (m.target && m.target.closest && m.target.closest('[data-tce-ui],[data-tce-hl]')) ||
       (m.type === 'childList' && Array.prototype.every.call(m.addedNodes, ours) && Array.prototype.every.call(m.removedNodes, ours)))) return;
     scheduleApply();
-  }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });   // 토스가 글자만 바꿔도 다시 입힘
+  }).observe(document.documentElement, { childList: true, subtree: true, characterData: true });   // CRM이 글자만 바꿔도 다시 입힘
   setInterval(onRoute, 700);
   try {
     chrome.storage.onChanged.addListener((ch, area) => {

@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════════
 // 📁 폴더 동기화 — 보험사 비번·고객정보(건강정보 포함)를 원드라이브/구글드라이브 폴더의 파일 1개로
-//   · 내가 고른 폴더(예: C:\Users\나\OneDrive\토스확장)에 '토스확장_금고.json' 을 둔다.
+//   · 내가 고른 폴더(예: C:\Users\나\OneDrive\상담도우미)에 '상담도우미_금고.json' 을 둔다.
 //     원드라이브·구글드라이브 PC 프로그램이 그 파일을 다른 PC 로 옮겨 주고, 다른 PC 의 확장도 같은
 //     폴더를 연결하면 양쪽이 같은 내용을 쓴다(양방향).
 //   · 파일은 금고와 똑같이 PIN 으로 암호화된 상태 그대로 — PIN 은 파일에 없다. 클라우드나 파일이
@@ -12,9 +12,9 @@
 //   · 폴더 권한: 크롬이 PC 를 다시 켠 뒤 한 번 '허용' 을 다시 묻는 경우가 있다 → [다시 허용] 한 번.
 //     폴더 고르기·허용은 팝업이 아닌 큰 창(popup.html?full=1)에서 한다(팝업은 창이 뜨면 닫힘).
 // ═══════════════════════════════════════════════════════════════════
-const SF_FILE = '토스확장_금고.json';
+const SF_FILE = '상담도우미_금고.json';
 const SF_BACKUP_DIR = '백업';
-const SF_APP = 'toss-crm-extractor-sync';
+const SF_APP = 'sangdam-helper-sync';
 const SF_KEEP = { recent: 20, days: 30, months: 12 };
 const SF_STATE_KEY = 'sf_state';          // {folder, lastSync, lastError}
 let _sfBusy = false, _sfTimer = null, _sfQuiet = false;
@@ -157,7 +157,12 @@ async function sfSync(opt) {
   if (!(await _sfPerm(h, !!opt.interactive && sfIsFull()))) { await _sfSetState({ lastError: 'perm' }); return false; }
   _sfBusy = true;
   try {
-    const text = await _sfRead(h, SF_FILE);
+    let text = await _sfRead(h, SF_FILE);
+    if (!text) {   // 예전 이름의 동기화 파일(…_금고.json)이 있으면 그걸 이어 쓴다 — 다음 저장부터 새 이름
+      for await (const [n, fh] of h.entries()) {
+        if (fh.kind === 'file' && n !== SF_FILE && /_금고\.json$/.test(n)) { text = await _sfRead(h, n); if (text) break; }
+      }
+    }
     const localMeta = await vaultMeta();
     const local = {};
     for (const n of VAULT_NAMES) local[n] = await vaultGet(n);
@@ -165,7 +170,7 @@ async function sfSync(opt) {
     let file = null, fileData = null, fileKey = null;
     if (text) {
       try { file = JSON.parse(text); } catch (e) { throw new Error('폴더의 ' + SF_FILE + ' 파일이 손상되었습니다. [백업에서 되돌리기] 를 쓰세요.'); }
-      if (!file || file.app !== SF_APP || !file.meta || !file.meta.check) throw new Error(SF_FILE + ' 가 이 확장의 동기화 파일이 아닙니다.');
+      if (!file || !/-sync$/.test(String(file.app || '')) || !file.meta || !file.meta.check) throw new Error(SF_FILE + ' 가 이 확장의 동기화 파일이 아닙니다.');
       if (file.meta.salt === localMeta.salt) fileKey = vaultCurrentKey();
       else {
         if (!opt.interactive) { await _sfSetState({ lastError: 'pin' }); return false; }
