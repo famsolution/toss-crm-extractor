@@ -293,7 +293,7 @@ async function sfReperm() {
   if (await _sfPerm(h, true)) { sfRenderStatus(); await sfSync({ interactive: true }); }
 }
 
-// ── 자동 동기화: 금고를 열 때 · 저장할 때(1.5초 모아서) · 큰 창은 1분마다 ──
+// ── 자동 동기화: 금고를 열 때 · 저장할 때(1.5초 모아서) · 열려 있는 동안 1분마다 ──
 document.addEventListener('vault-unlocked', () => { setTimeout(() => sfSync({}), 300); });
 document.addEventListener('vault-changed', () => {
   if (_sfQuiet || _sfBusy) return;
@@ -311,6 +311,17 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (a === 'reperm') sfReperm();
   });
   if (vaultIsUnlocked()) setTimeout(() => sfSync({}), 500);
-  if (sfIsFull()) setInterval(() => { if (document.visibilityState === 'visible') sfSync({}); }, 60000);
+  // 팝업·오른쪽 세로바·PC 워크스페이스 어디서든: 1분마다 + 화면으로 돌아올 때 다른 PC 변경분을 받아 옴
+  //   (입력 중일 때는 건너뜀 · 파일은 내용이 바뀔 때만 씀)
+  let _sfLastAuto = 0;
+  const _sfAuto = () => {
+    if (document.visibilityState !== 'visible' || _sfBusy || !vaultIsUnlocked()) return;
+    try { if (window.cuStore && cuStore.editing()) return; } catch (e) {}
+    if (Date.now() - _sfLastAuto < 15000) return;
+    _sfLastAuto = Date.now(); sfSync({});
+  };
+  setInterval(_sfAuto, 60000);
+  document.addEventListener('visibilitychange', _sfAuto);
+  window.addEventListener('focus', _sfAuto);
   if (/[?&]sync=1\b/.test(location.search) && typeof pcMoveOpen === 'function') setTimeout(pcMoveOpen, 300);
 });
