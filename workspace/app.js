@@ -32,7 +32,7 @@ async function wsLoad() {
   if (!vaultIsUnlocked()) return;
   try { _wsEvents = await vaultGet('events'); } catch (e) { _wsEvents = []; }
   try { _wsCusts = await vaultGet('customers'); } catch (e) { _wsCusts = []; }
-  wsRenderCal(); wsRenderSide(); wsFillCustList(); wsRenderStat();
+  wsRenderCal(); wsRenderSide(); wsFillCustList(); wsRenderStat(); wsRenderStats();
 }
 async function wsSaveEvents() { await vaultPut('events', _wsEvents); }
 
@@ -62,6 +62,7 @@ function _wsCustItems() {
 function wsRenderCal() {
   const y = _wsMonth.getFullYear(), m = _wsMonth.getMonth();
   document.getElementById('calTitle').textContent = `${y}년 ${m + 1}월`;
+  try { wsRenderStats(); } catch (e) {}
   const first = new Date(y, m, 1), start = new Date(y, m, 1 - first.getDay());
   const today = _wsToday(), q = _wsQuery.trim();
   const byDay = {};
@@ -132,6 +133,22 @@ function wsRenderSide() {
 function wsFillCustList() {
   document.getElementById('evCustList').innerHTML = _wsCusts
     .filter(c => c['고객명']).map(c => `<option value="${_wsEsc(c['고객명'])}">${_wsEsc([c['연락처'], c['생년월일']].filter(Boolean).join(' · '))}</option>`).join('');
+}
+// 위쪽 요약 카드 — 오늘 일정 · 이번 주 상담 예약 · 이번 달 새 고객 · 할 일(미완료)
+function wsRenderStats() {
+  const el = document.getElementById('wsStats'); if (!el) return;
+  const today = _wsToday(), now = new Date();
+  const wkEnd = new Date(now); wkEnd.setDate(now.getDate() + 7);
+  const all = _wsEvents.concat(_wsCustItems());
+  const todayN = all.filter(e => e.date === today && e.kind !== 'reg' && !e.done).length;
+  const weekAppt = all.filter(e => (e.kind === 'appt' || e.type === '상담') && e.date >= today && e.date <= _wsYmd(wkEnd)).length;
+  const ym = today.slice(0, 7);
+  const newCust = _wsCusts.filter(c => String(c['등록일'] || '').slice(0, 7) === ym).length;
+  const todo = _wsEvents.filter(e => !e.done && e.date >= today).length;
+  const card = (ic, n, t, cls) => `<div class="ws-stat-c ${cls}"><div class="ws-stat-ic">${ic}</div><div><div class="ws-stat-n">${n}</div><div class="ws-stat-t">${t}</div></div></div>`;
+  el.innerHTML = card('📌', todayN, '오늘 일정', 'c1') + card('📞', weekAppt, '7일 안 상담', 'c2') + card('🆕', newCust, '이번 달 새 고객', 'c3') + card('✅', todo, '남은 일정', 'c4');
+  const h = document.getElementById('wsHello');
+  if (h) { const d = new Date(); h.textContent = `${d.getMonth() + 1}월 ${d.getDate()}일 ${'일월화수목금토'[d.getDay()]}요일 · 오늘 일정 ${todayN}건`; }
 }
 function wsRenderStat() {
   const el = document.getElementById('setStat'); if (!el) return;

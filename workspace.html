@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="popup.css">
   <link rel="stylesheet" href="popup-notion.css">
   <link rel="stylesheet" href="workspace/workspace.css">
+  <link rel="stylesheet" href="workspace/modern.css">
 </head>
 <body class="ws-body">
 <!-- 🗂 PC 워크스페이스 — 웹 워크스페이스처럼 캘린더·고객정보·건강상태를 쓰되, 저장은 이 PC 금고(PIN 암호화)에.
@@ -23,14 +24,17 @@
 
 <div class="ws-app" id="wsApp" style="display:none">
   <aside class="ws-nav">
-    <div class="ws-brand">🗂 PC 워크스페이스</div>
-    <button class="ws-nav-btn on" data-view="cal">📅 캘린더</button>
-    <button class="ws-nav-btn" data-view="cust">👤 고객 · 건강상태</button>
-    <button class="ws-nav-btn" data-view="set">⚙️ 저장 · 동기화</button>
+    <div class="ws-brand"><span class="ws-logo">W</span><div><div class="ws-brand-t">PC 워크스페이스</div><div class="ws-brand-s">토스인슈 CRM</div></div></div>
+    <div class="ws-nav-lab">메뉴</div>
+    <button class="ws-nav-btn on" data-view="cal"><span class="ws-ni">📅</span>캘린더</button>
+    <button class="ws-nav-btn" data-view="cust"><span class="ws-ni">👤</span>고객 · 건강상태</button>
+    <button class="ws-nav-btn" data-view="set"><span class="ws-ni">⚙️</span>저장 · 동기화</button>
     <div class="ws-nav-sp"></div>
-    <div class="sf-status ws-sf"></div>
-    <button class="cred-link vault-lock-btn ws-lock">🔒 잠그기</button>
-    <div class="ws-nav-foot">이 PC 에 PIN 으로 암호화해 저장</div>
+    <div class="ws-nav-card">
+      <div class="ws-nav-card-t">🔐 이 PC 에 암호화 저장</div>
+      <div class="sf-status ws-sf"></div>
+      <button class="vault-lock-btn ws-lock">🔒 잠그기</button>
+    </div>
   </aside>
 
   <main class="ws-main">
@@ -38,17 +42,25 @@
     <section class="tab-content ws-view active" id="view-cal">
       <div class="vault-body ws-cal">
         <div class="ws-cal-main">
-          <div class="ws-cal-head">
-            <button class="btn-secondary ws-sm" id="calPrev" title="이전 달">◀</button>
-            <div class="ws-cal-title" id="calTitle"></div>
-            <button class="btn-secondary ws-sm" id="calNext" title="다음 달">▶</button>
-            <button class="btn-secondary ws-sm" id="calToday">오늘</button>
+          <div class="ws-top">
+            <div>
+              <div class="ws-hello" id="wsHello">오늘</div>
+              <div class="ws-cal-title" id="calTitle"></div>
+            </div>
             <span class="cred-sp"></span>
-            <input class="cred-search ws-cal-search" id="calSearch" placeholder="🔍 일정·고객 검색">
-            <button class="btn-primary" id="calAdd">＋ 일정</button>
+            <div class="ws-search"><span>🔍</span><input id="calSearch" placeholder="일정·고객 검색"></div>
+            <div class="ws-seg">
+              <button id="calPrev" title="이전 달">‹</button>
+              <button id="calToday">오늘</button>
+              <button id="calNext" title="다음 달">›</button>
+            </div>
+            <button class="ws-add" id="calAdd">＋ 새 일정</button>
           </div>
+          <div class="ws-stats" id="wsStats"></div>
+          <div class="ws-cal-card">
           <div class="ws-cal-dow"><span class="sun">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span class="sat">토</span></div>
           <div class="ws-cal-grid" id="calGrid"></div>
+          </div>
           <div class="ws-cal-legend" id="calLegend"></div>
         </div>
         <div class="ws-cal-side">
@@ -60,7 +72,7 @@
 
     <!-- 👤 고객 · 건강상태 — 확장 고객 화면 그대로 -->
     <section class="tab-content ws-view" id="view-cust">
-      <div class="vault-body ws-cust"><iframe id="cuFrame" title="고객 관리"></iframe></div>
+      <div class="vault-body ws-cust"><div class="ws-frame-card"><iframe id="cuFrame" title="고객 관리"></iframe></div></div>
     </section>
 
     <!-- ⚙️ 저장 · 동기화 -->
