@@ -133,3 +133,11 @@ body.ws-body {
 
 @media (max-width: 1200px) { .ws-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } .ws-cal-side { width: 280px; } }
 @media (max-width: 900px) { .ws-cal { flex-direction: column; } .ws-cal-side { width: auto; } .ws-nav { width: 200px; } .ws-search input { width: 130px; } }
+
+.ws-chip.reg { background: #EEF0FF; color: #3730A3; }
+.ws-rd { font-weight: 800; font-size: .92em; opacity: .85; }
+.ws-chip .ws-rd { margin-left: 1px; }
+
+/* 고객 상담 칩: 1줄째 시간·고객명, 2줄째 N차 상담 — 잘리지 않게 */
+.ws-chip.reg, .ws-chip.appt { white-space: normal; line-height: 1.3; padding: 4px 8px; }
+.ws-chip.reg .ws-rd, .ws-chip.appt .ws-rd { display: block; font-size: 11.5px; }
