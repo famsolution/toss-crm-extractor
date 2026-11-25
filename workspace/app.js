@@ -315,6 +315,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('evBack').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) wsSaveEvent(); });
   document.getElementById('setIcs').onclick = wsExportIcs;
   document.getElementById('setPin').onclick = () => vaultChangePinFlow();
+  document.getElementById('setGcPat').onclick = () => gcOpenPatternPanel();
+  document.getElementById('setGcGuide').onclick = () => gcOpenGuide();
 
   document.addEventListener('vault-unlocked', () => {
     wsLoad();

@@ -66,3 +66,30 @@ html.is-solo .cu-hans span.warn { background: #FFF4E5 !important; color: #8A4B00
 /* 아래 버튼 줄 */
 html.is-solo .cu-act { position: sticky; bottom: 0; background: rgba(245, 246, 250, .92); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); padding: 12px 0 4px; margin-top: 12px; border-top: 1px solid #ECEEF3; }
 html.is-solo .cred-foot { color: #9CA3AF !important; }
+
+/* 📇 번호저장 버튼 · 메뉴 · 이름 형식 창 (모든 화면) */
+.cu-numsave { float: right; border: 1px solid #BAE6FD; background: #F0F9FF; color: #0369A1; border-radius: 99px; padding: 1px 9px; font-size: 12px; font-weight: 700; cursor: pointer; margin-left: 6px; }
+.cu-numsave:hover { background: #E0F2FE; }
+.gc-menu { position: fixed; z-index: 10200; width: 220px; background: #fff; border: 1px solid #E0E3FA; border-radius: 14px; box-shadow: 0 12px 32px rgba(17, 24, 39, .18); padding: 10px; animation: gcIn .12s ease; font-family: inherit; }
+@keyframes gcIn { from { opacity: 0; transform: translateY(-4px) scale(.97); } to { opacity: 1; transform: none; } }
+.gc-menu-t { font-size: 12px; font-weight: 800; color: #9CA3AF; padding: 0 2px 8px; }
+.gc-menu-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.gc-pfx { flex: 1; border: 0; border-radius: 10px; padding: 9px 6px; background: #EEF0FF; color: #3730A3; font-weight: 800; font-size: 14px; cursor: pointer; }
+.gc-pfx:hover { background: #E0E3FF; }
+.gc-pfx.on { background: #4F46E5; color: #fff; }
+.gc-sub { flex: 1; border: 1px solid #E5E7EF; background: #F7F8FB; color: #374151; border-radius: 10px; padding: 7px 6px; font-weight: 700; font-size: 13px; cursor: pointer; }
+.gc-help { flex: 0 0 36px; }
+.gc-menu-prev { font-size: 12px; color: #6B7280; background: #F7F8FB; border-radius: 8px; padding: 6px 8px; margin-bottom: 6px; word-break: break-all; }
+.gc-menu-prev b { color: #111827; }
+.gc-pat-back { position: fixed; inset: 0; z-index: 10300; background: rgba(17, 24, 39, .4); backdrop-filter: blur(3px); display: flex; align-items: center; justify-content: center; }
+.gc-pat { width: 520px; max-width: calc(100vw - 32px); background: #fff; border-radius: 18px; box-shadow: 0 16px 48px rgba(17, 24, 39, .25); padding: 22px 24px; display: flex; flex-direction: column; gap: 10px; }
+.gc-pat-t { font-size: 18px; font-weight: 800; }
+.gc-pat-s { font-size: 13px; color: #6B7280; }
+.gc-pat-in { font-size: 15px !important; padding: 9px 12px !important; border-radius: 10px !important; }
+.gc-pat-vars { display: flex; flex-wrap: wrap; gap: 6px; }
+.gc-pat-vars button { border: 1px solid #E0E3FA; background: #F7F7FF; color: #3730A3; border-radius: 10px; padding: 5px 10px; font-size: 13px; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; }
+.gc-pat-vars button small { font-size: 10.5px; color: #8B90B0; font-weight: 600; }
+.gc-pat-vars button:hover { background: #EEF0FF; }
+.gc-pat-prev { background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; border-radius: 10px; padding: 9px 12px; font-size: 13.5px; }
+.gc-pat-auto { font-size: 13.5px; color: #374151; display: flex; gap: 6px; align-items: center; }
+.gc-pat-act { display: flex; gap: 8px; align-items: center; margin-top: 4px; }

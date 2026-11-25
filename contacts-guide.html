@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>📇 폰 주소록 연동 사용법</title>
+<style>
+  :root { --a: #4F46E5; --t: #1F2330; --s: #6B7280; --l: #ECEEF3; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #F5F6FA; color: var(--t); font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; line-height: 1.7; font-size: 15.5px; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 36px 24px 60px; }
+  .hero { background: linear-gradient(135deg, #4F46E5, #7C3AED); color: #fff; border-radius: 20px; padding: 28px 30px; box-shadow: 0 12px 32px rgba(79, 70, 229, .3); }
+  .hero h1 { margin: 0 0 6px; font-size: 26px; }
+  .hero p { margin: 0; opacity: .92; }
+  .flow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 16px; font-weight: 700; font-size: 14px; }
+  .flow span { background: rgba(255, 255, 255, .18); border-radius: 99px; padding: 5px 12px; }
+  .card { background: #fff; border: 1px solid var(--l); border-radius: 16px; padding: 22px 24px; margin-top: 18px; box-shadow: 0 1px 2px rgba(17, 24, 39, .04), 0 4px 14px rgba(17, 24, 39, .04); }
+  h2 { font-size: 19px; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+  h2 .n { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: #EEF0FF; color: var(--a); font-size: 15px; }
+  ol, ul { margin: 6px 0 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  b.k { background: #F3F4F8; border: 1px solid #E5E7EF; border-radius: 6px; padding: 0 6px; font-weight: 700; }
+  code { background: #F3F4F8; border-radius: 6px; padding: 1px 6px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--l); }
+  th { color: var(--s); font-weight: 700; background: #FAFBFD; }
+  .tip { background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-size: 14.5px; }
+  .warn { background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-size: 14.5px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 700px) { .two { grid-template-columns: 1fr; } }
+  .foot { color: var(--s); font-size: 13px; text-align: center; margin-top: 26px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>📇 폰 주소록 연동 사용법</h1>
+    <p>고객을 저장하면 정한 이름 형식으로 <b>구글 주소록</b>에 등록되고, 핸드폰에 <b>자동으로</b> 나타납니다.</p>
+    <div class="flow"><span>👤 고객 저장</span>→<span>📇 구글 주소록</span>→<span>📱 핸드폰</span></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">1</span>처음 한 번만 — 구글 주소록 연결</h2>
+    <ol>
+      <li>웹 워크스페이스(<code>ympaint-86457.web.app</code>)에 로그인합니다.</li>
+      <li>왼쪽 사이드바 <b class="k">🔗 Google</b> → <b class="k">📇 주소록 연동</b> 을 누릅니다.</li>
+      <li><b>핸드폰과 동기화된 개인 구글 계정</b>을 고르고 허용합니다. (캘린더 계정과 달라도 됩니다)</li>
+      <li>"✅ 주소록 연동됨" 이 보이면 끝. 이후로는 확장·PC 워크스페이스에서 바로 등록됩니다.</li>
+    </ol>
+    <div class="tip">확장에는 구글 비밀번호나 토큰이 저장되지 않습니다. 워크스페이스 서버가 연결된 계정으로 대신 등록합니다.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span>핸드폰 설정 — 구글 주소록 동기화 켜기</h2>
+    <div class="two">
+      <div><b>🤖 안드로이드(갤럭시 등)</b>
+        <ol><li>설정 → 계정 및 백업 → 계정 관리</li><li>1번에서 고른 구글 계정 선택</li><li>계정 동기화 → <b>연락처</b> 켜기</li></ol></div>
+      <div><b>🍎 아이폰</b>
+        <ol><li>설정 → 연락처 → 계정</li><li>Gmail(구글) 계정 추가 · 선택</li><li><b>연락처</b> 켜기, 기본 계정을 Gmail 로</li></ol></div>
+    </div>
+    <div class="tip">등록 후 보통 몇 분 안에 폰에 나타납니다. 안 보이면 폰 연락처 앱에서 아래로 당겨 새로고침하세요.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span>번호 저장하기</h2>
+    <ul>
+      <li><b>한 명씩</b> — 고객 입력 화면의 <b>연락처</b> 칸 옆 <b class="k">📇 번호저장</b> → <b class="k">ㄴ. 저장</b> 또는 <b class="k">ㅈ. 저장</b>. 고객을 PC 에 저장하고 바로 주소록에 등록합니다.</li>
+      <li><b>자동</b> — 기본으로 켜져 있습니다. <b class="k">💾 PC에 저장</b> · <b class="k">💾📤 PC + 워크스페이스</b> 로 저장하면 전화번호가 있는 고객은 주소록에도 자동 등록됩니다. 이미 주소록에 등록된 고객은 다시 만들지 않습니다.</li>
+      <li><b>목록에서</b> — 고객 카드의 <b class="k">📇 폰 주소록</b>, 여러 명을 한 번에 <b class="k">📇 전체 폰 주소록 등록</b>.</li>
+    </ul>
+    <div class="warn">같은 번호의 연락처가 폰(구글)에 이미 있으면 새로 만들지 않고 그대로 둡니다. 가려진 번호(010-****-1234)는 등록하지 않습니다.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">4</span>저장 이름 형식 바꾸기</h2>
+    <p><b class="k">⚙️ 번호저장 설정</b>(고객 목록 위 · 번호저장 메뉴 · PC 워크스페이스 ⚙️ 저장·동기화)에서 형식을 고칩니다. 칸을 눌러 넣고 미리보기를 보며 저장하세요.
+      처음에는 <b>웹 워크스페이스와 같은 형식</b>이 기본으로 들어 있습니다.</p>
+    <table>
+      <tr><th>칸</th><th>뜻</th><th>예</th></tr>
+      <tr><td><code>{프리픽스}</code></td><td>ㄴ. 또는 ㅈ. (마지막에 고른 것이 기본)</td><td>ㄴ.</td></tr>
+      <tr><td><code>{이름}</code></td><td>고객명 + 님</td><td>홍길동님</td></tr>
+      <tr><td><code>{날짜}</code></td><td>등록 날짜 YYMMDD</td><td>261126</td></tr>
+      <tr><td><code>{생년}</code></td><td>출생연도 2자리</td><td>83</td></tr>
+      <tr><td><code>{생년월일}</code></td><td>생년월일 YYMMDD</td><td>830520</td></tr>
+      <tr><td><code>{연도}</code> <code>{월}</code> <code>{일}</code></td><td>등록 연·월·일</td><td>2026 · 11 · 26</td></tr>
+      <tr><td><code>{전화}</code></td><td>전화번호</td><td>010-1234-5678</td></tr>
+    </table>
+    <div class="tip">기본 형식 <code>{프리픽스}{날짜} {이름}({생년}년)</code> → <b>ㄴ.261126 홍길동님(83년)</b></div>
+    <p>같은 창의 <b>"PC 에 저장할 때 폰 주소록에도 자동으로 등록"</b> 을 끄면 자동 등록을 하지 않습니다.</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">5</span>안 될 때</h2>
+    <ul>
+      <li><b>"구글 주소록이 연결되어 있지 않습니다"</b> → 1번을 다시 해 주세요(연결이 풀렸을 수 있음).</li>
+      <li><b>폰에 안 보임</b> → 2번 동기화가 켜져 있는지, 1번에서 고른 계정과 폰의 계정이 같은지 확인.</li>
+      <li><b>이름이 이상함</b> → 생년월일이 비어 있으면 <code>(년)</code> 부분은 빠집니다. 이미 등록된 연락처의 이름은 자동으로 바뀌지 않으니, 폰 연락처 앱에서 직접 고쳐 주세요.</li>
+    </ul>
+  </div>
+  <div class="foot">토스인슈 CRM 추출기 · 폰 주소록 연동 안내</div>
+</div>
+</body>
+</html>

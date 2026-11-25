@@ -222,7 +222,7 @@ function cuOpenForm(c) {
     if (f.opts) input = `<select data-k="${f.k}">${f.opts.map(o => `<option value="${_cuEsc(o)}"${o === (_cuEdit[f.k] || '') ? ' selected' : ''}>${o ? _cuEsc(o) : '선택'}</option>`).join('')}</select>`;
     else if (f.area) input = `<textarea data-k="${f.k}" rows="2">${v}</textarea>`;
     else input = `<input data-k="${f.k}" type="${f.secret ? 'password' : (f.type || 'text')}" ${f.mode ? `inputmode="${f.mode}"` : ''} placeholder="${_cuEsc(f.ph || '')}" value="${v}" autocomplete="off">`;
-    return `<label class="${f.wide ? 'wide' : ''}">${_cuEsc(f.label)}${f.req ? ' *' : ''}${f.secret ? '<button type="button" class="cred-ic cu-eye" data-act="eye" title="보기/숨김">👁</button>' : ''}${input}</label>`;
+    return `<label class="${f.wide ? 'wide' : ''}">${_cuEsc(f.label)}${f.req ? ' *' : ''}${f.secret ? '<button type="button" class="cred-ic cu-eye" data-act="eye" title="보기/숨김">👁</button>' : ''}${f.k === '연락처' ? '<button type="button" class="cu-numsave" data-act="gc-menu" title="이 번호를 구글 주소록(폰)에 저장 — 저장 방식(ㄴ./ㅈ.)·이름 형식 고르기">📇 번호저장</button>' : ''}${input}</label>`;
   }).join('');
   cuRenderStage();
   cuRenderHealth();
@@ -323,6 +323,7 @@ async function cuSave() {
   const saved = _cuEdit;
   _cuEdit = null;
   showToast('💾 PC 에 저장했습니다');
+  try { document.dispatchEvent(new CustomEvent('cu-saved', { detail: saved })); } catch (e) {}   // 📇 자동 주소록 등록(gcontacts.js)
   cuRenderList();
   return saved;
 }
