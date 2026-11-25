@@ -19,7 +19,16 @@
     const url = chrome.runtime.getURL('update-guide.html');
     try { chrome.tabs.create({ url }); } catch (e) { window.open(url, '_blank'); }
   }
-  function reload() { chrome.runtime.sendMessage({ action: 'updReload' }, () => void chrome.runtime.lastError); }
+  // 팝업은 열 때마다 폴더의 새 파일로 뜨지만, 백그라운드는 예전 버전 그대로일 수 있다
+  //   → 백그라운드에 부탁하지 않고 팝업에서 바로 다시 불러온다.
+  function reload(btn) {
+    if (btn) { btn.disabled = true; btn.textContent = '적용 중…'; }
+    try { chrome.runtime.reload(); } catch (e) {}
+    setTimeout(() => {    // 여기까지 왔으면 다시 불러오기가 안 된 것
+      if (btn) { btn.disabled = false; btn.textContent = '적용'; }
+      if (typeof showAlert === 'function') showAlert('자동 적용이 되지 않았습니다.\n\n주소창에 chrome://extensions 를 열고\n상담 도우미의 🔄 새로고침 버튼을 한 번 눌러 주세요.', '🆕 업데이트');
+    }, 2500);
+  }
 
   async function render(latest) {
     document.getElementById('updBar')?.remove();
@@ -44,7 +53,7 @@
       if (b.dataset.u === 'guide') openGuide();
       else if (b.dataset.u === 'reload') {
         const d = await diskVersion();
-        if (d && newer(d, cur)) reload();
+        if (d && newer(d, cur)) reload(b);
         else if (typeof showAlert === 'function') showAlert('아직 새 파일이 설치 폴더에 없습니다.\n\n확장 프로그램 폴더의 update.bat 을 먼저 실행한 뒤 [적용] 을 눌러 주세요.\n(자세한 방법: 업데이트 방법)', '🆕 업데이트');
       } else if (b.dataset.u === 'later') { await chrome.storage.local.set({ updSnooze: latest }); bar.remove(); }
     });
