@@ -69,6 +69,57 @@ const CU_FIELDS = [
   { k: '메모', label: '메모', wide: true, area: true }
 ];
 
+// 상담 단계 — 웹 워크스페이스와 같은 이름(보내면 워크스페이스 상담 단계에 들어감)
+const CU_STAGES = ['보장분석', '가설계', '진설계', '1차 상담', '2차 상담', '3차 상담', '4차 상담', '대면(분석)', '대면(완료)', '클로징', '대면(계약용)', '계약 완료', '바구니(장기관리)', '부재 전화(가망)', '계속 연락(가망)', '상담종료'];
+function cuRenderStage() {
+  const el = document.getElementById('cuStage'); if (!el || !_cuEdit) return;
+  const cur = _cuEdit['상담단계'] || '';
+  el.innerHTML = CU_STAGES.map(v => `<button type="button" class="cu-stage-chip${v === cur ? ' on' : ''}" data-act="stage" data-v="${_cuEsc(v)}">${_cuEsc(v)}</button>`).join('');
+}
+
+// 🩺 건강상태 답변 확인 — 날짜가 없거나, 팔·다리(관절)인데 오른쪽/왼쪽이 없으면 확인 요청
+const CU_H_NEG = /^(없음|없다|없습니다|아니오|아니요|아님|해당\s*없음|무|정상|x|X|-|–|n|N|no|No)$/;
+const CU_H_DATE = /(19|20)\d{2}|\d{2}\s*년|\d{1,2}\s*월|\d+\s*(년|개월|달|주|일|주일)\s*(전|째|간|동안)?|작년|올해|금년|재작년|지난\s*(해|달|주)|이번\s*(달|주)|최근|\d{2}[.\-/]\d{1,2}|\d{1,2}[.\-/]\d{1,2}/;
+const CU_H_LIMB = /(팔|다리|어깨|팔꿈치|손목|무릎|발목|고관절)/;
+const CU_H_SIDE = /(오른|왼|좌측|우측|양쪽|양측|좌우|[(（\[]\s*[좌우양]\s*[)）\]]|(^|\s)[좌우양]\s*(팔|다리|어깨|팔꿈치|손목|무릎|발목|고관절))/;
+function _cuHealthIssues(text) {
+  const t = String(text || '').trim();
+  if (!t || CU_H_NEG.test(t)) return [];
+  const out = [];
+  if (!CU_H_DATE.test(t)) out.push('날짜가 없습니다 — 언제인지 적어 주세요');
+  const limb = t.match(CU_H_LIMB);
+  if (limb && !CU_H_SIDE.test(t)) out.push(`'${limb[1]}' — 오른쪽인지 왼쪽인지(양쪽인지) 적어 주세요`);
+  return out;
+}
+// 지금 입력 중인 고객의 건강상태 전체에서 확인할 것 모으기
+function _cuHealthAllIssues(c) {
+  const st = (c && c.health && c.health.state) || {};
+  const list = [];
+  Object.keys(st).forEach(cat => {
+    const qs = _cuQs(cat);
+    Object.keys(st[cat] || {}).forEach(i => {
+      const v = st[cat][i];
+      const texts = Array.isArray(v) ? v : (typeof v === 'string' ? [v] : (v && typeof v === 'object' && v.etc ? [] : []));
+      const t = (_cuQType(qs[i] || '') === 'drv' || _cuQType(qs[i] || '') === 'moto') ? [] : texts;
+      t.forEach(a => { const iss = _cuHealthIssues(a); if (iss.length) list.push({ cat, i: Number(i), text: a, iss }); });
+    });
+  });
+  return list;
+}
+// 저장 전에 확인 — 있으면 물어보고, '고치기' 를 고르면 그 카테고리를 열어 둔다. 그대로 저장이면 true
+async function _cuConfirmHealth() {
+  const list = _cuHealthAllIssues(_cuEdit);
+  if (!list.length) return true;
+  const lines = list.slice(0, 8).map(x => `• [${x.cat} ${x.i + 1}번] "${x.text}"\n   → ${x.iss.join(' / ')}`);
+  const ok = await showConfirm('건강상태에서 확인이 필요한 답변이 있습니다.\n\n' + lines.join('\n') + (list.length > 8 ? `\n…외 ${list.length - 8}개` : '') +
+    '\n\n[확인] 이대로 저장 · [취소] 돌아가서 고치기', '🩺 건강상태 확인');
+  if (!ok) {
+    _cuHealthCat = list[0].cat; cuRenderHealth();
+    setTimeout(() => { document.querySelector(`#cuHealthQs .cu-hq[data-i="${list[0].i}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 50);
+  }
+  return ok;
+}
+
 let _cuList = [];
 let _cuQuery = '';
 let _cuEdit = null;          // 편집 중인 고객 사본 (null = 목록 화면)
@@ -139,6 +190,7 @@ function cuRenderList() {
     return `<div class="cred-row" data-id="${_cuEsc(c.id)}">
       <div class="cred-top">
         <span class="cred-ins">${_cuEsc(c['고객명'] || '(이름 없음)')}</span>
+        ${c['상담단계'] ? `<span class="cred-type cu-stage-badge">${_cuEsc(c['상담단계'])}</span>` : ''}
         ${hc ? `<span class="cred-type cu-hbadge">건강 ${hc}</span>` : ''}
         <span class="cred-sp"></span>
         <button class="cred-ic" data-act="edit" title="수정">✏️</button>
@@ -172,6 +224,7 @@ function cuOpenForm(c) {
     else input = `<input data-k="${f.k}" type="${f.secret ? 'password' : (f.type || 'text')}" ${f.mode ? `inputmode="${f.mode}"` : ''} placeholder="${_cuEsc(f.ph || '')}" value="${v}" autocomplete="off">`;
     return `<label class="${f.wide ? 'wide' : ''}">${_cuEsc(f.label)}${f.req ? ' *' : ''}${f.secret ? '<button type="button" class="cred-ic cu-eye" data-act="eye" title="보기/숨김">👁</button>' : ''}${input}</label>`;
   }).join('');
+  cuRenderStage();
   cuRenderHealth();
   document.getElementById('cuListView').style.display = 'none';
   document.getElementById('cuFormView').style.display = '';
@@ -203,9 +256,11 @@ function cuRenderHealth() {
     } else {
       const ans = Array.isArray(v) ? v : [];
       body = `<div class="cu-hadd"><input data-act="hinp" data-i="${i}" placeholder="답변 입력 후 Enter 또는 추가"><button type="button" class="cred-copy" data-act="hadd" data-i="${i}">추가</button></div>` +
-        (ans.length ? `<div class="cu-hans">${ans.map((a, j) => `<span><em data-act="hedit" data-i="${i}" data-j="${j}" title="눌러서 고치기">${_cuEsc(a)}</em><button type="button" data-act="hdel" data-i="${i}" data-j="${j}" title="삭제">×</button></span>`).join('')}</div>` : '');
+        (ans.length ? `<div class="cu-hans">${ans.map((a, j) => { const iss = _cuHealthIssues(a); return `<span class="${iss.length ? 'warn' : ''}"${iss.length ? ` title="${_cuEsc(iss.join('\n'))}"` : ''}>${iss.length ? '<i class="cu-hwarn">⚠</i>' : ''}<em data-act="hedit" data-i="${i}" data-j="${j}" title="눌러서 고치기">${_cuEsc(a)}</em><button type="button" data-act="hdel" data-i="${i}" data-j="${j}" title="삭제">×</button></span>`; }).join('')}</div>` +
+          (ans.some(a => _cuHealthIssues(a).length) ? `<div class="cu-hwarn-msg">⚠ ${_cuEsc([...new Set(ans.flatMap(a => _cuHealthIssues(a)))].join(' · '))}</div>` : '') : '');
     }
-    return `<div class="cu-hq"><div class="cu-hq-t"><b>${i + 1}</b> ${txt}</div>${body}</div>`;
+    const sIss = t === 'single' ? _cuHealthIssues((v && typeof v === 'object' && !Array.isArray(v)) ? v.value : v) : [];
+    return `<div class="cu-hq" data-i="${i}"><div class="cu-hq-t"><b>${i + 1}</b> ${txt}</div>${body}${sIss.length ? `<div class="cu-hwarn-msg">⚠ ${_cuEsc(sIss.join(' · '))}</div>` : ''}</div>`;
   }).join('');
 }
 
@@ -225,6 +280,8 @@ function _cuHAdd(i) {
   st[_cuHealthCat][i] = cur;
   cuRenderHealth();
   document.querySelector(`#cuHealthQs [data-act="hinp"][data-i="${i}"]`)?.focus();
+  const iss = _cuHealthIssues(v);
+  if (iss.length) showToast('⚠ 확인해 주세요: ' + iss.join(' · '));
 }
 
 // 입력칸에 쓰다 만 답변(추가 안 누른 것)도 저장에 넣는다 — 워크스페이스 _captureHealthPendingInputs 와 같은 동작
@@ -254,6 +311,7 @@ async function cuSave() {
   _cuCapturePending();
   _cuReadFields();
   if (!_cuEdit['고객명']) { await showAlert('이름을 입력하세요.'); return null; }
+  if (!(await _cuConfirmHealth())) return null;
   if (!vaultIsUnlocked()) { await showAlert('금고가 잠겨 있습니다. PIN 으로 잠금을 풀어 주세요.'); return null; }
   const before = _cuList.slice();
   _cuEdit['수정일'] = _cuNow();
@@ -274,6 +332,7 @@ async function cuSendOnly() {
   _cuCapturePending();
   _cuReadFields();
   if (!_cuEdit || !_cuEdit['고객명']) { await showAlert('이름을 입력하세요.'); return; }
+  if (!(await _cuConfirmHealth())) return;
   await cuSend(JSON.parse(JSON.stringify(_cuEdit)));
 }
 
@@ -301,6 +360,7 @@ function _cuPayload(c) {
   const fields = {};
   CU_FIELDS.forEach(f => { if (f.k !== '메모' && c[f.k]) fields[f.k] = c[f.k]; });
   if (c['메모']) fields['상담이력'] = c['메모'];
+  if (c['상담단계']) fields['상담단계'] = c['상담단계'];
   const state = (c.health && c.health.state) || {};
   // 질문 목록도 보낸다 — 질문을 편집했으면 워크스페이스가 같은 번호를 다른 질문으로 읽지 않도록
   const qs = {};
@@ -684,6 +744,7 @@ function _cuOnClick(e) {
     });
     return;
   }
+  if (act === 'stage') { _cuEdit['상담단계'] = _cuEdit['상담단계'] === b.dataset.v ? '' : b.dataset.v; cuRenderStage(); return; }
   if (act === 'hadd') { _cuHAdd(Number(b.dataset.i)); return; }
   if (act === 'hdel') {
     const st = _cuEdit.health.state[_cuHealthCat] || {};

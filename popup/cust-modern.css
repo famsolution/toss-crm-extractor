@@ -1,0 +1,68 @@
+/* ═══════════════════════════════════════════════════════════════════
+   👤 고객 · 건강상태 — 상담 단계 칩, 건강 답변 확인 표시 (모든 화면)
+   + 현대적 디자인 (고객관리 창·PC 워크스페이스 안 = html.is-solo 에서만)
+   ═══════════════════════════════════════════════════════════════════ */
+/* 상담 단계 칩 */
+.cu-stage { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+.cu-stage-chip { border: 1px solid var(--border-2, #D1D5DB); background: #fff; color: var(--text-2, #4B5563); border-radius: 99px; padding: 5px 12px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .12s; }
+.cu-stage-chip:hover { border-color: #A5B4FC; color: #3730A3; }
+.cu-stage-chip.on { background: #4F46E5; border-color: #4F46E5; color: #fff; box-shadow: 0 2px 8px rgba(79, 70, 229, .3); }
+.cu-stage-badge { background: #EEF0FF !important; color: #3730A3 !important; }
+
+/* 건강 답변 확인(날짜·좌우) */
+.cu-hans span.warn { background: #FFF4E5 !important; color: #8A4B00 !important; box-shadow: inset 0 0 0 1px #F5C27A; }
+.cu-hwarn { font-style: normal; margin-right: 3px; }
+.cu-hwarn-msg { margin-top: 6px; font-size: 12.5px; color: #B45309; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 6px 9px; line-height: 1.45; }
+
+/* ── 현대적 디자인: 고객관리 창 · PC 워크스페이스 ── */
+html.is-solo body { background: #F5F6FA; font-family: "Pretendard", "Pretendard Variable", -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+html.is-solo .cu-solo-bar { background: #fff !important; border-bottom: 1px solid #ECEEF3 !important; padding: 14px 20px !important; font-size: 17px !important; font-weight: 800 !important; color: #1F2330; }
+html.is-solo .cu-solo-bar .vault-lock-btn { text-decoration: none; background: #F3F4F8; border-radius: 10px; padding: 6px 12px; font-size: 13px !important; color: #4B5563 !important; }
+html.is-solo #tab-cust .cred-wrap { padding: 18px 20px 24px !important; }
+html.is-solo .cu-inbox-note { border-radius: 12px; }
+
+/* 등록 줄 · 검색 줄 */
+html.is-solo .cu-reg-bar { background: linear-gradient(135deg, #EEF0FF, #F5F3FF) !important; border: 1px solid #E0E3FA; border-radius: 14px !important; padding: 12px 14px !important; }
+html.is-solo .cu-reg-lab { color: #3730A3 !important; font-weight: 800 !important; }
+html.is-solo .btn-primary { background: linear-gradient(135deg, #4F46E5, #6366F1) !important; border-radius: 10px !important; box-shadow: 0 4px 12px rgba(79, 70, 229, .28) !important; font-weight: 700 !important; }
+html.is-solo .btn-secondary, html.is-solo .cred-copy { background: #fff !important; border: 1px solid #E2E5F0 !important; border-radius: 10px !important; color: #374151 !important; font-weight: 600 !important; }
+html.is-solo .btn-secondary:hover, html.is-solo .cred-copy:hover { border-color: #C7CBE0 !important; background: #FAFAFE !important; }
+html.is-solo .cred-search { background: #fff !important; border: 1px solid #E2E5F0 !important; border-radius: 12px !important; min-height: 40px; box-shadow: 0 1px 2px rgba(17, 24, 39, .04); }
+html.is-solo .cred-search:focus { border-color: #818CF8 !important; box-shadow: 0 0 0 3px rgba(99, 102, 241, .16) !important; }
+html.is-solo .cred-count { background: #EEF0FF; color: #4F46E5; border-radius: 99px; padding: 3px 10px; font-weight: 700; font-size: 13px; }
+
+/* 고객 목록 카드 */
+html.is-solo #cuList { gap: 12px !important; }
+html.is-solo .cred-row { border: 1px solid #ECEEF3 !important; border-radius: 16px !important; padding: 14px 16px !important; box-shadow: 0 1px 2px rgba(17, 24, 39, .04), 0 4px 14px rgba(17, 24, 39, .04) !important; transition: transform .15s, box-shadow .15s; margin-bottom: 0 !important; }
+html.is-solo .cred-row:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(17, 24, 39, .08) !important; background: #fff !important; }
+html.is-solo .cred-ins { font-size: 16.5px !important; font-weight: 800 !important; }
+html.is-solo .cred-type { border-radius: 99px !important; padding: 2px 9px !important; font-weight: 700 !important; }
+html.is-solo .cu-hbadge { background: #FFF1F2 !important; color: #BE123C !important; }
+html.is-solo .cred-ic { border-radius: 9px; }
+html.is-solo .cu-send-row { color: #4F46E5 !important; border-color: #DCDFFB !important; background: #F7F7FF !important; }
+
+/* 입력 화면 */
+html.is-solo .cred-form-tit { font-size: 20px !important; font-weight: 800 !important; letter-spacing: -0.02em; margin-bottom: 14px; }
+html.is-solo .cu-col { background: #fff; border: 1px solid #ECEEF3; border-radius: 16px; padding: 16px 18px; box-shadow: 0 1px 2px rgba(17, 24, 39, .04), 0 4px 14px rgba(17, 24, 39, .04); }
+html.is-solo .cu-cols { gap: 16px !important; }
+html.is-solo .cu-sec { font-size: 13px !important; font-weight: 800 !important; color: #6B7280 !important; letter-spacing: .04em; text-transform: none; margin: 2px 0 10px; display: flex; align-items: center; gap: 6px; }
+html.is-solo .cu-sec::before { content: ''; width: 4px; height: 14px; border-radius: 4px; background: #6366F1; }
+html.is-solo #cuFields label { color: #4B5563 !important; font-weight: 600; font-size: 13px !important; }
+html.is-solo #cuFields input, html.is-solo #cuFields select, html.is-solo #cuFields textarea,
+html.is-solo .cu-hq input, html.is-solo .cu-hq select {
+  background: #F7F8FB !important; border: 1px solid #E5E7EF !important; border-radius: 10px !important; min-height: 38px; }
+html.is-solo #cuFields input:focus, html.is-solo #cuFields select:focus, html.is-solo #cuFields textarea:focus,
+html.is-solo .cu-hq input:focus, html.is-solo .cu-hq select:focus { background: #fff !important; border-color: #818CF8 !important; box-shadow: 0 0 0 3px rgba(99, 102, 241, .16) !important; }
+
+/* 건강상태 */
+html.is-solo .cu-hcats .cred-filter { border-radius: 99px !important; padding: 5px 14px !important; background: #F3F4F8 !important; color: #4B5563 !important; font-weight: 700 !important; }
+html.is-solo .cu-hcats .cred-filter.on { background: #4F46E5 !important; color: #fff !important; box-shadow: 0 2px 8px rgba(79, 70, 229, .28); }
+html.is-solo .cu-hq { border: 1px solid #ECEEF3 !important; border-radius: 14px !important; padding: 12px 14px !important; background: #fff !important; transition: border-color .15s; }
+html.is-solo .cu-hq:hover { border-color: #DCDFF0 !important; }
+html.is-solo .cu-hq-t b { display: inline-grid; place-items: center; min-width: 22px; height: 22px; border-radius: 7px; background: #EEF0FF; color: #4F46E5; font-size: 12px; margin-right: 6px; }
+html.is-solo .cu-hans span { background: #EEF0FF !important; color: #3730A3 !important; border-radius: 99px !important; padding: 4px 6px 4px 12px !important; font-weight: 600; }
+html.is-solo .cu-hans span.warn { background: #FFF4E5 !important; color: #8A4B00 !important; }
+
+/* 아래 버튼 줄 */
+html.is-solo .cu-act { position: sticky; bottom: 0; background: rgba(245, 246, 250, .92); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); padding: 12px 0 4px; margin-top: 12px; border-top: 1px solid #ECEEF3; }
+html.is-solo .cred-foot { color: #9CA3AF !important; }
