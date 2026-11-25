@@ -314,3 +314,37 @@ chrome.runtime.onMessage.addListener((req, sender, sendResponse) => {
 });
 try { chrome.commands.onCommand.addListener(cmd => { if (cmd === 'open-pc-workspace') _bgOpenPcWorkspace(); }); } catch (e) {}
 
+
+// ═══════════════════════════════════════════════════════════════
+// 🆕 업데이트 확인 — GitHub 의 manifest.json 버전만 읽는다 (보내는 데이터 없음)
+//   새 버전이 있으면 확장 아이콘에 'NEW' 표시, 팝업이 안내 띠를 보여 준다.
+// ═══════════════════════════════════════════════════════════════
+const UPD_MANIFEST_URL = 'https://raw.githubusercontent.com/famsolution/toss-crm-extractor/main/manifest.json';
+function _updNewer(a, b) {   // a 가 b 보다 새 버전이면 true
+  const x = String(a || '').split('.').map(n => parseInt(n, 10) || 0), y = String(b || '').split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); }
+  return false;
+}
+async function _updCheck() {
+  const cur = chrome.runtime.getManifest().version;
+  let latest = '';
+  try {
+    const r = await fetch(UPD_MANIFEST_URL + '?t=' + Date.now(), { cache: 'no-store' });
+    if (r.ok) latest = String((await r.json()).version || '');
+  } catch (e) { return null; }
+  if (!latest) return null;
+  const has = _updNewer(latest, cur);
+  await chrome.storage.local.set({ updLatest: latest, updCheckedAt: Date.now() });
+  try {
+    await chrome.action.setBadgeText({ text: has ? 'NEW' : '' });
+    if (has) await chrome.action.setBadgeBackgroundColor({ color: '#F97316' });
+  } catch (e) {}
+  return { cur, latest, has };
+}
+chrome.runtime.onInstalled.addListener(() => { chrome.alarms.create('tce-update-check', { periodInMinutes: 180 }); _updCheck(); });
+chrome.runtime.onStartup.addListener(() => { chrome.alarms.create('tce-update-check', { periodInMinutes: 180 }); _updCheck(); });
+chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tce-update-check') _updCheck(); });
+chrome.runtime.onMessage.addListener((msg, sender, send) => {
+  if (msg && msg.action === 'updCheckNow') { _updCheck().then(r => send(r || { error: 'offline' })); return true; }
+  if (msg && msg.action === 'updReload') { send({ ok: true }); setTimeout(() => chrome.runtime.reload(), 150); return true; }
+});

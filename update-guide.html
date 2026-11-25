@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🆕 확장 프로그램 업데이트 방법</title>
+<style>
+  :root { --a: #4F46E5; --t: #1F2330; --s: #6B7280; --l: #ECEEF3; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #F5F6FA; color: var(--t); font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; line-height: 1.7; font-size: 15.5px; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 36px 24px 60px; }
+  .hero { background: linear-gradient(135deg, #4F46E5, #7C3AED); color: #fff; border-radius: 20px; padding: 28px 30px; box-shadow: 0 12px 32px rgba(79, 70, 229, .3); }
+  .hero h1 { margin: 0 0 6px; font-size: 26px; }
+  .hero p { margin: 0; opacity: .92; }
+  .flow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 16px; font-weight: 700; font-size: 14px; }
+  .flow span { background: rgba(255, 255, 255, .18); border-radius: 99px; padding: 5px 12px; }
+  .card { background: #fff; border: 1px solid var(--l); border-radius: 16px; padding: 22px 24px; margin-top: 18px; box-shadow: 0 1px 2px rgba(17, 24, 39, .04), 0 4px 14px rgba(17, 24, 39, .04); }
+  h2 { font-size: 19px; margin: 0 0 12px; display: flex; align-items: center; gap: 10px; }
+  h2 .n { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: #EEF0FF; color: var(--a); font-size: 15px; }
+  ol, ul { margin: 6px 0 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  b.k { background: #F3F4F8; border: 1px solid #E5E7EF; border-radius: 6px; padding: 0 6px; font-weight: 700; }
+  code { background: #F3F4F8; border-radius: 6px; padding: 1px 6px; font-size: 14px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--l); }
+  th { color: var(--s); font-weight: 700; background: #FAFBFD; }
+  .tip { background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-size: 14.5px; }
+  .warn { background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; border-radius: 12px; padding: 10px 14px; margin-top: 10px; font-size: 14.5px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 700px) { .two { grid-template-columns: 1fr; } }
+  .foot { color: var(--s); font-size: 13px; text-align: center; margin-top: 26px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>🆕 확장 프로그램 업데이트 방법</h1>
+    <p>새 버전이 나오면 확장 프로그램 위쪽에 <b>주황색 띠</b>가 뜨고 아이콘에 <b>NEW</b> 가 붙습니다. 아래 두 단계면 끝납니다.</p>
+    <div class="flow"><span>① update.bat 더블클릭</span>→<span>② [적용] 누르기</span>→<span>✅ 최신 버전</span></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">1</span>update.bat 실행</h2>
+    <ol>
+      <li>확장 프로그램을 <b>압축 풀어 둔 폴더</b>를 엽니다. (처음 설치할 때 <code>chrome://extensions</code> 에서 '압축해제된 확장 프로그램 로드'로 고른 폴더)</li>
+      <li>그 안의 <b class="k">update.bat</b> 을 더블클릭합니다.</li>
+      <li>검은 창에 <b>[3/3] 완료!</b> 가 나오면 아무 키나 눌러 닫습니다.</li>
+    </ol>
+    <div class="warn">"Windows의 PC 보호" 파란 창이 뜨면 <b>추가 정보 → 실행</b> 을 누르세요. 인터넷에서 받은 .bat 파일이라 처음 한 번 묻는 것입니다.</div>
+    <div class="tip">저장한 비번·고객정보·설정은 크롬 안에 보관되어 있어서 업데이트해도 그대로 남습니다.</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span>[적용] 누르기</h2>
+    <ul>
+      <li>확장 프로그램 아이콘을 다시 열면 띠가 <b>초록색</b>으로 바뀌어 있습니다. <b class="k">적용</b> 을 누르면 바로 새 버전으로 다시 켜집니다.</li>
+      <li>또는 <code>chrome://extensions</code> 에서 토스인슈 CRM 추출기의 🔄 새로고침 버튼을 눌러도 됩니다.</li>
+      <li>열려 있던 토스 CRM 탭은 한 번 새로고침(F5) 해 주세요.</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span>알아 두기</h2>
+    <ul>
+      <li>새 버전 확인은 3시간마다, 그리고 확장 프로그램을 열 때 자동으로 합니다. 머리말의 <b class="k">v버전</b> 표시를 누르면 바로 확인합니다.</li>
+      <li>띠의 <b>✕</b> 를 누르면 그 버전은 다시 알리지 않습니다. (다음 버전이 나오면 다시 뜸)</li>
+      <li>폴더에 update.bat 이 없다면 이전 버전입니다. 이번 한 번만 최신 zip 을 받아 같은 폴더에 덮어 풀어 주세요. 그 다음부터는 update.bat 으로 됩니다.<br>
+        최신 zip: <code>github.com/famsolution/toss-crm-extractor/releases/latest</code></li>
+      <li>업데이트 확인은 버전 번호만 읽어 오며, 고객정보는 어디에도 보내지 않습니다.</li>
+    </ul>
+  </div>
+  <div class="foot">토스인슈 CRM 추출기 · 업데이트 안내</div>
+</div>
+</body>
+</html>
