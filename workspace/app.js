@@ -316,6 +316,32 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('setIcs').onclick = wsExportIcs;
   document.getElementById('setPin').onclick = () => vaultChangePinFlow();
   document.getElementById('setGcPat').onclick = () => gcOpenPatternPanel();
+  // 🔄 캘린더 동기화 설정
+  const csRender = async () => {
+    const o = await csOptions(), st = await csState();
+    const t = x => x ? new Date(x).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '';
+    document.getElementById('csWeb').checked = o.web; document.getElementById('csNaver').checked = o.naver; document.getElementById('csHide').checked = o.hideName;
+    const w = document.getElementById('csWebSt'), n = document.getElementById('csNaverSt');
+    w.textContent = !o.web ? '' : st.webErr ? '⚠ ' + st.webErr : st.webAt ? '✓ ' + t(st.webAt) : '대기 중'; w.className = 'cs-st' + (o.web && st.webErr ? ' err' : '');
+    n.textContent = !o.naver ? '' : st.naverErr ? '⚠ ' + st.naverErr : st.naverAt ? '✓ ' + t(st.naverAt) + (st.naverCalName ? ' · ' + st.naverCalName : '') : '대기 중'; n.className = 'cs-st' + (o.naver && st.naverErr ? ' err' : '');
+  };
+  const csToggle = async (k, el, msg) => {
+    if (el.checked && msg && !(await showConfirm(msg, '🔄 캘린더 동기화'))) { el.checked = false; return; }
+    await csSetOptions({ [k]: el.checked }); csRender();
+    if (el.checked) { await csSync({ interactive: true }); csRender(); }
+  };
+  document.getElementById('csWeb').onchange = e => csToggle('web', e.target, '웹 워크스페이스와 일정을 서로 맞춥니다.\n\n이 PC 의 일정(고객 이름 포함)이 웹 워크스페이스 서버에 저장되고, 웹 캘린더에서도 보이고 고칠 수 있게 됩니다.\n\n켤까요?');
+  document.getElementById('csNaver').onchange = e => csToggle('naver', e.target, '네이버 캘린더와 일정을 서로 맞춥니다.\n\n이 PC 의 일정(고객 이름 포함)이 네이버 캘린더에 저장되고, 핸드폰 네이버 캘린더에서도 보입니다.\n(이름을 가리려면 아래 「고객 이름을 가려서」 도 켜세요)\n\n켤까요?');
+  document.getElementById('csHide').onchange = e => csToggle('hideName', e.target);
+  document.getElementById('csNow').onclick = async () => { const r = await csSync({ interactive: true }); if (!r) showToast('먼저 동기화할 곳(웹·네이버)을 켜세요'); csRender(); };
+  document.getElementById('csNaverTest').onclick = async () => {
+    try { const name = await csNaverTest(); await showAlert(`✅ 네이버 캘린더에 연결되었습니다.\n\n일정을 넣을 캘린더: ${name}`, '🟢 네이버 캘린더'); }
+    catch (err) { await showAlert('❌ ' + (err.message || err), '🟢 네이버 캘린더'); }
+    csRender();
+  };
+  document.addEventListener('calsync-state', csRender);
+  document.addEventListener('calsync-pulled', () => wsLoad());
+  csRender();
   document.getElementById('setGcGuide').onclick = () => gcOpenGuide();
 
   document.addEventListener('vault-unlocked', () => {

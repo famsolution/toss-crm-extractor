@@ -100,6 +100,17 @@
           <div class="ws-card-s">고객을 저장하면 정한 이름 형식(예: ㄴ.261126 홍길동님(83년))으로 구글 주소록에 등록되고, 핸드폰에 자동으로 나타납니다.</div>
           <div class="pm-btns"><button class="btn-primary" id="setGcPat">⚙️ 번호저장 설정</button><button class="btn-secondary" id="setGcGuide">📖 사용법 보기</button></div>
         </div>
+        <div class="ws-card" id="csCard">
+          <div class="ws-card-t">🔄 캘린더 동기화 (웹 워크스페이스 · 네이버 캘린더)</div>
+          <div class="ws-card-s">여기 일정과 웹 워크스페이스·네이버 캘린더 일정을 서로 맞춥니다. 어느 쪽에서 만들거나 고치거나 지워도 다른 쪽에 반영됩니다.<br>
+            <b>켜면 일정(제목의 고객 이름 포함)이 웹 워크스페이스 서버·네이버로 전송됩니다.</b></div>
+          <label class="cs-row"><input type="checkbox" id="csWeb"> 🌐 웹 워크스페이스와 동기화 <span class="cs-st" id="csWebSt"></span></label>
+          <label class="cs-row"><input type="checkbox" id="csNaver"> 🟢 네이버 캘린더와 동기화 <span class="cs-st" id="csNaverSt"></span></label>
+          <label class="cs-row cs-sub"><input type="checkbox" id="csHide"> 네이버에는 고객 이름을 가려서 올리기 (홍길동 → 홍○동)</label>
+          <div class="cs-help">네이버 연결: ① 네이버 → 내정보 → 보안설정 → <b>2단계 인증</b> 켜기 → <b>애플리케이션 비밀번호</b> 만들기(종류: 기타)
+            ② 🔑 비번 탭에 <b>보험사 이름 「네이버 캘린더」</b>, ID = 네이버 아이디, 비밀번호 = 방금 만든 애플리케이션 비밀번호로 저장 ③ 아래 [네이버 연결 확인]</div>
+          <div class="pm-btns"><button class="btn-primary" id="csNow">🔄 지금 동기화</button><button class="btn-secondary" id="csNaverTest">🟢 네이버 연결 확인</button></div>
+        </div>
         <div class="ws-card">
           <div class="ws-card-t">📤 일정 내보내기</div>
           <div class="ws-card-s">구글 캘린더·아웃룩 등에 넣을 수 있는 .ics 파일로 내려받습니다.</div>
@@ -158,6 +169,7 @@
 <script src="popup/pcmove.js"></script>
 <script src="popup/syncfolder.js"></script>
 <script src="popup/gcontacts.js"></script>
+<script src="popup/calsync.js"></script>
 <script src="workspace/app.js"></script>
 </body>
 </html>

@@ -48,6 +48,8 @@ zip 을 만들기 전에 이걸 실행하므로, 실패하면 배포가 멈춥�
 
 - 고객 개인정보를 다루는 확장입니다. 추출 데이터를 로그로 남기거나 외부로 전송하는 코드를
   추가하지 마세요.
+  - 예외(사용자 승인, 2026-11-27): `popup/calsync.js` 캘린더 동기화 — 사용자가 켠 경우에만 PC 워크스페이스
+    일정을 웹 워크스페이스(Firestore `schedules`)·네이버 캘린더(CalDAV)와 주고받는다. 일정 외 데이터는 보내지 않는다.
 - 확장 코드에서 `alert`/`confirm`/`prompt` 를 쓰지 마세요. 대신 팝업에서는 `popup/dialog.js` 의
   `showAlert` / `showConfirm` / `showPrompt`, content script 에서는 `content/paint-pro.js` 의
   `pageAlert` / `pageConfirm` 을 씁니다. 전부 Promise 를 돌려주므로 호출 함수가 `async`

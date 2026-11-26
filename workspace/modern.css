@@ -149,3 +149,11 @@ body.ws-body {
 .sf-alert button + button { margin-left: 0; }
 .sf-alert button.sf-x { background: transparent; color: #9A3412; padding: 4px 6px; }
 
+
+/* 🔄 캘린더 동기화 카드 */
+.cs-row { display: flex; align-items: center; gap: 8px; font-size: 14.5px; font-weight: 600; margin: 6px 0; flex-wrap: wrap; }
+.cs-row.cs-sub { font-weight: 500; font-size: 13.5px; color: #4B5163; padding-left: 24px; }
+.cs-st { font-size: 12.5px; font-weight: 600; color: #0F7B6C; background: #ECFDF5; border-radius: 99px; padding: 1px 9px; }
+.cs-st:empty { display: none; }
+.cs-st.err { color: #B42318; background: #FEF3F2; }
+.cs-help { font-size: 13px; color: #4B5163; background: #F7F8FB; border: 1px solid #E8EAF0; border-radius: 10px; padding: 9px 12px; margin: 8px 0; line-height: 1.65; }
