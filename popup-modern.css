@@ -202,3 +202,11 @@ html.w-narrow .tab .tab-lb { font-size: 13.5px; }
 .upd-go.upd-sub { background: #fff; color: #C2410C; border: 1px solid #FDBA74; box-shadow: none; }
 .upd-x { border: 0; background: transparent; color: #9A3412; font-size: 15px; cursor: pointer; padding: 4px 6px; border-radius: 8px; }
 .upd-x:hover { background: rgba(0, 0, 0, .06); }
+
+/* 📁 폴더 동기화 경고 띠 */
+.sf-alert { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 10px 12px 0; padding: 10px 12px 10px 14px; border-radius: 14px; background: linear-gradient(135deg, #FFF7ED, #FFEDD5); border: 1px solid #FED7AA; color: #7C2D12; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 2px rgba(17,24,39,.04), 0 4px 14px rgba(17,24,39,.05); }
+.sf-alert b { margin-right: 2px; }
+.sf-alert button { border: 0; border-radius: 10px; padding: 6px 12px; font-weight: 800; font-size: 13.5px; cursor: pointer; background: #F97316; color: #fff; margin-left: auto; white-space: nowrap; }
+.sf-alert button + button { margin-left: 0; }
+.sf-alert button.sf-x { background: transparent; color: #9A3412; padding: 4px 6px; }
+

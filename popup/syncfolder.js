@@ -14,6 +14,7 @@
 // ═══════════════════════════════════════════════════════════════════
 const SF_FILE = '상담도우미_금고.json';
 const SF_BACKUP_DIR = '백업';
+const _sfEsc = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const SF_APP = 'sangdam-helper-sync';
 const SF_KEEP = { recent: 20, days: 30, months: 12 };
 const SF_STATE_KEY = 'sf_state';          // {folder, lastSync, lastError}
@@ -44,7 +45,7 @@ async function _sfSetState(patch) {
   await _sfStore(null, { [SF_STATE_KEY]: Object.assign(st, patch) });
   sfRenderStatus();
 }
-const sfIsFull = () => /[?&]full=1\b/.test(location.search);
+const sfIsFull = () => /[?&]full=1\b/.test(location.search) || /workspace\.html$/.test(location.pathname);   // 탭으로 연 화면 = 허용 창을 띄울 수 있음
 
 async function _sfPerm(h, ask) {
   const o = { mode: 'readwrite' };
@@ -73,8 +74,8 @@ async function sfDisconnect() {
   await _sfHandle(null);
   await _sfSetState({ folder: '', lastSync: 0, lastError: '' });
 }
-function sfOpenFull() {
-  const url = chrome.runtime.getURL('popup.html?full=1&tab=cred&sync=1');
+function sfOpenFull(reperm) {
+  const url = chrome.runtime.getURL('popup.html?full=1&tab=cred' + (reperm ? '&reperm=1' : '&sync=1'));
   try { chrome.tabs.create({ url }); } catch (e) { window.open(url, '_blank'); }
 }
 
@@ -283,13 +284,28 @@ async function sfRenderStatus() {
   else if (st.lastError && st.lastError !== 'perm') { msg = `📁 '${h.name}' — 실패: ${st.lastError}`; cls = 'warn'; }
   else msg = `📁 '${h.name}' 와 동기화됨${t ? ' · ' + t : ''}`;
   document.querySelectorAll('.sf-status').forEach(el => { el.textContent = msg; el.className = 'sf-status ' + cls; });
+  // 눈에 잘 띄는 경고 띠 — 동기화가 멈춘 상태를 모르고 지나가지 않도록 (모든 탭 위)
+  let al = document.getElementById('sfAlert');
+  if (!al) {
+    al = document.createElement('div'); al.id = 'sfAlert'; al.className = 'sf-alert';
+    const anchor = document.querySelector('.tab-bar') || document.querySelector('.ws-main > *');
+    if (anchor) anchor.parentNode.insertBefore(al, anchor); else document.body.prepend(al);
+  }
+  let alert = '';
+  const stale = h && perm && st.lastSync && Date.now() - st.lastSync > 24 * 3600 * 1000;
+  if (h && !perm) alert = `<b>⚠ 폴더 동기화가 멈춰 있습니다</b> — 크롬이 '${_sfEsc(h.name)}' 폴더 사용 허락을 다시 묻고 있어요. 다른 PC 와 비번·고객이 맞춰지지 않습니다.<button data-sf="reperm">📁 다시 허용</button>`;
+  else if (h && st.lastError === 'pin') alert = `<b>⚠ 폴더 동기화 대기</b> — 폴더 파일이 다른 PIN 으로 잠겨 있습니다.<button data-sf="sync">PIN 넣고 동기화</button>`;
+  else if (h && st.lastError && st.lastError !== 'perm') alert = `<b>⚠ 폴더 동기화 실패</b> — ${_sfEsc(st.lastError)}<button data-sf="sync">다시 시도</button>`;
+  else if (stale) alert = `<b>📁 하루 넘게 동기화되지 않았습니다</b> (마지막 ${t})<button data-sf="sync">지금 동기화</button>`;
+  else if (!h && (await _sfStore(['sfNagOff']))['sfNagOff'] !== true) alert = `<b>📁 폴더 동기화가 꺼져 있습니다</b> — 비번·고객이 이 PC 에만 저장됩니다.<button data-sf="connect">폴더 연결</button><button class="sf-x" data-sf="nag-off" title="다시 보지 않기">✕</button>`;
+  al.innerHTML = alert; al.style.display = alert ? '' : 'none';
   document.querySelectorAll('.sf-need-conn').forEach(el => { el.style.display = h ? '' : 'none'; });
   document.querySelectorAll('.sf-reperm').forEach(el => { el.style.display = h && !perm ? '' : 'none'; });
 }
 async function sfReperm() {
   const h = await _sfHandle().catch(() => null);
   if (!h) return;
-  if (!sfIsFull()) { sfOpenFull(); return; }   // 팝업에서는 허용 창을 띄울 수 없어 큰 창으로
+  if (!sfIsFull()) { sfOpenFull(true); return; }   // 팝업에서는 허용 창을 띄울 수 없어 큰 창으로
   if (await _sfPerm(h, true)) { sfRenderStatus(); await sfSync({ interactive: true }); }
 }
 
@@ -309,6 +325,7 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (a === 'restore') sfRestore();
     else if (a === 'off') sfDisconnect();
     else if (a === 'reperm') sfReperm();
+    else if (a === 'nag-off') { _sfStore(null, { sfNagOff: true }).then(sfRenderStatus); }
   });
   if (vaultIsUnlocked()) setTimeout(() => sfSync({}), 500);
   // 팝업·오른쪽 세로바·PC 워크스페이스 어디서든: 1분마다 + 화면으로 돌아올 때 다른 PC 변경분을 받아 옴
@@ -324,4 +341,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('visibilitychange', _sfAuto);
   window.addEventListener('focus', _sfAuto);
   if (/[?&]sync=1\b/.test(location.search) && typeof pcMoveOpen === 'function') setTimeout(pcMoveOpen, 300);
+  if (/[?&]reperm=1\b/.test(location.search)) setTimeout(async () => {
+    if (await showConfirm('다른 PC 와 비번·고객을 맞추려면 동기화 폴더 사용을 다시 허락해야 합니다.\n\n[확인] 을 누른 뒤 크롬이 묻는 창에서 「파일 수정 허용」(또는 「방문할 때마다 허용」)을 눌러 주세요.', '📁 폴더 다시 허용')) {
+      const h = await _sfHandle().catch(() => null);
+      if (h && (await _sfPerm(h, true))) { sfRenderStatus(); await sfSync({ interactive: true }); }
+    }
+  }, 400);
 });

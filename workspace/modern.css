@@ -141,3 +141,11 @@ body.ws-body {
 /* 고객 상담 칩: 1줄째 시간·고객명, 2줄째 N차 상담 — 잘리지 않게 */
 .ws-chip.reg, .ws-chip.appt { white-space: normal; line-height: 1.3; padding: 4px 8px; }
 .ws-chip.reg .ws-rd, .ws-chip.appt .ws-rd { display: block; font-size: 11.5px; }
+
+/* 📁 폴더 동기화 경고 띠 */
+.sf-alert { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 10px 12px 0; padding: 10px 12px 10px 14px; border-radius: 14px; background: linear-gradient(135deg, #FFF7ED, #FFEDD5); border: 1px solid #FED7AA; color: #7C2D12; font-size: 14px; line-height: 1.5; box-shadow: 0 1px 2px rgba(17,24,39,.04), 0 4px 14px rgba(17,24,39,.05); }
+.sf-alert b { margin-right: 2px; }
+.sf-alert button { border: 0; border-radius: 10px; padding: 6px 12px; font-weight: 800; font-size: 13.5px; cursor: pointer; background: #F97316; color: #fff; margin-left: auto; white-space: nowrap; }
+.sf-alert button + button { margin-left: 0; }
+.sf-alert button.sf-x { background: transparent; color: #9A3412; padding: 4px 6px; }
+
