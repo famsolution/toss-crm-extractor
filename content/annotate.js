@@ -348,14 +348,58 @@
   }
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   function key(el, code) { el.dispatchEvent(new KeyboardEvent('keydown', { key: code === 'Space' ? ' ' : code, code, bubbles: true, cancelable: true })); }
+  // CRM 머리칸 옮기기 — CRM 버전에 따라 키보드로만/끌기로만 되는 경우가 있어 여러 방법을 차례로 시도하고,
+  // 한 번 된 방법은 기억해서 다음 칸부터 그 방법을 먼저 쓴다.
+  let goodWay = '';
+  const center = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; };
+  function grips(h) {   // 실제로 잡히는 곳: 머리칸 자체 또는 안쪽 손잡이(버튼)
+    const out = [];
+    const c = center(h), hit = document.elementFromPoint(c.x, c.y);
+    if (hit && h.contains(hit)) out.push(hit);
+    h.querySelectorAll('button,[role="button"],[data-dnd-handle],[draggable="true"]').forEach(b => out.push(b));
+    out.push(h);
+    return out.filter((x, i, a) => a.indexOf(x) === i);
+  }
+  async function viaKeys(el, steps, dir) {
+    el.focus(); key(el, 'Space'); await sleep(180);
+    for (let i = 0; i < steps; i++) { key(document.activeElement && document.activeElement !== document.body ? document.activeElement : el, dir); await sleep(150); }
+    key(document.activeElement && document.activeElement !== document.body ? document.activeElement : el, 'Space'); await sleep(400);
+  }
+  async function viaDrag(el, target, kind, toLeft) {
+    const P = kind === 'pointer';
+    const a = center(el), b = center(target);
+    const tx = b.x + (toLeft ? -b.w * 0.25 : b.w * 0.25), ty = b.y;
+    const fire = (node, type, x, y, buttons) => {
+      const o = { bubbles: true, cancelable: true, composed: true, view: window, clientX: x, clientY: y, screenX: x, screenY: y, button: 0, buttons };
+      node.dispatchEvent(P ? new PointerEvent(type, Object.assign({ pointerId: 1, pointerType: 'mouse', isPrimary: true }, o)) : new MouseEvent(type, o));
+    };
+    fire(el, P ? 'pointerdown' : 'mousedown', a.x, a.y, 1);
+    await sleep(60);
+    fire(document, P ? 'pointermove' : 'mousemove', a.x + (toLeft ? -6 : 6), a.y + 1, 1);   // 끌기 시작 거리
+    await sleep(280);                                                                      // 길게 누르기 조건 대비
+    const n = 14;
+    for (let i = 1; i <= n; i++) { fire(document, P ? 'pointermove' : 'mousemove', a.x + (tx - a.x) * i / n, a.y + (ty - a.y) * i / n, 1); await sleep(30); }
+    await sleep(120);
+    fire(document, P ? 'pointerup' : 'mouseup', tx, ty, 0);
+    await sleep(450);
+  }
   async function moveColumn(from, to) {
-    const el = headerCells()[from]; if (!el) return false;
+    const hs = headerCells(), h = hs[from], target = hs[to]; if (!h || !target) return false;
     const before = currentOrder().join(',');
-    el.focus(); key(el, 'Space'); await sleep(160);
-    const dir = to < from ? 'ArrowLeft' : 'ArrowRight';
-    for (let i = 0; i < Math.abs(to - from); i++) { key(document.activeElement || el, dir); await sleep(140); }
-    key(document.activeElement || el, 'Space'); await sleep(350);
-    return currentOrder().join(',') !== before;
+    const changed = () => { const now = currentOrder().join(','); return now && now !== before; };
+    const toLeft = to < from, steps = Math.abs(to - from), dir = toLeft ? 'ArrowLeft' : 'ArrowRight';
+    const ways = ['keys', 'pointer', 'mouse'];
+    if (goodWay) ways.sort((x, y) => (x === goodWay ? -1 : 0) - (y === goodWay ? -1 : 0));
+    for (const w of ways) {
+      for (const g of grips(h)) {
+        if (w === 'keys') await viaKeys(g, steps, dir);
+        else await viaDrag(g, headerCells()[to] || target, w, toLeft);
+        if (changed()) { goodWay = w; return true; }
+        try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true })); } catch (e) {}   // 반쯤 잡힌 상태 풀기
+        await sleep(120);
+      }
+    }
+    return false;
   }
   async function replayOrder() {
     const want = data.order;
@@ -366,14 +410,17 @@
     const target = want.filter(k => cur.includes(k)).concat(cur.filter(k => !want.includes(k)));
     if (target.join(',') === cur.join(',')) { lastOrderSig = cur.join(','); return; }
     replaying = true;
+    let failed = false;
     try {
-      for (let i = 0; i < target.length; i++) {
-        cur = currentOrder();
-        const j = cur.indexOf(target[i]);
-        if (j === i) continue;
-        const ok = await moveColumn(j, i);
-        if (!ok) { toast('⚠ 기억한 보험 순서를 맞추지 못했습니다 — CRM 순서 그대로 둡니다'); break; }
+      for (let pass = 0; pass < 2 && !failed && currentOrder().join(',') !== target.join(','); pass++) {
+        for (let i = 0; i < target.length; i++) {
+          cur = currentOrder();
+          const j = cur.indexOf(target[i]);
+          if (j < 0 || j === i) continue;
+          if (!(await moveColumn(j, i))) { failed = true; break; }
+        }
       }
+      if (failed) toast('⚠ 기억한 보험 순서를 맞추지 못했습니다 — CRM 순서 그대로 둡니다');
     } finally { lastOrderSig = currentOrder().join(','); replaying = false; }
     if (lastOrderSig === target.join(',')) toast('↔ 기억한 보험 순서로 맞췄습니다');
   }
