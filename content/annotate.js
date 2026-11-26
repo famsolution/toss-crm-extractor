@@ -42,6 +42,9 @@
   const editedNodes = new Map();      // cell → [{node, orig}]
   let lastOrderSig = '';
   let replaying = false;
+  let orderReady = false;             // 이 고객 화면에서 저장분 불러오기 + 순서 맞추기가 끝났는지
+  let userTouchAt = 0;                // 사용자가 보험 머리칸을 직접 잡은 시각 (끌기·키보드)
+  let autoFixes = 0;                  // CRM이 스스로 순서를 되돌렸을 때 다시 맞춘 횟수
 
   // ── background 저장소 ─────────────────────────────
   const send = msg => new Promise(r => { try { chrome.runtime.sendMessage(msg, x => { void chrome.runtime.lastError; r(x); }); } catch (e) { r(null); } });
@@ -322,7 +325,27 @@
     }
     return [];
   }
-  function currentOrder() { const s = mainScan(); return headerCells().length ? s.keys.slice(0, headerCells().length) : []; }
+  function currentOrder() {
+    const s = mainScan(), n = headerCells().length;
+    if (!n) return [];
+    const ks = s.keys.slice(0, n);
+    // 아직 내용이 덜 그려진 표(증권번호가 비었거나 같은 키가 겹침)는 순서로 치지 않음
+    if (ks.length !== n || new Set(ks).size !== ks.length || ks.some(k => k.length < 3)) return [];
+    return ks;
+  }
+  const sameSet = (a, b) => a.length === b.length && a.every(k => b.includes(k));
+  // 표가 다 그려지고 1초 넘게 그대로일 때까지 기다림 (새 브라우저로 열면 CRM이 표를 여러 번에 나눠 그림)
+  async function waitStable(maxMs) {
+    let last = '', since = Date.now();
+    const t0 = Date.now();
+    while (Date.now() - t0 < maxMs) {
+      const sig = currentOrder().join(',');
+      if (sig !== last) { last = sig; since = Date.now(); }
+      else if (sig && Date.now() - since >= 1200) return true;
+      await sleep(250);
+    }
+    return !!last;
+  }
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   function key(el, code) { el.dispatchEvent(new KeyboardEvent('keydown', { key: code === 'Space' ? ' ' : code, code, bubbles: true, cancelable: true })); }
   async function moveColumn(from, to) {
@@ -355,10 +378,17 @@
     if (lastOrderSig === target.join(',')) toast('↔ 기억한 보험 순서로 맞췄습니다');
   }
   async function watchOrder() {
-    if (replaying || !enabled || !cid) return;
-    const sig = currentOrder().join(',');
+    if (replaying || !enabled || !cid || !orderReady) return;
+    const cur = currentOrder(), sig = cur.join(',');
     if (!sig || sig === lastOrderSig) return;
-    if (!lastOrderSig) { lastOrderSig = sig; return; }   // 처음 본 순서는 기준값
+    const prev = lastOrderSig ? lastOrderSig.split(',') : [];
+    if (!lastOrderSig || !sameSet(cur, prev)) { lastOrderSig = sig; return; }   // 보험이 늘거나 줄면 기준만 새로
+    if (Date.now() - userTouchAt > 6000) {
+      // 사용자가 옮긴 게 아님 = CRM이 화면을 새로 그리며 원래 순서로 되돌림 → 기억한 순서로 다시 맞춤
+      lastOrderSig = sig;
+      if (Array.isArray(data.order) && data.order.length && autoFixes < 3) { autoFixes++; replayOrder(); }
+      return;
+    }
     lastOrderSig = sig;
     snapshot();
     data.order = sig.split(',');
@@ -492,20 +522,28 @@
   async function onRoute() {
     const now = onCover() ? cidOf() : '';
     if (now === cid) return;
-    cid = now; mode = ''; undo.length = 0; lastOrderSig = ''; closeEditor();
+    cid = now; mode = ''; undo.length = 0; lastOrderSig = ''; orderReady = false; autoFixes = 0; closeEditor();
     unpaintAll(); restoreEdits();
     if (!cid) { renderBar(); return; }
     await loadAll();
     renderBar();
-    // 표가 그려질 때까지 기다렸다가 순서 맞추고 표시
-    for (let i = 0; i < 40 && !headerCells().length; i++) await sleep(250);
-    await sleep(400);
+    // 표가 다 그려질 때까지(최대 45초) 기다렸다가 기억한 순서로 맞추고 표시
+    const myCid = cid;
+    await waitStable(45000);
+    if (cid !== myCid) return;
     await replayOrder();
-    if (!lastOrderSig) lastOrderSig = currentOrder().join(',');
+    lastOrderSig = currentOrder().join(',');
+    orderReady = true;
     applyAll();
   }
 
   document.addEventListener('click', onClick, true);
+  ['pointerdown', 'keydown', 'dragstart'].forEach(t => document.addEventListener(t, ev => {
+    if (replaying || !ev.isTrusted) return;
+    const h = ev.target && ev.target.closest && ev.target.closest('[aria-roledescription="sortable"]');
+    if (h) userTouchAt = Date.now();
+  }, true));
+  ['pointermove', 'pointerup'].forEach(t => document.addEventListener(t, () => { if (userTouchAt && Date.now() - userTouchAt < 6000) userTouchAt = Date.now(); }, true));
   ['pointerdown', 'mousedown', 'keydown'].forEach(t => document.addEventListener(t, ev => {
     if (t === 'keydown') {
       if (enabled && mode && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey && ev.key && ev.key.toLowerCase() === 'z' && !edBox) { ev.preventDefault(); doUndo(); }
