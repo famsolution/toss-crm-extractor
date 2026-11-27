@@ -601,8 +601,8 @@
   function toast(msg) {
     if (!barRoot) return;
     const t = barRoot.querySelector('.t'); if (!t) return;
-    t.textContent = msg; t.style.opacity = '1';
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 3500);
+    t.textContent = msg; t.style.opacity = '1'; t.style.transform = 'none';
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateY(-4px)'; }, 3500);
   }
   let barOpen = false;
   // ═══════════════════════════════════════════════════════════════
@@ -734,48 +734,80 @@
     if (!onCover()) { if (barHost) barHost.remove(); barHost = null; return; }
     ensureBar();
     const ordered = Array.isArray(data.order) && data.order.length;
+    const fabLabel = !enabled ? '표시 꺼짐' : mode === 'hl' ? '형광펜 사용 중' : mode === 'edit' ? '글자 수정 중' : '표시 도구';
+    const fabIcon = !enabled ? '⏻' : mode === 'edit' ? '✏️' : '🖍';
     barRoot.innerHTML = `<style>
       :host{all:initial}
-      .w{position:fixed;right:16px;top:72px;z-index:2147483645;font:12px -apple-system,BlinkMacSystemFont,"Malgun Gothic",sans-serif;display:flex;flex-direction:column;align-items:flex-end;gap:6px}
-      .fab{border:1.5px solid #2563EB;background:#fff;color:#1D4ED8;border-radius:99px;padding:6px 12px;font-weight:800;cursor:pointer;box-shadow:0 4px 14px rgba(15,23,42,.15)}
-      .fab.on{background:#2563EB;color:#fff}
-      .p{background:#fff;border:1px solid #CBD5E1;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.2);padding:10px;width:260px;display:flex;flex-direction:column;gap:8px}
-      .r{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-      .lab{font-size:11px;color:#64748B;font-weight:700;width:100%}
-      button{border:1px solid #CBD5E1;background:#fff;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;color:#334155}
-      button.sel{border-color:#2563EB;background:#EFF6FF;color:#1D4ED8;font-weight:800}
-      .sw{width:22px;height:22px;border-radius:50%;padding:0;border:2px solid #fff;box-shadow:0 0 0 1px #CBD5E1}
-      .sw.sel{box-shadow:0 0 0 2px #2563EB}
-      .hint{font-size:11px;color:#475569;line-height:1.5;background:#F8FAFC;border-radius:6px;padding:6px}
-      .t{font-size:11.5px;background:#0F172A;color:#fff;border-radius:8px;padding:6px 10px;opacity:0;transition:opacity .3s;max-width:300px}
-      .off{color:#B91C1C}.dz button{color:#B91C1C;border-color:#FECACA}</style>
+      *{box-sizing:border-box}
+      .w{position:fixed;right:18px;top:74px;z-index:2147483645;font:13px/1.45 "Pretendard",-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;color:#1F2330;display:flex;flex-direction:column;align-items:flex-end;gap:8px;-webkit-font-smoothing:antialiased}
+      button{font:inherit;cursor:pointer}
+      .fab{display:flex;align-items:center;gap:8px;border:0;border-radius:99px;padding:8px 16px 8px 10px;font-weight:700;font-size:13.5px;
+        background:rgba(255,255,255,.92);backdrop-filter:blur(10px);color:#3730A3;box-shadow:0 1px 2px rgba(17,24,39,.06),0 8px 24px rgba(17,24,39,.14),inset 0 0 0 1px rgba(79,70,229,.18);transition:transform .15s,box-shadow .15s}
+      .fab:hover{transform:translateY(-1px);box-shadow:0 2px 4px rgba(17,24,39,.08),0 12px 28px rgba(17,24,39,.18),inset 0 0 0 1px rgba(79,70,229,.3)}
+      .fab i{font-style:normal;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;font-size:13px;box-shadow:0 3px 8px rgba(99,102,241,.4)}
+      .fab.on{background:linear-gradient(135deg,#6366F1,#7C3AED);color:#fff;box-shadow:0 8px 22px rgba(99,102,241,.45)}
+      .fab.on i{background:rgba(255,255,255,.22);box-shadow:none}
+      .fab.off{color:#9CA3AF}.fab.off i{background:#E5E7EB;color:#6B7280;box-shadow:none}
+      .p{width:300px;max-height:calc(100vh - 140px);overflow:auto;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-radius:18px;
+        box-shadow:0 1px 2px rgba(17,24,39,.05),0 18px 48px rgba(17,24,39,.2),inset 0 0 0 1px rgba(17,24,39,.06);padding:14px;display:flex;flex-direction:column;gap:12px;animation:pin .16s ease}
+      @keyframes pin{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
+      .p::-webkit-scrollbar{width:8px}.p::-webkit-scrollbar-thumb{background:#E2E4EC;border-radius:8px}
+      .sec{display:flex;flex-direction:column;gap:7px}
+      .lab{font-size:11.5px;font-weight:700;color:#8A90A2;letter-spacing:.2px;display:flex;align-items:center;gap:6px}
+      .lab b{color:#059669;font-weight:700;background:#ECFDF5;border-radius:99px;padding:0 7px}
+      .seg{display:flex;background:#F1F2F7;border-radius:12px;padding:3px;gap:2px}
+      .seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:7px 6px;font-weight:600;color:#4B5163;font-size:12.5px;transition:background .12s,color .12s}
+      .seg button:hover{color:#1F2330}
+      .seg button.sel{background:#fff;color:#4F46E5;font-weight:800;box-shadow:0 1px 2px rgba(17,24,39,.08),0 2px 8px rgba(17,24,39,.06)}
+      .r{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+      .chip{border:0;border-radius:10px;padding:7px 11px;font-size:12.5px;font-weight:600;color:#374151;background:#F4F5F9;box-shadow:inset 0 0 0 1px #E6E8EF;transition:background .12s,color .12s,box-shadow .12s}
+      .chip:hover{background:#EEF0FF;color:#4F46E5;box-shadow:inset 0 0 0 1px #D9DCFF}
+      .chip.sel{background:#EEF0FF;color:#4338CA;font-weight:800;box-shadow:inset 0 0 0 1.5px #818CF8}
+      .chip:disabled{opacity:.45;cursor:default;background:#F4F5F9;color:#9CA3AF;box-shadow:inset 0 0 0 1px #E6E8EF}
+      .tg{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;border:0;background:#F7F8FB;border-radius:12px;padding:9px 12px;font-size:13px;font-weight:600;color:#1F2330;box-shadow:inset 0 0 0 1px #ECEEF3;text-align:left}
+      .tg:hover{background:#F1F2F7}
+      .tg s{text-decoration:none;flex:none;width:36px;height:21px;border-radius:99px;background:#D1D5DB;position:relative;transition:background .15s}
+      .tg s::after{content:"";position:absolute;top:2.5px;left:2.5px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .15s}
+      .tg.sel s{background:linear-gradient(135deg,#6366F1,#8B5CF6)}.tg.sel s::after{left:17.5px}
+      .tg small{display:block;font-size:11px;color:#8A90A2;font-weight:500;margin-top:1px}
+      .sw{width:28px;height:28px;border-radius:50%;padding:0;border:0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);transition:transform .12s,box-shadow .12s}
+      .sw:hover{transform:scale(1.08)}
+      .sw.sel{box-shadow:0 0 0 2px #fff,0 0 0 4px #6366F1}
+      .hint{font-size:12px;color:#4B5163;line-height:1.6;background:linear-gradient(180deg,#F7F7FF,#F3F4FB);border-radius:12px;padding:9px 11px;box-shadow:inset 0 0 0 1px #E8E9F7}
+      .hr{height:1px;background:#EEF0F4;margin:0 -2px}
+      .dz .chip{color:#B42318;background:#FEF3F2;box-shadow:inset 0 0 0 1px #FDE1DE}.dz .chip:hover{background:#FEE4E2;color:#912018}
+      .pw{border:0;width:100%;border-radius:12px;padding:9px;font-weight:700;font-size:12.5px;color:#6B7280;background:transparent;box-shadow:inset 0 0 0 1px #ECEEF3}
+      .pw:hover{color:#B42318;background:#FEF3F2;box-shadow:inset 0 0 0 1px #FDE1DE}
+      .pw.on{color:#fff;background:linear-gradient(135deg,#6366F1,#8B5CF6);box-shadow:0 6px 16px rgba(99,102,241,.35)}
+      .t{font-size:12.5px;font-weight:600;background:rgba(31,35,48,.94);backdrop-filter:blur(8px);color:#fff;border-radius:12px;padding:8px 13px;opacity:0;transform:translateY(-4px);transition:opacity .25s,transform .25s;max-width:320px;box-shadow:0 10px 28px rgba(17,24,39,.3);pointer-events:none}
+    </style>
       <div class="w">
-        <button class="fab ${mode ? 'on' : ''}" data-a="toggle">🖍 ${!enabled ? '표시 꺼짐' : mode === 'hl' ? '형광펜 중' : mode === 'edit' ? '글자 수정 중' : '표시 도구'}</button>
+        <button class="fab ${mode ? 'on' : ''} ${!enabled ? 'off' : ''}" data-a="toggle"><i>${fabIcon}</i>${fabLabel}</button>
         ${barOpen ? `<div class="p">
           ${enabled ? `
-          <div class="r"><span class="lab">모드 (켜져 있는 동안 표를 누르면 CRM 기능 대신 표시가 됩니다)</span>
-            <button data-a="mode-hl" class="${mode === 'hl' ? 'sel' : ''}">🖍 형광펜</button>
-            <button data-a="mode-edit" class="${mode === 'edit' ? 'sel' : ''}">✏️ 글자 수정</button>
-            <button data-a="mode-off" class="${!mode ? 'sel' : ''}">보기만</button></div>
+          <div class="sec"><span class="lab">모드 · 켜진 동안 표를 누르면 표시가 됩니다</span>
+            <div class="seg"><button data-a="mode-off" class="${!mode ? 'sel' : ''}">👀 보기</button><button data-a="mode-hl" class="${mode === 'hl' ? 'sel' : ''}">🖍 형광펜</button><button data-a="mode-edit" class="${mode === 'edit' ? 'sel' : ''}">✏️ 글자 수정</button></div></div>
           ${mode === 'hl' ? `
-          <div class="r"><span class="lab">색</span>${COLORS.map(c => `<button class="sw ${curColor === c.k ? 'sel' : ''}" data-a="c-${c.k}" title="${c.name}" style="background:${c.bg}"></button>`).join('')}
-            <button data-a="c-x" class="${curColor === 'x' ? 'sel' : ''}" title="누른 칸의 형광펜 지우기">지우개</button></div>
-          <div class="r"><span class="lab">적용 범위</span>
-            <button data-a="s-one" class="${scope === 'one' ? 'sel' : ''}">이 고객만</button>
-            <button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객(줄 단위)</button></div>
-          <div class="hint">칸을 누르면 그 칸의 글자, 줄 이름(예: 질병입원의료비)을 누르면 그 줄 글자 전체에 칠해집니다. 같은 색으로 다시 누르면 지워집니다.${scope === 'all' ? '<br><b>모든 고객</b>: 누른 줄이 모든 고객 화면에서 칠해집니다.' : ''}</div>` : ''}
-          ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르면 입력창이 뜹니다. 화면에서만 바뀌고 CRM 데이터는 그대로입니다. 고친 칸은 점선 테두리 · 마우스를 올리면 원래 글자.</div>` : ''}
-          <div class="r"><span class="lab">보험 순서 ${ordered ? '— <b>기억됨</b>' : '— 번호를 바꾸거나 CRM에서 끌어 옮기면 기억'}</span>
-            <button data-a="nums" class="${numsOn ? 'sel' : ''}">🔢 번호 ${numsOn ? '보임' : '숨김'}</button>
-            <button data-a="diffleft" class="${diffLeft ? 'sel' : ''}" title="계약자와 피보험자가 다른 보험을 항상 맨 왼쪽에 모읍니다 (모든 고객)">👥 계약자≠피보험자 왼쪽 ${diffLeft ? '켜짐' : '꺼짐'}</button>
-            ${ordered ? '<button data-a="order-reset">원래 순서로</button>' : ''}</div>
-          <div class="r"><button data-a="undo" ${undo.length ? '' : 'disabled'}>↶ 되돌리기${undo.length ? ' (' + undo.length + ')' : ''}</button></div>
-          <div class="r dz"><span class="lab">원래대로 (이 고객)</span>
-            <button data-a="clr-hl">형광펜 지우기</button><button data-a="clr-ed">글자 원래대로</button><button data-a="clr-all">전부</button></div>
-          ${rules.length ? `<div class="r dz"><span class="lab">모든 고객 규칙 ${rules.length}개</span><button data-a="clr-rules">규칙 모두 지우기</button></div>` : ''}
-          <div class="r"><button data-a="disable" class="off">⏻ 표시 기능 끄기</button></div>
-          ` : `<div class="hint">표시 기능이 꺼져 있어 원래 화면입니다. 켜면 저장해 둔 형광펜·글자·순서가 다시 적용됩니다.</div>
-          <div class="r"><button data-a="enable">⏻ 표시 기능 켜기</button></div>`}
+          <div class="sec"><span class="lab">색</span>
+            <div class="r">${COLORS.map(c => `<button class="sw ${curColor === c.k ? 'sel' : ''}" data-a="c-${c.k}" title="${c.name}" style="background:${c.bg}"></button>`).join('')}
+              <button data-a="c-x" class="chip ${curColor === 'x' ? 'sel' : ''}" title="누른 칸의 형광펜 지우기">🧽 지우개</button></div></div>
+          <div class="sec"><span class="lab">적용 범위</span>
+            <div class="seg"><button data-a="s-one" class="${scope === 'one' ? 'sel' : ''}">이 고객만</button><button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객 (줄 단위)</button></div></div>
+          <div class="hint">칸을 누르면 그 칸, 줄 이름(예: 질병입원의료비)을 누르면 그 줄 전체가 칠해집니다. 같은 색으로 다시 누르면 지워집니다.${scope === 'all' ? '<br><b>모든 고객</b> — 누른 줄이 모든 고객 화면에서 칠해집니다.' : ''}</div>` : ''}
+          ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르고 바로 입력하세요. <b>Enter</b> 저장 · <b>Esc</b> 취소. 화면에서만 바뀌고 CRM 데이터는 그대로입니다. 고친 칸은 점선 테두리, 마우스를 올리면 원래 글자.</div>` : ''}
+          <div class="hr"></div>
+          <div class="sec"><span class="lab">보험 순서 ${ordered ? '<b>기억됨</b>' : ''}</span>
+            <button class="tg ${numsOn ? 'sel' : ''}" data-a="nums"><span>🔢 번호표 보이기<small>번호를 눌러 바꾸면 그 자리로 옮깁니다</small></span><s></s></button>
+            <button class="tg ${diffLeft ? 'sel' : ''}" data-a="diffleft" title="모든 고객에 적용"><span>👥 계약자≠피보험자 맨 왼쪽<small>모든 고객에 적용</small></span><s></s></button>
+            ${ordered ? '<div class="r"><button class="chip" data-a="order-reset">↺ CRM 원래 순서로</button></div>' : ''}</div>
+          <div class="hr"></div>
+          <div class="sec"><span class="lab">되돌리기 · 지우기 (이 고객)</span>
+            <div class="r"><button class="chip" data-a="undo" ${undo.length ? '' : 'disabled'}>↶ 되돌리기${undo.length ? ' ' + undo.length : ''}</button></div>
+            <div class="r dz"><button class="chip" data-a="clr-hl">형광펜 지우기</button><button class="chip" data-a="clr-ed">글자 원래대로</button><button class="chip" data-a="clr-all">전부</button></div>
+            ${rules.length ? `<div class="r dz"><button class="chip" data-a="clr-rules">모든 고객 규칙 ${rules.length}개 지우기</button></div>` : ''}</div>
+          <button class="pw" data-a="disable">⏻ 표시 기능 끄기</button>
+          ` : `<div class="hint">표시 기능이 꺼져 있어 CRM 원래 화면입니다. 켜면 저장해 둔 형광펜·글자·순서가 다시 적용됩니다.</div>
+          <button class="pw on" data-a="enable">⏻ 표시 기능 켜기</button>`}
         </div>` : ''}
         <div class="t"></div>
       </div>`;
