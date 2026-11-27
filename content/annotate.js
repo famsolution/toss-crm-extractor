@@ -276,10 +276,12 @@
     if (applying) return;
     applying = true;
     try {
-      unpaintAll(); restoreEdits();
+      unpaintAll(); restoreEdits(); unhideAll(); hiddenN = 0;
       if (!enabled || !cid) return;
       roots().forEach(root => {
-        const { parsed, keys } = scanRoot(root);
+        const scan = scanRoot(root);
+        const { parsed, keys } = scan;
+        if (hideDiff) { if (root === document) scan.parsed = parsed.filter(pt => !pt.t.closest('[role="dialog"]')); const hn = hideDiffCols(scan); if (root === document) hiddenN = hn; scan.parsed = parsed; }
         parsed.forEach(pt => {
           if (root === document && pt.t.closest('[role="dialog"]')) return;   // 미리보기 표는 따로
           pt.rows.forEach(({ p }) => {
@@ -619,8 +621,9 @@
   // 👥 계약자와 피보험자가 다른 보험 — '계약자/피보험자' 줄이 "홍길동/본인" 이면 같음, "홍길동/자녀"·"홍길동/김영희" 면 다름
   let diffLeft = true;
   try { chrome.storage.local.get(['anno_diff_left'], v => { diffLeft = !(v && v.anno_diff_left === false); }); } catch (e) {}
-  function diffKeys() {
-    const { parsed, keys } = mainScan();
+  function diffKeys() { return diffKeysIn(mainScan()); }
+  function diffKeysIn(scan) {
+    const { parsed, keys } = scan;
     const out = new Set();
     for (const pt of parsed) {
       const both = pt.rows.find(x => /^계약자\s*\/\s*피보험자$/.test(x.p.label.replace(/\s+/g, ' ').trim()));
@@ -646,6 +649,47 @@
     let target = want.filter(k => cur.includes(k)).concat(cur.filter(k => !want.includes(k)));
     if (diffLeft) { const d = diffKeys(); if (d.size) target = target.filter(k => d.has(k)).concat(target.filter(k => !d.has(k))); }
     return target;
+  }
+
+  // 🙈 피보험자가 다른 사람인 보험 숨기기 — 그 보험의 세로줄 전체(머리칸 포함)를 화면에서만 감춤.
+  //   본문 표와 미리보기 창(페인트프로·이미지 복사) 모두에 적용. CRM 데이터·순서는 그대로.
+  let hideDiff = false, hiddenN = 0;
+  try { chrome.storage.local.get(['anno_hide_diff'], v => { hideDiff = !!(v && v.anno_hide_diff); scheduleApply(); }); } catch (e) {}
+  const HIDE = 'data-tce-hide';
+  function hideCell(el) {
+    if (!el || el.hasAttribute(HIDE)) return;
+    el.setAttribute(HIDE, el.style.getPropertyValue('display') || '');
+    el.style.setProperty('display', 'none', 'important');
+  }
+  function unhideAll() {
+    document.querySelectorAll('[' + HIDE + ']').forEach(el => {
+      const v = el.getAttribute(HIDE);
+      if (v) el.style.setProperty('display', v); else el.style.removeProperty('display');
+      el.removeAttribute(HIDE);
+    });
+  }
+  function hideDiffCols(scan) {
+    const n = scan.keys.length; if (!n) return 0;
+    const d = diffKeysIn(scan); if (!d.size) return 0;
+    const idx = scan.keys.map((k, i) => d.has(k) ? i : -1).filter(i => i >= 0);
+    scan.parsed.forEach(pt => {
+      Array.prototype.forEach.call(pt.t.querySelectorAll('tr'), tr => {
+        if (tr.closest('table') !== pt.t) return;
+        const cells = Array.prototype.filter.call(tr.children, c => c.tagName === 'TD' || c.tagName === 'TH');
+        let prod = null;
+        const p = parseRow(tr);
+        if (p && p.prod.length === n) prod = p.prod;
+        else {
+          const so = cells.filter(c => c.getAttribute('aria-roledescription') === 'sortable');
+          if (so.length === n) prod = so;
+          else if (cells.length > n && cells.slice(-n).every(c => c.colSpan === 1)) prod = cells.slice(-n);
+        }
+        if (prod) idx.forEach(i => hideCell(prod[i]));
+      });
+      const cols = Array.prototype.filter.call(pt.t.querySelectorAll('col'), c => c.closest('table') === pt.t);
+      if (cols.length > n) idx.forEach(i => hideCell(cols[cols.length - n + i]));
+    });
+    return idx.length;
   }
 
   async function replayOrder() {
@@ -909,6 +953,7 @@
           <div class="sec"><span class="lab">보험 순서 ${ordered ? '<b>기억됨</b>' : ''}</span>
             <button class="tg ${numsOn ? 'sel' : ''}" data-a="nums"><span>🔢 번호표 보이기<small>번호를 눌러 바꾸면 그 자리로 옮깁니다</small></span><s></s></button>
             <button class="tg ${diffLeft ? 'sel' : ''}" data-a="diffleft" title="모든 고객에 적용"><span>👥 계약자≠피보험자 맨 왼쪽<small>모든 고객에 적용</small></span><s></s></button>
+            <button class="tg ${hideDiff ? 'sel' : ''}" data-a="hidediff" title="모든 고객에 적용"><span>🙈 피보험자가 다른 보험 숨기기<small>화면·페인트프로·이미지에서 빠짐 (모든 고객)${hideDiff && hiddenN ? ' · ' + hiddenN + '개 숨김' : ''}</small></span><s></s></button>
             ${ordered ? '<div class="r"><button class="chip" data-a="order-reset">↺ CRM 원래 순서로</button></div>' : ''}</div>
           <div class="hr"></div>
           <div class="sec"><span class="lab">되돌리기 · 지우기 (이 고객)</span>
@@ -927,6 +972,7 @@
     const a = e.currentTarget.dataset.a;
     if (a === 'toggle') { barOpen = !barOpen; renderBar(); return; }
     if (a === 'diffleft') { diffLeft = !diffLeft; try { chrome.storage.local.set({ anno_diff_left: diffLeft }); } catch (x) {} renderBar(); if (diffLeft) { autoFixes = 0; replayOrder(); } return; }
+    if (a === 'hidediff') { hideDiff = !hideDiff; try { chrome.storage.local.set({ anno_hide_diff: hideDiff }); } catch (x) {} applyAll(); renderBar(); toast(hideDiff ? (hiddenN ? `🙈 피보험자가 다른 보험 ${hiddenN}개를 숨겼습니다` : '이 고객은 피보험자가 다른 보험이 없습니다') : '👁 숨긴 보험을 다시 보입니다'); return; }
     if (a === 'nums') { numsOn = !numsOn; try { chrome.storage.local.set({ anno_nums: numsOn }); } catch (x) {} numRoot && (numRoot.__sig = ''); drawNums(); renderBar(); return; }
     if (a === 'mode-hl') mode = 'hl';
     else if (a === 'mode-edit') mode = 'edit';
