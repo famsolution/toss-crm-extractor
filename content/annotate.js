@@ -279,41 +279,58 @@
 
   // ── 글자 수정 입력창 ───────────────────────────────
   let edBox = null;
+  // ✏️ 글자 수정 — 칸 위에 그 칸과 똑같은 모양(글꼴·크기·정렬·여백)의 입력 자리를 겹쳐 '표에 바로 쓰는' 방식.
+  //   CRM 칸 자체를 고치지 않으므로 CRM 화면이 다시 그려져도 입력이 깨지지 않는다. Enter 저장 · Esc 취소 · 비우면 원래 글자.
+  let edCell = null;
   function openEditor(cell, loc) {
     closeEditor();
-    const r = cell.getBoundingClientRect();
     const cur = (cell.textContent || '').trim();
     const orig = originalText(cell);
+    const cs = getComputedStyle(cell);
     edBox = document.createElement('div');
     edBox.setAttribute('data-tce-ui', '');
     const sr = edBox.attachShadow({ mode: 'closed' });
     sr.innerHTML = `<style>
-      .b{position:fixed;z-index:2147483646;background:#fff;border:1.5px solid #2563EB;border-radius:8px;box-shadow:0 8px 24px rgba(15,23,42,.2);padding:8px;display:flex;flex-direction:column;gap:6px;font:12px -apple-system,"Malgun Gothic",sans-serif;min-width:220px}
-      input{padding:6px 8px;border:1px solid #CBD5E1;border-radius:6px;font-size:13px}
-      .a{display:flex;gap:6px;justify-content:flex-end}.o{color:#64748B;font-size:11px}
-      button{padding:4px 10px;border-radius:6px;border:1px solid #CBD5E1;background:#fff;cursor:pointer;font-size:12px}
-      .p{background:#2563EB;color:#fff;border-color:#2563EB}</style>
-      <div class="b"><input><div class="o"></div><div class="a"><button class="r">원래 글자로</button><button class="c">취소</button><button class="p">저장</button></div></div>`;
-    const box = sr.querySelector('.b'), inp = sr.querySelector('input');
-    box.style.left = Math.max(8, Math.min(window.innerWidth - 240, r.left)) + 'px';
-    box.style.top = Math.min(window.innerHeight - 110, r.bottom + 4) + 'px';
-    inp.value = cur;
-    sr.querySelector('.o').textContent = '원래: ' + orig;
+      .e{position:fixed;z-index:2147483646;box-sizing:border-box;background:#fff;outline:none;box-shadow:0 0 0 2px #2563EB,0 6px 18px rgba(15,23,42,.18);
+        border-radius:2px;overflow:hidden;white-space:pre-wrap;word-break:break-all;cursor:text;display:flex;align-items:center}
+      .e > div{width:100%;outline:none}
+      .h{position:fixed;z-index:2147483646;font:11px -apple-system,"Malgun Gothic",sans-serif;color:#fff;background:#1E293B;border-radius:6px;padding:3px 8px;white-space:nowrap;pointer-events:none}</style>
+      <div class="e"><div contenteditable="true" spellcheck="false"></div></div><div class="h"></div>`;
+    const box = sr.querySelector('.e'), ed = sr.querySelector('.e > div'), hint = sr.querySelector('.h');
+    ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'color', 'textAlign', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'letterSpacing'].forEach(k => { box.style[k] = cs[k]; });
+    ed.style.textAlign = cs.textAlign;
+    ed.textContent = cur;
+    hint.textContent = 'Enter 저장 · Esc 취소 · 비우면 원래 글자 (원래: ' + (orig.length > 24 ? orig.slice(0, 24) + '…' : orig) + ')';
+    let closed = false;
     const save = async (text) => {
+      if (closed) return; closed = true;
       snapshot();
       const i = data.edits.findIndex(x => x.sec === loc.sec && x.row === loc.row && x.col === loc.col);
       if (text == null || text.trim() === '' || text.trim() === orig) { if (i >= 0) data.edits.splice(i, 1); }
       else if (i >= 0) data.edits[i].text = text.trim(); else data.edits.push({ sec: loc.sec, row: loc.row, col: loc.col, text: text.trim() });
       await saveCustomer(); closeEditor(); applyAll();
     };
-    sr.querySelector('.p').addEventListener('click', () => save(inp.value));
-    sr.querySelector('.r').addEventListener('click', () => save(null));
-    sr.querySelector('.c').addEventListener('click', closeEditor);
-    inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') save(inp.value); if (ev.key === 'Escape') closeEditor(); });
+    ed.addEventListener('keydown', ev => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); save(ed.textContent); }
+      else if (ev.key === 'Escape') { closed = true; closeEditor(); }
+    });
+    ed.addEventListener('blur', () => { setTimeout(() => { if (!closed && edBox) save(ed.textContent); }, 0); });
+    edCell = cell;
     document.documentElement.appendChild(edBox);
-    setTimeout(() => { inp.focus(); inp.select(); }, 0);
+    edBox.__place = () => {
+      if (!edCell || !edCell.isConnected) return;
+      const r = edCell.getBoundingClientRect();
+      box.style.left = r.left + 'px'; box.style.top = r.top + 'px'; box.style.width = r.width + 'px'; box.style.minHeight = r.height + 'px';
+      hint.style.left = r.left + 'px'; hint.style.top = Math.min(window.innerHeight - 24, r.bottom + 4) + 'px';
+    };
+    edBox.__place();
+    setTimeout(() => {
+      ed.focus();
+      try { const rg = document.createRange(); rg.selectNodeContents(ed); const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(rg); } catch (e) {}
+    }, 0);
   }
-  function closeEditor() { if (edBox) { edBox.remove(); edBox = null; } }
+  function closeEditor() { if (edBox) { edBox.remove(); edBox = null; } edCell = null; }
 
   // ── 보험 순서 기억 · 다시 맞추기 ─────────────────────
   function headerCells() {
@@ -521,32 +538,47 @@
       document.documentElement.hasAttribute('data-sdh-capturing') || !!document.querySelector('[role="dialog"]');
   }
   // 번호표 자리 — 칸 위(자리가 없으면 칸 왼쪽 위 구석)
-  function numPos(r) {
-    // 칸 바로 위. 아래로 스크롤해 머리칸이 화면 위로 올라가도 표가 보이는 동안은 화면 맨 위에 떠서 따라온다
-    return { top: Math.max(6, r.top - 32), left: r.left + r.width / 2 };
+  // 표를 품고 스크롤되는 상자(없으면 페이지 자체) — 번호표는 그 상자의 보이는 맨 위에 붙어 따라온다
+  function scrollBox(el) {
+    for (let p = el && el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+      const cs = getComputedStyle(p);
+      if (/(auto|scroll|overlay)/.test(cs.overflowY) && p.scrollHeight > p.clientHeight + 2) return p;
+    }
+    return null;
+  }
+  function numPos(r, visTop) {
+    // 칸 바로 위. 아래로 스크롤해 머리칸이 위로 올라가도 표가 보이는 동안은 보이는 영역 맨 위에 떠서 따라온다
+    return { top: Math.max(visTop + 6, r.top - 32), left: r.left + r.width / 2 };
   }
   // 화면을 그리는 매 순간(스크롤·창 크기·CRM 화면 움직임) 머리칸을 따라 번호표 자리를 옮긴다
   function placeNums() {
     if (!numRoot || !numRoot.__cells) return;
     const hs = numRoot.__cells;
+    const sb = numRoot.__box && numRoot.__box.isConnected ? numRoot.__box : null;
+    const visTop = sb ? Math.max(0, sb.getBoundingClientRect().top) : 0;
+    // 보장분석 표들(보장·특약 등 여러 개일 수 있음) 중 가장 아래 끝 — 이게 보이는 동안 번호표를 띄워 둔다
+    let bottom = -1;
+    (numRoot.__tables || []).forEach(t => { if (t.isConnected) bottom = Math.max(bottom, t.getBoundingClientRect().bottom); });
+    if (bottom < 0 && hs[0] && hs[0].isConnected) bottom = (hs[0].closest('table') || hs[0]).getBoundingClientRect().bottom;
     numRoot.querySelectorAll('[data-i]').forEach(el => {
       const h = hs[Number(el.dataset.i)];
       if (!h || !h.isConnected) { el.style.display = 'none'; return; }
       const r = h.getBoundingClientRect();
-      const tb = (h.closest('table') || h).getBoundingClientRect();   // 표 전체가 화면에 있는 동안 보임
-      if (r.width < 4 || tb.bottom < 50 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { el.style.display = 'none'; return; }
-      const p = numPos(r);
+      if (r.width < 4 || bottom < visTop + 44 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { el.style.display = 'none'; return; }
+      const p = numPos(r, visTop);
       el.style.display = '';
       el.style.left = p.left + 'px';
-      el.style.top = (el.tagName === 'INPUT' ? p.top - 1 : p.top) + 'px';
+      el.style.top = p.top + 'px';
     });
   }
-  (function follow() { try { placeNums(); } catch (e) {} requestAnimationFrame(follow); })();
+  (function follow() { try { placeNums(); if (edBox && edBox.__place) edBox.__place(); } catch (e) {} requestAnimationFrame(follow); })();
   function drawNums() {
     const hs = onCover() ? headerCells() : [];
     if (numsHidden() || hs.length < 2) { if (numRoot) { numRoot.innerHTML = ''; numRoot.__sig = ''; numRoot.__cells = null; } return; }
     ensureNumHost();
     numRoot.__cells = hs;
+    numRoot.__box = scrollBox(hs[0].closest('table') || hs[0]);
+    try { numRoot.__tables = mainScan().parsed.map(pt => pt.t); } catch (e) { numRoot.__tables = []; }
     // 번호표를 새로 만드는 건 칸 수·고치는 중·옮기는 중이 바뀔 때만 (스크롤 중 다시 만들면 입력칸이 사라짐)
     const sig = hs.length + '#' + numEdit + '#' + (numBusy ? 1 : 0);
     if (numRoot.__sig === sig) { placeNums(); return; }
@@ -557,27 +589,28 @@
         box-shadow:0 2px 6px rgba(79,70,229,.35);transform:translateX(-50%);user-select:none}
       .b:hover{background:#4338CA}
       .b.busy{background:#94A3B8;cursor:wait}
-      input{position:fixed;pointer-events:auto;width:58px;height:32px;box-sizing:border-box;border:2px solid #4F46E5;border-radius:9px;
-        font:800 16px -apple-system,"Malgun Gothic",sans-serif;text-align:center;transform:translateX(-50%);outline:none;box-shadow:0 4px 12px rgba(15,23,42,.2)}
+      .b.ed{background:#fff;color:#4F46E5;box-shadow:0 0 0 3px #4F46E5,0 4px 12px rgba(15,23,42,.2);cursor:text;outline:none;min-width:40px}
     </style>` + hs.map((h, i) => i === numEdit
-      ? `<input data-i="${i}" type="number" min="1" max="${hs.length}" value="${i + 1}" title="옮길 번호를 넣고 Enter (Esc 취소)">`
+      ? `<span class="b ed" data-i="${i}" contenteditable="true" spellcheck="false" title="옮길 번호를 쓰고 Enter (Esc 취소)">${i + 1}</span>`
       : `<button class="b${numBusy ? ' busy' : ''}" data-i="${i}" title="번호를 눌러 바꾸면 그 자리로 옮깁니다">${i + 1}</button>`).join('');
     placeNums();
     numRoot.querySelectorAll('button.b').forEach(b => b.addEventListener('click', ev => {
       ev.preventDefault(); ev.stopPropagation();
       if (numBusy) return;
       numEdit = Number(b.dataset.i); numRoot.__sig = ''; drawNums();
-      const inp = numRoot.querySelector('input'); if (inp) { inp.focus(); inp.select(); }
+      const ed = numRoot.querySelector('.ed');
+      if (ed) { ed.focus(); try { const rg = document.createRange(); rg.selectNodeContents(ed); const sel = numRoot.getSelection ? numRoot.getSelection() : window.getSelection(); sel.removeAllRanges(); sel.addRange(rg); } catch (e) {} }
     }));
-    const inp = numRoot.querySelector('input');
+    const inp = numRoot.querySelector('.ed');
     if (inp) {
       const n = hs.length;
+      inp.addEventListener('input', () => { const v = inp.textContent.replace(/\D/g, '').slice(0, 2); if (v !== inp.textContent) { inp.textContent = v; } });
       const done = go => {
-        const from = Number(inp.dataset.i), to = Math.max(1, Math.min(n, parseInt(inp.value, 10) || from + 1)) - 1;
+        const from = Number(inp.dataset.i), to = Math.max(1, Math.min(n, parseInt(inp.textContent, 10) || from + 1)) - 1;
         numEdit = -1; numRoot.__sig = ''; drawNums();
         if (go && to !== from) moveByNumber(from, to);
       };
-      inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') done(true); else if (ev.key === 'Escape') done(false); });
+      inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); done(true); } else if (ev.key === 'Escape') done(false); });
       inp.addEventListener('blur', () => { if (numEdit >= 0) done(true); });
     }
   }
