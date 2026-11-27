@@ -76,6 +76,26 @@
   // 응답이 오지 않는 단계에서 멈추지 않도록 — ms 안에 안 끝나면 fallback 으로 넘어감
   const _within = function (p, ms, fallback) { return Promise.race([Promise.resolve(p).catch(function () { return fallback; }), sleep(ms).then(function () { return fallback; })]); };
   let _ppStep = '', _ppBgSilent = false;
+  function _ppSet(x) { _ppStep = x; _pplog('▶ ' + x); }
+  // 🔎 진단 기록 — 어디서 막히는지 PC 마다 다를 때 원인을 찾으려고 단계·시각·환경을 남긴다(고객정보·이미지는 넣지 않음)
+  let _ppLog = [], _ppT0 = 0;
+  function _pplog(m) { try { _ppLog.push(((Date.now() - _ppT0) / 1000).toFixed(1) + 's ' + m); if (_ppLog.length > 80) _ppLog.shift(); } catch (e) {} }
+  window.addEventListener('message', function (ev) { if (ev.source === window && ev.data && ev.data.__sdhClipEvent && _ppT0) _pplog('CRM 클립보드 ' + ev.data.__sdhClipEvent + (ev.data.msg ? ' ' + ev.data.msg : '')); });
+  async function _ppEnv() {
+    const env = [];
+    try { env.push('확장 v' + chrome.runtime.getManifest().version); } catch (e) {}
+    try { env.push('크롬 ' + ((navigator.userAgent.match(/Chrome\/([\d.]+)/) || [])[1] || '?')); } catch (e) {}
+    try { env.push('화면배율(dpr) ' + window.devicePixelRatio + ' · 창 ' + innerWidth + 'x' + innerHeight + ' · 화면 ' + screen.width + 'x' + screen.height); } catch (e) {}
+    try { env.push('포커스 ' + document.hasFocus() + ' · 보임 ' + document.visibilityState); } catch (e) {}
+    for (const n of ['clipboard-read', 'clipboard-write']) { try { env.push(n + ' ' + (await _within(navigator.permissions.query({ name: n }), 800, { state: '?' })).state); } catch (e) { env.push(n + ' 알수없음'); } }
+    try { env.push('미리보기창 ' + document.querySelectorAll('[role="dialog"],dialog[open]').length + '개 · 이미지복사버튼 ' + (findCopyBtn() ? '있음' : '없음')); } catch (e) {}
+    return env.join('\n');
+  }
+  async function _ppSaveLog(result) {
+    const text = '[페인트프로 진단 ' + new Date().toLocaleString('ko-KR') + '] 결과: ' + result + '\n' + (await _ppEnv()) + '\n--- 단계 ---\n' + _ppLog.join('\n');
+    try { chrome.storage.local.set({ paintProDiag: text }); } catch (e) {}
+    return text;
+  }
   const blobToDataURL = function (blob) { return new Promise(function (res, rej) { const fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(blob); }); };
 
   // ── 클립보드 가로채기: CRM이 이미지를 클립보드에 쓰는 순간 그 dataURL 을 받는다 ──
@@ -375,16 +395,23 @@
   let _ppRunning = 0;
   async function sendToPaintPro(fab) {
     if (_ppRunning && Date.now() - _ppRunning < 60000) { _ppStatus('🎨 이미 페인트프로로 보내는 중입니다… (' + _ppStep + ')', 2500); return; }
-    _ppRunning = Date.now(); _ppStep = '시작'; _ppBgSilent = false;
+    _ppRunning = Date.now(); _ppSet('시작'); _ppBgSilent = false; _ppLog = []; _ppT0 = Date.now(); _pplog('시작 · 주소 ' + location.pathname.replace(/\d+/g, '#'));
     const old = fab.textContent;
     let finished = false;
     const watchdog = setTimeout(function () {
       if (finished) return;
       _ppRunning = 0; fab.textContent = old; fab.disabled = false; _ppStatus('', 1);
-      pageAlert('페인트프로 보내기가 「' + _ppStep + '」 단계에서 멈췄습니다.\n\n' + _ppHint() + '\n\n[확장 v' + chrome.runtime.getManifest().version + ']', '🎨 페인트프로');
+      _ppFail('페인트프로 보내기가 「' + _ppStep + '」 단계에서 멈췄습니다.\n\n' + _ppHint());
     }, 60000);
     try { await _sendToPaintPro(fab, old); }
     finally { finished = true; clearTimeout(watchdog); _ppRunning = 0; }
+  }
+  // 실패 안내 + [확인] 을 누르면 진단 내용을 클립보드에 복사(사용자 클릭이라 복사 가능)
+  async function _ppFail(msg) {
+    const diag = await _ppSaveLog('실패 · ' + _ppStep);
+    await pageAlert(msg + '\n\n🔎 [확인] 을 누르면 진단 내용이 복사됩니다 — 카카오톡 등에 붙여넣어 보내 주세요.', '🎨 페인트프로');
+    try { await navigator.clipboard.writeText(diag); _ppStatus('🔎 진단 내용을 복사했습니다', 3000); }
+    catch (e) { _ppStatus('🔎 진단 내용은 확장 머리말 v버전 메뉴 → 「페인트프로 진단 복사」 로도 볼 수 있습니다', 5000); }
   }
   function _ppHint() {
     const tips = [];
@@ -401,7 +428,7 @@
     _ppStatus('🎨 페인트프로로 보내는 중… (표 이미지 준비)');
     try {
       // 1) '이미지 복사' 버튼이 안 보이면 → '표' 탭을 먼저 눌러 표 화면을 띄운다
-      _ppStep = '표 화면 찾기';
+      _ppSet('표 화면 찾기');
       let btn = findCopyBtn();
       if (!btn) {
         const tab = findTableTab();
@@ -414,8 +441,9 @@
       //    배치는 줄어든 크기로 재고 글자는 원래 크기로 그려 글자가 커지고 겹치고 잘린다.
       //    (예전에 이미지가 약 99% 크기로 들어오던 것도 같은 원인.) 캡처가 끝나면 원래 배율로 되돌린다.
       let dataURL = null;
-      _ppStep = '화면 배율 100% 맞추기';
+      _ppSet('화면 배율 100% 맞추기');
       const zoomBefore = await _setTabZoom100();
+      _pplog('배율 이전값 ' + zoomBefore + (_ppBgSilent ? ' (백그라운드 응답 없음)' : ''));
       if (zoomBefore && Math.abs(zoomBefore - 1) > 0.001) {
         await sleep(400);
         try { await _within(document.fonts.ready, 2000, null); } catch (e) {}
@@ -432,10 +460,11 @@
         // → 누르기 직전에 버튼을 다시 찾는다.
         if (!btn || !btn.isConnected) { for (let i = 0; i < 16; i++) { btn = findCopyBtn(); if (btn) break; await sleep(250); } }
         if (!btn) break;
-        _ppStep = '미리보기 자리 잡기 기다림';
+        _ppSet('미리보기 자리 잡기 기다림');
         await _waitPreviewSettled(btn, attempt ? 6000 : 4000);
         const fresh = findCopyBtn(); if (fresh) btn = fresh;
-        _ppStep = 'CRM 이미지 복사';
+        _pplog('버튼 ' + (btn ? (btn.isConnected ? '연결됨' : '떨어짐') + (btn.disabled ? '·비활성' : '') : '없음') + ' · 시도 ' + (attempt + 1));
+        _ppSet('CRM 이미지 복사');
         _capturedImageURL = null;
         const clickedAt = Date.now();
         _ppStatus('🎨 페인트프로로 보내는 중… (이미지 복사)');
@@ -446,9 +475,11 @@
           await sleep(180);
           if (_capturedImageURL && _capturedAt >= clickedAt) { dataURL = _capturedImageURL; break; }
         }
+        _pplog(dataURL ? '이미지 받음 ' + Math.round(dataURL.length / 1024) + 'KB' : '3.6초 동안 이미지 못 받음');
         if (!dataURL) {   // 폴백: 클립보드 직접 읽기(포커스 있을 때만 성공)
-          _ppStep = '클립보드에서 이미지 읽기';
+          _ppSet('클립보드에서 이미지 읽기');
           for (let i = 0; i < 8 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
+          _pplog('클립보드 직접 읽기 ' + (dataURL ? '성공' : '실패: ' + _lastClipErr));
         }
         // 그래도 줄어든 상태로 찍혔으면 한 번 더 기다렸다 다시 누른다
         if (dataURL && attempt === 0 && await _imgLooksScaled(dataURL)) {
@@ -462,7 +493,7 @@
       }
       // 그래도 못 받았으면 예전 방식 그대로 한 번 더 — 배율은 그대로 두고 버튼만 다시 찾아 바로 누름
       if (!dataURL) {
-        _ppStep = 'CRM 이미지 복사(예전 방식)';
+        _ppSet('CRM 이미지 복사(예전 방식)');
         _ppStatus('🎨 다른 방법으로 한 번 더 시도하는 중…');
         await sleep(zoomBefore && Math.abs(zoomBefore - 1) > 0.001 ? 900 : 200);
         let b2 = null; for (let i = 0; i < 16 && !b2; i++) { b2 = findCopyBtn(); if (!b2) await sleep(250); }
@@ -475,15 +506,16 @@
       }
       if (!dataURL) {
         _ppStatus('', 1);
-        pageAlert('이미지를 읽지 못했습니다 (「' + _ppStep + '」 단계).\n\n' + _ppHint());
+        _ppFail('이미지를 읽지 못했습니다 (「' + _ppStep + '」 단계).\n\n' + _ppHint());
         return;
       }
-      _ppStep = '이미지 넘길 준비';
+      _ppSet('이미지 넘길 준비');
       const saveErr = await _within(new Promise(function (r) { chrome.storage.local.set({ [STORAGE_KEY]: { dataURL: dataURL, fileName: '보장분석.png', ts: Date.now() } }, function () { r(chrome.runtime.lastError ? chrome.runtime.lastError.message : ''); }); }), 5000, '저장 응답 없음');
       if (saveErr) { _ppStatus('', 1); pageAlert('이미지를 넘기지 못했습니다: ' + saveErr + '\n(이미지 크기 ' + Math.round(dataURL.length / 1048576 * 10) / 10 + 'MB)\n\n' + _ppHint(), '🎨 페인트프로'); return; }
-      _ppStep = '페인트프로 여는';
+      _ppSet('페인트프로 여는');
       _ppStatus('🎨 페인트프로를 여는 중…');
       const opened = await _ppOpenEditor();
+      _pplog('편집기 열기 ' + (opened ? '성공' : '실패')); _ppSaveLog(opened ? '성공' : '편집기 못 엶');
       if (opened) _ppStatus('✅ 페인트프로를 새 탭으로 열었습니다', 3500);
       else { _ppStatus('', 1); pageAlert('페인트프로 창을 열지 못했습니다.\n주소창 오른쪽의 팝업 차단 표시를 눌러 crm.tossinsu.com 팝업을 허용한 뒤 다시 시도해 주세요.'); }
     } finally { fab.textContent = old; fab.disabled = false; }

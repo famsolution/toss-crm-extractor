@@ -172,7 +172,8 @@
       <div class="gc-menu-row"><button type="button" class="gc-sub" data-m="check">🔄 새 버전 확인</button></div>
       <div class="gc-menu-row"><button type="button" class="gc-sub" data-m="auto">${dir ? '📁 폴더 다시 고르기' : '⬆ 자동 업데이트 켜기'}</button></div>
       ${dir ? `<div class="gc-menu-row"><button type="button" class="gc-sub" data-m="toggle">${st.updAuto !== false ? '⏸ 자동 설치 끄기' : '▶ 자동 설치 켜기'}</button></div>` : ''}
-      <div class="gc-menu-row"><button type="button" class="gc-sub" data-m="guide">📖 업데이트 안내</button></div>`;
+      <div class="gc-menu-row"><button type="button" class="gc-sub" data-m="guide">📖 업데이트 안내</button></div>
+      <div class="gc-menu-row"><button type="button" class="gc-sub" data-m="ppdiag">🔎 페인트프로 진단 복사</button></div>`;
     document.body.appendChild(m);
     const r = anchor.getBoundingClientRect();
     m.style.left = Math.max(8, Math.min(window.innerWidth - 230, r.left - 120)) + 'px'; m.style.top = (r.bottom + 6) + 'px';
@@ -192,6 +193,11 @@
       } else if (b.dataset.m === 'auto') { if (isFull) connectAndApply(null, true); else { await chrome.storage.local.set({ updPick: true }); openFull(); } }
       else if (b.dataset.m === 'toggle') { await chrome.storage.local.set({ updAuto: st.updAuto === false }); toast(st.updAuto === false ? '▶ 자동 설치를 켰습니다' : '⏸ 자동 설치를 껐습니다 — 새 버전은 안내만 합니다'); }
       else if (b.dataset.m === 'guide') openGuide();
+      else if (b.dataset.m === 'ppdiag') {
+        const d = (await chrome.storage.local.get(['paintProDiag'])).paintProDiag;
+        if (!d) toast('아직 페인트프로 기록이 없습니다 — 페인트프로를 한 번 실행한 뒤 눌러 주세요');
+        else { try { await navigator.clipboard.writeText(d); toast('🔎 마지막 페인트프로 진단 내용을 복사했습니다'); } catch (e) { say(d, '🔎 페인트프로 진단'); } }
+      }
     });
   }
 

@@ -8,6 +8,8 @@
   const _clipAlready = !!window.__sdhClipPatched;
   window.__sdhClipPatched = true;
 
+  // 진단용 — CRM 이 클립보드에 무엇을 했는지 content script 에 알림 (이미지 내용은 보내지 않음)
+  function note(ev, msg) { try { window.postMessage({ __sdhClipEvent: ev, msg: String(msg || '').slice(0, 160), at: Date.now() }, '*'); } catch (e) {} }
   function emit(blob) {
     try {
       const fr = new FileReader();
@@ -24,6 +26,7 @@
     if (cb && typeof cb.write === 'function') {
       const orig = cb.write.bind(cb);
       cb.write = function (items) {
+        note('write', (items || []).map(function (i) { return (i.types || []).join('+'); }).join(','));
         try {
           (items || []).forEach(function (item) {
             (item.types || []).forEach(function (type) {
@@ -33,7 +36,9 @@
             });
           });
         } catch (e) {}
-        return orig(items);
+        const pr = orig(items);
+        try { pr.then(function () { note('write-ok'); }, function (e) { note('write-err', (e && (e.name + ': ' + e.message)) || e); }); } catch (e) {}
+        return pr;
       };
     }
   } catch (e) {}
@@ -43,6 +48,7 @@
     if (typeof window.ClipboardItem === 'function') {
       const OrigCI = window.ClipboardItem;
       const Patched = function (data) {
+        note('item', Object.keys(data || {}).join('+'));
         try {
           Object.keys(data || {}).forEach(function (type) {
             if (type && type.indexOf('image/') === 0) {
