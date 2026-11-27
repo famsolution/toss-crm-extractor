@@ -58,11 +58,22 @@
   }
   async function saveCustomer() { if (cid) await send({ action: 'annoSave', cid, data }); }
   function saveRules() { try { chrome.storage.local.set({ anno_rules: rules }); } catch (e) {} }
-  function snapshot() { undo.push(JSON.stringify({ data, rules })); if (undo.length > 50) undo.shift(); renderBar(); }
-  async function doUndo() {
-    const s = undo.pop(); if (!s) return;
+  const redo = [];                    // 다시 실행(Ctrl+Shift+Z) 스냅샷
+  function snapshot() { undo.push(JSON.stringify({ data, rules })); if (undo.length > 50) undo.shift(); redo.length = 0; renderBar(); }
+  async function restoreSnap(s, msg) {
     const o = JSON.parse(s); data = o.data; rules = o.rules;
-    await saveCustomer(); saveRules(); applyAll(); renderBar(); toast('↶ 되돌렸습니다');
+    closeEditor();
+    await saveCustomer(); saveRules(); applyAll(); renderBar(); toast(msg);
+  }
+  async function doUndo() {
+    const s = undo.pop(); if (!s) { toast('되돌릴 작업이 없습니다'); return; }
+    redo.push(JSON.stringify({ data, rules }));
+    await restoreSnap(s, '↶ 되돌렸습니다 (Ctrl+Shift+Z 로 다시 실행)');
+  }
+  async function doRedo() {
+    const s = redo.pop(); if (!s) { toast('다시 실행할 작업이 없습니다'); return; }
+    undo.push(JSON.stringify({ data, rules }));
+    await restoreSnap(s, '↷ 다시 실행했습니다');
   }
 
   // ── 표 해석: 표 → 구역·줄 이름·보험 칸 ──────────────
@@ -220,13 +231,29 @@
   }
   function unitTemplate(cell) {
     const t = cell.closest('table'); if (!t) return null;
+    // CRM은 모자란 금액을 빨강으로 표시하므로, 색이 없는(검정·회색) 보통 금액 칸을 본보기로 고른다
+    let best = null, bestSat = 2;
     for (const td of t.querySelectorAll('td')) {
       if (td === cell || td.hasAttribute('data-tce-ed')) continue;
       const ns = textNodes(td);
-      if (ns.length === 2 && /\d/.test(ns[0].nodeValue) && UNIT_RE.test(ns[1].nodeValue) && ns[0].parentElement !== ns[1].parentElement) return { num: ns[0].parentElement, unit: ns[1].parentElement };
+      if (ns.length === 2 && /\d/.test(ns[0].nodeValue) && UNIT_RE.test(ns[1].nodeValue) && ns[0].parentElement !== ns[1].parentElement) {
+        const sat = satOf(getComputedStyle(ns[0].parentElement).color);
+        if (sat < bestSat) { best = { num: ns[0].parentElement, unit: ns[1].parentElement }; bestSat = sat; }
+        if (sat < 0.12) break;
+      }
     }
-    return null;
+    return best;
   }
+  function rgbOf(c) {
+    c = String(c || '').trim();
+    let m = c.match(/^#([0-9a-f]{6})$/i);
+    if (m) { const v = parseInt(m[1], 16); return [v >> 16 & 255, v >> 8 & 255, v & 255]; }
+    m = c.match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/);
+    return m ? [+m[1], +m[2], +m[3]] : null;
+  }
+  function satOf(c) { const v = rgbOf(c); if (!v) return 1; const mx = Math.max(...v), mn = Math.min(...v); return mx ? (mx - mn) / mx : 0; }
+  // 고른 글자색의 옅은 색 — 단위 글자('만원')용 (CRM 빨강 금액의 옅은 단위색과 같은 방식)
+  function tint(c) { const v = rgbOf(c); if (!v) return c; return 'rgb(' + v.map(x => Math.round(x * 0.42 + 255 * 0.58)).join(',') + ')'; }
   function keepStyle(el) { if (el && !el.hasAttribute('data-tce-edc')) el.setAttribute('data-tce-edc', el.getAttribute('style') || ''); }
   function paintText(el, color) {
     if (!el) return;
@@ -267,7 +294,11 @@
       } else { sp.style.marginLeft = '4px'; sp.style.opacity = '.6'; }
       if (host === cell || !cell.contains(host.parentElement)) host.appendChild(sp); else host.insertAdjacentElement('afterend', sp);   // 칸 안에만
     }
-    if (text !== '') paintText(host, numColor);
+    if (text !== '' && (color || !hasUnitNode)) paintText(host, numColor);   // 원래 금액 칸을 기본색으로 고치면 CRM 색(빨강 등) 그대로
+    if (color && unitText !== null) {
+      const uEl = hasUnitNode ? list[list.length - 1].node.parentElement : cell.querySelector('[data-tce-unit]');
+      if (uEl && uEl !== host) paintText(uEl, tint(color));
+    }
     cell.setAttribute('data-tce-ed', '1');
     cell.title = '✏️ 고친 글자 — 원래: ' + list.map(x => x.orig).join('').trim();
   }
@@ -957,7 +988,7 @@
             ${ordered ? '<div class="r"><button class="chip" data-a="order-reset">↺ CRM 원래 순서로</button></div>' : ''}</div>
           <div class="hr"></div>
           <div class="sec"><span class="lab">되돌리기 · 지우기 (이 고객)</span>
-            <div class="r"><button class="chip" data-a="undo" ${undo.length ? '' : 'disabled'}>↶ 되돌리기${undo.length ? ' ' + undo.length : ''}</button></div>
+            <div class="r"><button class="chip" data-a="undo" ${undo.length ? '' : 'disabled'} title="Ctrl+Z">↶ 되돌리기${undo.length ? ' ' + undo.length : ''}</button><button class="chip" data-a="redo" ${redo.length ? '' : 'disabled'} title="Ctrl+Shift+Z">↷ 다시 실행${redo.length ? ' ' + redo.length : ''}</button></div>
             <div class="r dz"><button class="chip" data-a="clr-hl">형광펜 지우기</button><button class="chip" data-a="clr-ed">글자 원래대로</button><button class="chip" data-a="clr-all">전부</button></div>
             ${rules.length ? `<div class="r dz"><button class="chip" data-a="clr-rules">모든 고객 규칙 ${rules.length}개 지우기</button></div>` : ''}</div>
           <button class="pw" data-a="disable">⏻ 표시 기능 끄기</button>
@@ -981,6 +1012,7 @@
     else if (a === 's-one') scope = 'one';
     else if (a === 's-all') scope = 'all';
     else if (a === 'undo') return doUndo();
+    else if (a === 'redo') return doRedo();
     else if (a === 'order-reset') {
       if (!confirmBox('기억한 보험 순서를 지우고 원래 순서로 돌아갈까요? (페이지를 새로 불러옵니다)')) return;
       snapshot(); data.order = null; await saveCustomer(); location.reload(); return;
@@ -1031,7 +1063,7 @@
   async function onRoute() {
     const now = onCover() ? cidOf() : '';
     if (now === cid) return;
-    cid = now; mode = mode === 'hl' ? 'hl' : 'edit'; undo.length = 0; lastOrderSig = ''; orderReady = false; autoFixes = 0; closeEditor();
+    cid = now; mode = mode === 'hl' ? 'hl' : 'edit'; undo.length = 0; redo.length = 0; lastOrderSig = ''; orderReady = false; autoFixes = 0; closeEditor();
     unpaintAll(); restoreEdits();
     if (!cid) { renderBar(); return; }
     await loadAll();
@@ -1055,7 +1087,13 @@
   ['pointermove', 'pointerup'].forEach(t => document.addEventListener(t, () => { if (userTouchAt && Date.now() - userTouchAt < 6000) userTouchAt = Date.now(); }, true));
   ['pointerdown', 'mousedown', 'keydown'].forEach(t => document.addEventListener(t, ev => {
     if (t === 'keydown') {
-      if (enabled && mode && (ev.ctrlKey || ev.metaKey) && !ev.shiftKey && ev.key && ev.key.toLowerCase() === 'z' && !edBox) { ev.preventDefault(); doUndo(); }
+      if (!enabled || !cid || edBox || !(ev.ctrlKey || ev.metaKey) || ev.altKey || !ev.key) return;
+      // CRM 입력칸(메모 등)에서 쓰는 Ctrl+Z 는 그대로 둔다
+      const tg = ev.composedPath ? ev.composedPath()[0] : ev.target;
+      if (tg && tg.nodeType === 1 && (tg.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(tg.tagName))) return;
+      const k = ev.key.toLowerCase();
+      if (k === 'z' && !ev.shiftKey) { ev.preventDefault(); ev.stopPropagation(); doUndo(); }
+      else if ((k === 'z' && ev.shiftKey) || (k === 'y' && !ev.shiftKey)) { ev.preventDefault(); ev.stopPropagation(); doRedo(); }
       return;
     }
     swallow(ev);
