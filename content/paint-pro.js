@@ -427,8 +427,14 @@
       //    가로채기 스크립트가 dataURL 을 postMessage 로 보내준다(포커스 불필요).
       // 미리보기 창 애니메이션이 끝나 자리 잡을 때까지 기다린 뒤 누른다 (위 _waitPreviewSettled 설명)
       for (let attempt = 0; attempt < 2 && !dataURL; attempt++) {
+        // 배율을 바꾸면 CRM이 미리보기를 다시 그려서, 처음 찾은 [이미지 복사] 버튼이 화면에서 떨어져 나간다
+        // (눌러도 아무 일 없음 → 사무실 PC 처럼 배율이 100% 가 아닌 PC 에서만 '미리보기에서 멈춤').
+        // → 누르기 직전에 버튼을 다시 찾는다.
+        if (!btn || !btn.isConnected) { for (let i = 0; i < 16; i++) { btn = findCopyBtn(); if (btn) break; await sleep(250); } }
+        if (!btn) break;
         _ppStep = '미리보기 자리 잡기 기다림';
         await _waitPreviewSettled(btn, attempt ? 6000 : 4000);
+        const fresh = findCopyBtn(); if (fresh) btn = fresh;
         _ppStep = 'CRM 이미지 복사';
         _capturedImageURL = null;
         const clickedAt = Date.now();
@@ -453,6 +459,19 @@
       }
       } finally {
         if (zoomBefore) _restoreTabZoom(zoomBefore);
+      }
+      // 그래도 못 받았으면 예전 방식 그대로 한 번 더 — 배율은 그대로 두고 버튼만 다시 찾아 바로 누름
+      if (!dataURL) {
+        _ppStep = 'CRM 이미지 복사(예전 방식)';
+        _ppStatus('🎨 다른 방법으로 한 번 더 시도하는 중…');
+        await sleep(zoomBefore && Math.abs(zoomBefore - 1) > 0.001 ? 900 : 200);
+        let b2 = null; for (let i = 0; i < 16 && !b2; i++) { b2 = findCopyBtn(); if (!b2) await sleep(250); }
+        if (b2) {
+          _capturedImageURL = null;
+          const at2 = Date.now();
+          b2.click();
+          for (let i = 0; i < 25 && !dataURL; i++) { await sleep(180); if (_capturedImageURL && _capturedAt >= at2) dataURL = _capturedImageURL; }
+        }
       }
       if (!dataURL) {
         _ppStatus('', 1);
