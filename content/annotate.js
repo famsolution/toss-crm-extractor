@@ -330,7 +330,8 @@
     if (!n) return [];
     const ks = s.keys.slice(0, n);
     // 아직 내용이 덜 그려진 표(증권번호가 비었거나 같은 키가 겹침)는 순서로 치지 않음
-    if (ks.length !== n || new Set(ks).size !== ks.length || ks.some(k => k.length < 3)) return [];
+    const empty = ['n' + hash(''), 'm' + hash('')];   // 아직 비어 있는 증권번호 칸
+    if (ks.length !== n || new Set(ks).size !== ks.length || ks.some(k => k.length < 3 || empty.includes(k))) return [];
     return ks;
   }
   const sameSet = (a, b) => a.length === b.length && a.every(k => b.includes(k));
@@ -341,7 +342,7 @@
     while (Date.now() - t0 < maxMs) {
       const sig = currentOrder().join(',');
       if (sig !== last) { last = sig; since = Date.now(); }
-      else if (sig && Date.now() - since >= 1200) return true;
+      else if (sig && Date.now() - since >= 700) return true;
       await sleep(250);
     }
     return !!last;
@@ -351,6 +352,7 @@
   // CRM 머리칸 옮기기 — CRM 버전에 따라 키보드로만/끌기로만 되는 경우가 있어 여러 방법을 차례로 시도하고,
   // 한 번 된 방법은 기억해서 다음 칸부터 그 방법을 먼저 쓴다.
   let goodWay = '';
+  try { chrome.storage.local.get(['anno_move_way'], v => { if (v && v.anno_move_way) goodWay = v.anno_move_way; }); } catch (e) {}
   const center = el => { const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, w: r.width }; };
   function grips(h) {   // 실제로 잡히는 곳: 머리칸 자체 또는 안쪽 손잡이(버튼)
     const out = [];
@@ -374,14 +376,14 @@
       node.dispatchEvent(P ? new PointerEvent(type, Object.assign({ pointerId: 1, pointerType: 'mouse', isPrimary: true }, o)) : new MouseEvent(type, o));
     };
     fire(el, P ? 'pointerdown' : 'mousedown', a.x, a.y, 1);
-    await sleep(60);
+    await sleep(40);
     fire(document, P ? 'pointermove' : 'mousemove', a.x + (toLeft ? -6 : 6), a.y + 1, 1);   // 끌기 시작 거리
-    await sleep(280);                                                                      // 길게 누르기 조건 대비
-    const n = 14;
-    for (let i = 1; i <= n; i++) { fire(document, P ? 'pointermove' : 'mousemove', a.x + (tx - a.x) * i / n, a.y + (ty - a.y) * i / n, 1); await sleep(30); }
-    await sleep(120);
+    await sleep(goodWay === kind ? 60 : 280);                                              // 처음엔 길게 누르기 조건 대비, 된 방법이면 짧게
+    const n = goodWay === kind ? 6 : 14;
+    for (let i = 1; i <= n; i++) { fire(document, P ? 'pointermove' : 'mousemove', a.x + (tx - a.x) * i / n, a.y + (ty - a.y) * i / n, 1); await sleep(goodWay === kind ? 16 : 30); }
+    await sleep(goodWay === kind ? 60 : 120);
     fire(document, P ? 'pointerup' : 'mouseup', tx, ty, 0);
-    await sleep(450);
+    await sleep(goodWay === kind ? 280 : 450);
   }
   async function moveColumn(from, to) {
     const hs = headerCells(), h = hs[from], target = hs[to]; if (!h || !target) return false;
@@ -394,13 +396,44 @@
       for (const g of grips(h)) {
         if (w === 'keys') await viaKeys(g, steps, dir);
         else await viaDrag(g, headerCells()[to] || target, w, toLeft);
-        if (changed()) { goodWay = w; return true; }
+        if (changed()) { if (goodWay !== w) { goodWay = w; try { chrome.storage.local.set({ anno_move_way: w }); } catch (e) {} } return true; }
         try { document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true })); } catch (e) {}   // 반쯤 잡힌 상태 풀기
         await sleep(120);
       }
     }
     return false;
   }
+  // ⚡ 한 번에 맞추기 — CRM 화면 프로그램 안의 '열 순서' 를 바로 바꾼다 (order-main.js, 페이지 쪽에서 실행)
+  let _omReady = null;
+  function _omInject() {
+    if (_omReady) return _omReady;
+    _omReady = new Promise(res => {
+      try {
+        const sc = document.createElement('script');
+        sc.src = chrome.runtime.getURL('content/order-main.js');
+        sc.onload = () => { sc.remove(); res(true); }; sc.onerror = () => res(false);
+        (document.head || document.documentElement).appendChild(sc);
+      } catch (e) { res(false); }
+    });
+    return _omReady;
+  }
+  async function fastOrder(target) {
+    if (!(await _omInject())) return false;
+    const cur = currentOrder();
+    const perm = target.map(k => cur.indexOf(k));
+    if (perm.some(i => i < 0)) return false;
+    const reqId = 'o' + Date.now() + Math.random().toString(36).slice(2, 6);
+    const res = await new Promise(r => {
+      const on = ev => { if (ev.source === window && ev.data && ev.data.__sdhOrderRes === reqId) { window.removeEventListener('message', on); r(ev.data); } };
+      window.addEventListener('message', on);
+      window.postMessage({ __sdhOrder: 'apply', reqId, perm }, '*');
+      setTimeout(() => { window.removeEventListener('message', on); r({ ok: false, why: 'timeout' }); }, 1500);
+    });
+    if (!res.ok) { console.info('[상담도우미] 한 번에 순서 맞추기 불가(' + res.why + ') — 하나씩 옮깁니다'); return false; }
+    for (let i = 0; i < 15; i++) { await sleep(100); if (currentOrder().join(',') === target.join(',')) return true; }
+    return false;
+  }
+
   async function replayOrder() {
     const want = data.order;
     if (!enabled || !Array.isArray(want) || !want.length) return;
@@ -412,6 +445,7 @@
     replaying = true;
     let failed = false;
     try {
+      if (await fastOrder(target)) { lastOrderSig = target.join(','); toast('⚡ 기억한 보험 순서로 바로 맞췄습니다'); return; }
       for (let pass = 0; pass < 2 && !failed && currentOrder().join(',') !== target.join(','); pass++) {
         for (let i = 0; i < target.length; i++) {
           cur = currentOrder();
@@ -429,7 +463,14 @@
     const cur = currentOrder(), sig = cur.join(',');
     if (!sig || sig === lastOrderSig) return;
     const prev = lastOrderSig ? lastOrderSig.split(',') : [];
-    if (!lastOrderSig || !sameSet(cur, prev)) { lastOrderSig = sig; return; }   // 보험이 늘거나 줄면 기준만 새로
+    if (!lastOrderSig || !sameSet(cur, prev)) {   // 보험이 늘거나 줄면(표가 마저 그려짐) 기준을 새로 잡고, 기억한 순서와 다르면 다시 맞춤
+      lastOrderSig = sig;
+      if (Array.isArray(data.order) && data.order.length && autoFixes < 3) {
+        const target = data.order.filter(k => cur.includes(k)).concat(cur.filter(k => !data.order.includes(k)));
+        if (target.join(',') !== sig) { autoFixes++; replayOrder(); }
+      }
+      return;
+    }
     if (Date.now() - userTouchAt > 6000) {
       // 사용자가 옮긴 게 아님 = CRM이 화면을 새로 그리며 원래 순서로 되돌림 → 기억한 순서로 다시 맞춤
       lastOrderSig = sig;
