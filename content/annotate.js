@@ -194,8 +194,9 @@
   function restoreEdits() {
     editedNodes.forEach(list => list.forEach(x => { try { if (x.node.nodeValue !== x.orig) x.node.nodeValue = x.orig; } catch (e) {} }));
     editedNodes.clear();
+    document.querySelectorAll('[data-tce-unit]').forEach(el => el.remove());
     document.querySelectorAll('[data-tce-edc]').forEach(el => { const st = el.getAttribute('data-tce-edc'); if (st) el.setAttribute('style', st); else el.removeAttribute('style'); el.removeAttribute('data-tce-edc'); });
-    document.querySelectorAll('[data-tce-ed]').forEach(el => { el.removeAttribute('data-tce-ed'); el.removeAttribute('title'); el.style.removeProperty('outline'); });
+    document.querySelectorAll('[data-tce-ed]').forEach(el => { el.removeAttribute('data-tce-ed'); el.removeAttribute('title'); el.style.removeProperty('outline'); el.style.removeProperty('outline-offset'); });
   }
   function textNodes(el) {
     const out = []; const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
@@ -206,18 +207,66 @@
     const l = editedNodes.get(cell);
     return l ? l.map(x => x.orig).join('').trim() : (cell.textContent || '').trim();
   }
-  function setCellText(cell, text) {
+  // ✏️ 고친 글자 넣기 — CRM 금액 칸('2,000' 진한 글자 + '만원' 옅은 글자)과 똑같은 모양으로
+  //   · "3000만원" / "3,000 만원" / 금액 칸에 숫자만 → 천 단위 쉼표 + 단위는 CRM 단위 글자 모양
+  //   · 빈 칸('-')처럼 단위 글자가 없던 칸은 같은 표의 금액 칸 모양을 본떠 단위 글자를 붙인다
+  //   · color 를 고르면 그 색, 아니면 CRM 금액 숫자 색(진한 색) — 옅은 회색 칸에서도 잘 보이게
+  //   · text 가 '' 이면 칸을 비운다
+  const AMT_RE = /^\s*([+\-]?\d[\d,]*(?:\.\d+)?)\s*(만\s*원|천\s*원|억\s*원|원|만|억)?\s*$/;
+  const UNIT_RE = /(원|만|억)/;
+  function fmtNum(n) {
+    const neg = /^-/.test(n), raw = n.replace(/[,+\-]/g, ''), [i, d] = raw.split('.');
+    return (neg ? '-' : '') + Number(i || 0).toLocaleString('ko-KR') + (d ? '.' + d : '');
+  }
+  function unitTemplate(cell) {
+    const t = cell.closest('table'); if (!t) return null;
+    for (const td of t.querySelectorAll('td')) {
+      if (td === cell || td.hasAttribute('data-tce-ed')) continue;
+      const ns = textNodes(td);
+      if (ns.length === 2 && /\d/.test(ns[0].nodeValue) && UNIT_RE.test(ns[1].nodeValue) && ns[0].parentElement !== ns[1].parentElement) return { num: ns[0].parentElement, unit: ns[1].parentElement };
+    }
+    return null;
+  }
+  function keepStyle(el) { if (el && !el.hasAttribute('data-tce-edc')) el.setAttribute('data-tce-edc', el.getAttribute('style') || ''); }
+  function paintText(el, color) {
+    if (!el) return;
+    keepStyle(el);
+    el.style.setProperty('color', color, 'important'); el.style.setProperty('-webkit-text-fill-color', color, 'important'); el.style.setProperty('opacity', '1', 'important');
+  }
+  function setCellText(cell, text, color) {
     let list = editedNodes.get(cell);
     if (!list) { list = textNodes(cell).map(n => ({ node: n, orig: n.nodeValue })); if (!list.length) return; editedNodes.set(cell, list); }
-    list.forEach((x, i) => { x.node.nodeValue = i === 0 ? text : ''; });
-    // CRM 은 빈 칸('-')·단위 글자를 아주 옅은 회색으로 그린다 → 고친 글자가 거의 안 보임. 진하게 보이도록.
+    cell.querySelectorAll('[data-tce-unit]').forEach(x => x.remove());
+    text = String(text == null ? '' : text);
+    const hasUnitNode = list.length >= 2 && UNIT_RE.test(list[list.length - 1].orig) && /\d|-/.test(list[0].orig);
+    const m = text.match(AMT_RE);
+    let numText = text, unitText = null;
+    if (m && (m[2] || hasUnitNode)) { numText = fmtNum(m[1]); unitText = m[2] ? m[2].replace(/\s/g, '') : list[list.length - 1].orig.trim(); }
+    const tpl = unitTemplate(cell);
+    const numColor = color || (tpl ? getComputedStyle(tpl.num).color : '#1B242D');
+    list.forEach(x => { x.node.nodeValue = ''; });
+    list[0].node.nodeValue = numText;
     const host = list[0].node.parentElement;
-    if (host && !host.hasAttribute('data-tce-edc')) { host.setAttribute('data-tce-edc', host.getAttribute('style') || ''); }
-    if (host) { host.style.setProperty('color', '#1B242D', 'important'); host.style.setProperty('-webkit-text-fill-color', '#1B242D', 'important'); host.style.setProperty('opacity', '1', 'important'); }
+    if (unitText !== null && hasUnitNode) {
+      const u = list[list.length - 1];
+      u.node.nodeValue = u.orig.replace(u.orig.trim(), unitText);
+    } else if (unitText !== null && host) {
+      // 단위 글자가 없던 칸: 같은 표 금액 칸의 단위 글자 모양을 본떠 붙임
+      const sp = document.createElement('span');
+      sp.setAttribute('data-tce-unit', '');
+      sp.textContent = unitText;
+      if (tpl) {
+        const us = getComputedStyle(tpl.unit);
+        ['color', 'fontSize', 'fontWeight', 'fontFamily', 'lineHeight', 'letterSpacing'].forEach(k => { sp.style[k] = us[k]; });
+        sp.style.marginLeft = us.marginLeft !== '0px' ? us.marginLeft : '4px';
+        const ns = getComputedStyle(tpl.num);
+        if (host) { keepStyle(host); ['fontSize', 'fontWeight'].forEach(k => host.style.setProperty(k === 'fontSize' ? 'font-size' : 'font-weight', ns[k], 'important')); }
+      } else { sp.style.marginLeft = '4px'; sp.style.opacity = '.6'; }
+      host.insertAdjacentElement('afterend', sp);
+    }
+    if (text !== '') paintText(host, numColor);
     cell.setAttribute('data-tce-ed', '1');
     cell.title = '✏️ 고친 글자 — 원래: ' + list.map(x => x.orig).join('').trim();
-    cell.style.setProperty('outline', '1.5px dashed rgba(37, 99, 235, 0.55)');
-    cell.style.setProperty('outline-offset', '-2px');
   }
 
   function applyAll() {
@@ -240,7 +289,7 @@
               const h = data.hl.find(x => x.sec === pt.sec && x.row === p.label && x.col === key);
               if (h) paint(c, h.color);
               const ed = data.edits.find(x => x.sec === pt.sec && x.row === p.label && x.col === key);
-              if (ed) setCellText(c, ed.text);
+              if (ed) setCellText(c, ed.text, ed.color);
             });
           });
         });
@@ -319,36 +368,71 @@
   // ✏️ 글자 수정 — 칸 위에 그 칸과 똑같은 모양(글꼴·크기·정렬·여백)의 입력 자리를 겹쳐 '표에 바로 쓰는' 방식.
   //   CRM 칸 자체를 고치지 않으므로 CRM 화면이 다시 그려져도 입력이 깨지지 않는다. Enter 저장 · Esc 취소 · 비우면 원래 글자.
   let edCell = null;
+  const ED_COLORS = [
+    { k: '', name: '기본(CRM 색)', c: '#1B242D' }, { k: '#E11D48', name: '빨강', c: '#E11D48' }, { k: '#2563EB', name: '파랑', c: '#2563EB' },
+    { k: '#059669', name: '초록', c: '#059669' }, { k: '#EA580C', name: '주황', c: '#EA580C' }, { k: '#7C3AED', name: '보라', c: '#7C3AED' }
+  ];
+  let edColor = '';
   function openEditor(cell, loc) {
     closeEditor();
-    const cur = (cell.textContent || '').trim();
+    const prevEd = data.edits.find(x => x.sec === loc.sec && x.row === loc.row && x.col === loc.col);
+    const cur = prevEd ? prevEd.text : (cell.textContent || '').trim();
+    edColor = prevEd && prevEd.color ? prevEd.color : '';
     const orig = originalText(cell);
     const cs = getComputedStyle(cell);
     edBox = document.createElement('div');
     edBox.setAttribute('data-tce-ui', '');
     const sr = edBox.attachShadow({ mode: 'closed' });
     sr.innerHTML = `<style>
-      .e{position:fixed;z-index:2147483646;box-sizing:border-box;background:#fff;outline:none;box-shadow:0 0 0 2px #2563EB,0 6px 18px rgba(15,23,42,.18);
-        border-radius:2px;overflow:hidden;white-space:pre-wrap;word-break:break-all;cursor:text;display:flex;align-items:center}
-      .e > div{width:100%;outline:none}
-      .h{position:fixed;z-index:2147483646;font:11px -apple-system,"Malgun Gothic",sans-serif;color:#fff;background:#1E293B;border-radius:6px;padding:3px 8px;white-space:nowrap;pointer-events:none}</style>
-      <div class="e"><div contenteditable="true" spellcheck="false"></div></div><div class="h"></div>`;
-    const box = sr.querySelector('.e'), ed = sr.querySelector('.e > div'), hint = sr.querySelector('.h');
+      .e{position:fixed;z-index:2147483646;box-sizing:border-box;background:#fff;outline:none;box-shadow:0 0 0 2px #6366F1,0 6px 18px rgba(15,23,42,.18);
+        border-radius:3px;overflow:hidden;white-space:pre-wrap;word-break:break-all;cursor:text;display:flex;align-items:center}
+      .e > div{width:100%;outline:none;min-height:1em}
+      .e > div:empty::before{content:"(빈 칸)";color:#C0C4CF;font-weight:500}
+      .bar{position:fixed;z-index:2147483646;display:flex;align-items:center;gap:6px;background:rgba(31,35,48,.96);backdrop-filter:blur(8px);border-radius:12px;padding:6px 8px;
+        box-shadow:0 10px 28px rgba(17,24,39,.3);font:12px -apple-system,"Malgun Gothic",sans-serif;color:#E5E7EB;white-space:nowrap}
+      .sw{width:18px;height:18px;border-radius:50%;border:0;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.35)}
+      .sw.sel{box-shadow:0 0 0 2px rgba(31,35,48,.96),0 0 0 4px #A5B4FC}
+      .sep{width:1px;height:16px;background:rgba(255,255,255,.18)}
+      .bt{border:0;border-radius:8px;padding:4px 9px;font:inherit;font-weight:700;cursor:pointer;background:rgba(255,255,255,.1);color:#fff}
+      .bt:hover{background:rgba(255,255,255,.2)}
+      .k{color:#9CA3AF}</style>
+      <div class="e"><div contenteditable="true" spellcheck="false"></div></div>
+      <div class="bar"><span class="k">글자색</span>${ED_COLORS.map(c => `<button class="sw" data-c="${c.k}" title="${c.name}" style="background:${c.c}"></button>`).join('')}
+        <span class="sep"></span><button class="bt" data-a="clear" title="칸을 비웁니다">비우기</button><button class="bt" data-a="orig" title="CRM 원래 글자로">↺ 원래 글자</button>
+        <span class="sep"></span><span class="k">Enter 저장 · Esc 취소</span></div>`;
+    const box = sr.querySelector('.e'), ed = sr.querySelector('.e > div'), bar = sr.querySelector('.bar');
     ['fontFamily', 'fontSize', 'lineHeight', 'textAlign', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'letterSpacing'].forEach(k => { box.style[k] = cs[k]; });
-    box.style.color = '#1B242D'; box.style.fontWeight = '600'; box.style.caretColor = '#4F46E5';   // 칸 글자색이 옅어도 쓰는 글자는 또렷하게
+    box.style.fontWeight = '600'; box.style.caretColor = '#4F46E5';
     if (parseFloat(cs.paddingLeft) < 4) box.style.paddingLeft = '4px';
     ed.style.textAlign = cs.textAlign;
     ed.textContent = cur;
-    hint.textContent = 'Enter 저장 · Esc 취소 · 비우면 원래 글자 (원래: ' + (orig.length > 24 ? orig.slice(0, 24) + '…' : orig) + ')';
+    const showColor = () => {
+      box.style.color = edColor || '#1B242D';
+      sr.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', b.dataset.c === edColor));
+    };
+    showColor();
     let closed = false;
-    const save = async (text) => {
+    const save = async (text, revert) => {
       if (closed) return; closed = true;
       snapshot();
       const i = data.edits.findIndex(x => x.sec === loc.sec && x.row === loc.row && x.col === loc.col);
-      if (text == null || text.trim() === '' || text.trim() === orig) { if (i >= 0) data.edits.splice(i, 1); }
-      else if (i >= 0) data.edits[i].text = text.trim(); else data.edits.push({ sec: loc.sec, row: loc.row, col: loc.col, text: text.trim() });
+      const t = String(text == null ? '' : text).replace(/ /g, ' ').trim();
+      if (revert || (t === orig && !edColor)) { if (i >= 0) data.edits.splice(i, 1); }
+      else {
+        const rec = { sec: loc.sec, row: loc.row, col: loc.col, text: t };
+        if (edColor) rec.color = edColor;
+        if (i >= 0) data.edits[i] = rec; else data.edits.push(rec);
+      }
       await saveCustomer(); closeEditor(); applyAll();
     };
+    // 도구 줄을 눌러도 입력칸 포커스를 잃지 않게(잃으면 저장돼 버림)
+    bar.addEventListener('mousedown', ev => ev.preventDefault());
+    bar.addEventListener('click', ev => {
+      const b = ev.target.closest('button'); if (!b) return;
+      if (b.dataset.c !== undefined) { edColor = b.dataset.c; showColor(); ed.focus(); return; }
+      if (b.dataset.a === 'clear') { ed.textContent = ''; ed.focus(); return; }
+      if (b.dataset.a === 'orig') save(null, true);
+    });
     ed.addEventListener('keydown', ev => {
       ev.stopPropagation();
       if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); save(ed.textContent); }
@@ -361,7 +445,9 @@
       if (!edCell || !edCell.isConnected) return;
       const r = edCell.getBoundingClientRect();
       box.style.left = r.left + 'px'; box.style.top = r.top + 'px'; box.style.width = r.width + 'px'; box.style.minHeight = r.height + 'px';
-      hint.style.left = r.left + 'px'; hint.style.top = Math.min(window.innerHeight - 24, r.bottom + 4) + 'px';
+      const bw = bar.offsetWidth || 420;
+      bar.style.left = Math.max(8, Math.min(window.innerWidth - bw - 8, r.left)) + 'px';
+      bar.style.top = (r.bottom + 46 > window.innerHeight ? r.top - 40 : r.bottom + 6) + 'px';
     };
     edBox.__place();
     setTimeout(() => {
@@ -815,7 +901,7 @@
           <div class="sec"><span class="lab">적용 범위</span>
             <div class="seg"><button data-a="s-one" class="${scope === 'one' ? 'sel' : ''}">이 고객만</button><button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객 (줄 단위)</button></div></div>
           <div class="hint">칸을 누르면 그 칸, 줄 이름(예: 질병입원의료비)을 누르면 그 줄 전체가 칠해집니다. 같은 색으로 다시 누르면 지워집니다.${scope === 'all' ? '<br><b>모든 고객</b> — 누른 줄이 모든 고객 화면에서 칠해집니다.' : ''}</div>` : ''}
-          ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르고 바로 입력하세요. <b>Enter</b> 저장 · <b>Esc</b> 취소. 화면에서만 바뀌고 CRM 데이터는 그대로입니다. 고친 칸은 점선 테두리, 마우스를 올리면 원래 글자.</div>` : ''}
+          ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르고 바로 입력하세요. <b>Enter</b> 저장 · <b>Esc</b> 취소. 금액(예: 3000만원)은 CRM과 같은 모양으로, 글자색·비우기·원래 글자는 칸 아래 도구 줄에서. 화면에서만 바뀌고 CRM 데이터는 그대로이며, 마우스를 올리면 원래 글자가 보입니다.</div>` : ''}
           <div class="hr"></div>
           <div class="sec"><span class="lab">보험 순서 ${ordered ? '<b>기억됨</b>' : ''}</span>
             <button class="tg ${numsOn ? 'sel' : ''}" data-a="nums"><span>🔢 번호표 보이기<small>번호를 눌러 바꾸면 그 자리로 옮깁니다</small></span><s></s></button>
@@ -927,7 +1013,7 @@
   }, true));
   new MutationObserver(muts => {
     if (applying) return;
-    const ours = n => n.nodeType === 1 && (n.hasAttribute('data-tce-hl') || n.hasAttribute('data-tce-ui'));
+    const ours = n => n.nodeType === 1 && (n.hasAttribute('data-tce-hl') || n.hasAttribute('data-tce-ui') || n.hasAttribute('data-tce-unit'));
     if (muts.every(m => (m.target && m.target.closest && m.target.closest('[data-tce-ui],[data-tce-hl]')) ||
       (m.type === 'childList' && Array.prototype.every.call(m.addedNodes, ours) && Array.prototype.every.call(m.removedNodes, ours)))) return;
     scheduleApply();
