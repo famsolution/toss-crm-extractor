@@ -82,6 +82,16 @@ const CU_H_NEG = /^(없음|없다|없습니다|아니오|아니요|아님|해당
 const CU_H_DATE = /(19|20)\d{2}|\d{2}\s*년|\d{1,2}\s*월|\d+\s*(년|개월|달|주|일|주일)\s*(전|째|간|동안)?|작년|올해|금년|재작년|지난\s*(해|달|주)|이번\s*(달|주)|최근|\d{2}[.\-/]\d{1,2}|\d{1,2}[.\-/]\d{1,2}/;
 const CU_H_LIMB = /(팔|다리|어깨|팔꿈치|손목|무릎|발목|고관절)/;
 const CU_H_SIDE = /(오른|왼|좌측|우측|양쪽|양측|좌우|[(（\[]\s*[좌우양]\s*[)）\]]|(^|\s)[좌우양]\s*(팔|다리|어깨|팔꿈치|손목|무릎|발목|고관절))/;
+// 수술·입원·통원·약은 세부 내용이 있어야 심사에 쓸 수 있다
+const CU_H_SURG = /(수술|시술|절제|제거술|봉합|내시경\s*(으로\s*)?(제거|절제)|레이저|교정술|성형|이식)/;
+const CU_H_PART = /(머리|뇌|눈|안구|백내장|녹내장|라식|라섹|코|비중격|축농|부비동|귀|중이|편도|목|갑상선|성대|치아|이빨|잇몸|사랑니|가슴|유방|폐|기관지|심장|혈관|식도|위|십이지장|간|담낭|쓸개|췌장|신장|콩팥|요관|방광|대장|직장|소장|맹장|충수|항문|치질|치핵|치루|탈장|자궁|난소|나팔관|제왕|전립선|고환|포경|허리|척추|요추|경추|디스크|골반|어깨|팔|팔꿈치|손|손목|손가락|다리|허벅지|무릎|발|발목|발가락|고관절|인대|연골|반월상|아킬레스|피부|점|사마귀|티눈|지방종|낭종|혹|용종|결절|흉터|얼굴|턱|코뼈|하지정맥|정맥류)/;
+const CU_H_ADMIT = /입원/, CU_H_ADMIT_N = /입원\s*(기간\s*)?\d+\s*(일|박|주|개월)|\d+\s*(일|박|주|개월)\s*(간\s*|동안\s*)?입원|당일\s*퇴원|입원\s*(없|안|x)/i;
+const CU_H_OUT = /(통원|외래|병원\s*(다님|다녔|치료)|물리치료|도수치료|재활)/, CU_H_OUT_N = /\d+\s*(회|번|일|차례)/;
+const CU_H_MED = /(약|복용|처방|투약|주사|먹고|먹는|먹었)/;
+const CU_H_MED_NAME = /(혈압|당뇨|고지혈|콜레스테롤|갑상선|탈모|수면|우울|불안|공황|신경|정신|ADHD|진통|소염|위장|위염|역류|천식|비염|알레르기|항생|피부|여드름|호르몬|피임|통풍|관절|골다공|빈혈|두통|편두통|철분|비타민|인슐린|항응고|와파린|아스피린|프로페시아|피나스테리드|두타스테리드|아보다트|미녹시딜|마이녹실|핀페시아|모나드|리피토|크레스토|노바스크|아모잘탄|엑스포지|트윈스타|글루코파지|다이아벡스|자누비아|자나팜|졸피뎀|스틸녹스|렉사프로|졸로푸트|아빌리파이|콘서타|씬지로이드|넥시움|란스톤|타이레놀|부루펜|세레브렉스|울트라셋|[가-힣]{2,}(정|캡슐|시럽|패치)|[A-Za-z]{3,})/;
+const CU_H_MED_FROM = /(부터|시작|째|전\s*부터|(19|20)\d{2}|\d{2}\s*년|\d{1,2}\s*월)/;
+const CU_H_MED_SUPPLY = /\d+\s*(개월|달|주|일)\s*(치|분)|(처방|약)\s*\d+\s*(개월|달|주|일)|\d+\s*(개월|달|주|일)\s*처방/;
+const CU_H_HAIR = /(탈모|원형\s*탈모|프로페시아|피나스테리드|두타스테리드|아보다트|미녹시딜|마이녹실|로게인|모나드|핀페시아|두타)/i;
 function _cuHealthIssues(text) {
   const t = String(text || '').trim();
   if (!t || CU_H_NEG.test(t)) return [];
@@ -89,7 +99,69 @@ function _cuHealthIssues(text) {
   if (!CU_H_DATE.test(t)) out.push('날짜가 없습니다 — 언제인지 적어 주세요');
   const limb = t.match(CU_H_LIMB);
   if (limb && !CU_H_SIDE.test(t)) out.push(`'${limb[1]}' — 오른쪽인지 왼쪽인지(양쪽인지) 적어 주세요`);
+  if (CU_H_SURG.test(t)) {
+    if (!CU_H_PART.test(t)) out.push('수술 — 어느 부위를 수술했는지 적어 주세요');
+    if (!CU_H_ADMIT_N.test(t)) out.push('수술 — 입원했다면 며칠 입원했는지(안 했으면 "입원 없음") 적어 주세요');
+  } else if (CU_H_ADMIT.test(t) && !CU_H_ADMIT_N.test(t)) out.push('입원 — 며칠 입원했는지 적어 주세요');
+  if (CU_H_OUT.test(t) && !CU_H_OUT_N.test(t)) out.push('통원 — 며칠(몇 회) 통원했는지 적어 주세요');
+  if (CU_H_MED.test(t)) {
+    if (!CU_H_MED_NAME.test(t)) out.push('약 — 어떤 약인지(약 이름이나 무슨 약) 적어 주세요');
+    if (!CU_H_MED_FROM.test(t)) out.push('약 — 언제부터 먹었는지 적어 주세요');
+    if (!CU_H_MED_SUPPLY.test(t)) out.push('약 — 몇 개월치를 처방받았는지 적어 주세요');
+  }
+  if (CU_H_HAIR.test(t)) out.push('탈모 — 고객에게 탈모 추가 질문(원인질환·부위·현재상태·치료내용)을 받아야 합니다 → 아래 [📋 탈모 질문 복사]');
   return out;
+}
+
+// 💬 고객에게 보낼 추가 질문 — 답변에 해당 내용이 있으면 건강상태 화면에 '보낼 문구' 카드가 뜬다
+//   {이름} 은 고객 이름으로 바뀐다. 문구는 카드에서 고쳐 쓸 수 있고, 고친 문구는 이 PC 에 기억한다.
+const CU_FOLLOWUPS = [{
+  key: 'hair', title: '탈모 추가 질문', match: CU_H_HAIR,
+  text: `{이름}님 말씀드린대로 탈모약 관련하여 몇가지 체크해야 할 부분 있어서요.
+아래 내용 확인해보시고 해당 번호로 답변 부탁드릴게요.
+
+ex)1, 3, 5, 8, 11
+
+A. 원인질환
+1.없음  2.있음(있다면 간략하게 전달부탁드립니다.)
+
+B. 발병부위
+3.두피탈모 4.전신탈모
+
+C. 현재상태
+5.현증 6.과거력(7.현재탈모 없음 8.현재탈모 있음)
+
+D.치료내용
+9.스테로이드치료 10.면역억제치료 11.약물치료
+
+(최소 20년 납부하시는 보험을 최대한 유리한 조건으로 꼼꼼하게 34개 보험사에서 대안을 찾아보는 중이니 시간 되실때 답변 부탁드릴게요.)`
+}];
+let _cuFollowTpl = {};   // 고친 문구 { key: text }
+try { chrome.storage.local.get(['cuFollowTpl'], v => { _cuFollowTpl = (v && v.cuFollowTpl) || {}; }); } catch (e) {}
+function _cuAllAnswers(c) {
+  const st = (c && c.health && c.health.state) || {}, out = [];
+  Object.keys(st).forEach(cat => Object.keys(st[cat] || {}).forEach(i => {
+    const v = st[cat][i];
+    if (Array.isArray(v)) out.push(...v); else if (typeof v === 'string') out.push(v); else if (v && typeof v === 'object' && v.value) out.push(v.value);
+  }));
+  return out.map(String);
+}
+function _cuFollowText(f, c) {
+  let name = String((c && c['고객명']) || '').trim() || '고객';
+  if (/^[가-힣]{3}$/.test(name)) name = name.slice(1);      // 김재원 → 재원님 (성 빼고 부르기)
+  return String(_cuFollowTpl[f.key] || f.text).split('{이름}').join(name);
+}
+function _cuRenderFollowups() {
+  const box = document.getElementById('cuFollow'); if (!box) return;
+  const ans = _cuAllAnswers(_cuEdit);
+  const hit = CU_FOLLOWUPS.filter(f => ans.some(a => f.match.test(a)));
+  box.innerHTML = hit.map(f => `<div class="cu-follow" data-k="${f.key}">
+    <div class="cu-follow-t">💬 고객에게 보낼 ${_cuEsc(f.title)} <small>답변에 '${_cuEsc((ans.find(a => f.match.test(a)) || '').slice(0, 20))}' 이(가) 있어요</small></div>
+    <textarea class="cu-follow-tx" data-k="${f.key}" rows="9">${_cuEsc(_cuFollowText(f, _cuEdit))}</textarea>
+    <div class="cu-follow-act"><button type="button" class="btn-primary" data-act="fcopy" data-k="${f.key}">📋 ${_cuEsc(f.title)} 복사</button>
+      <button type="button" class="cred-copy" data-act="fsave" data-k="${f.key}" title="지금 문구를 다음부터 기본으로 (고객 이름 자리는 {이름})">💾 이 문구 기본으로</button>
+      <button type="button" class="cred-link" data-act="freset" data-k="${f.key}">처음 문구로</button></div></div>`).join('');
+  box.style.display = hit.length ? '' : 'none';
 }
 // 지금 입력 중인 고객의 건강상태 전체에서 확인할 것 모으기
 function _cuHealthAllIssues(c) {
@@ -262,6 +334,7 @@ function cuRenderHealth() {
     const sIss = t === 'single' ? _cuHealthIssues((v && typeof v === 'object' && !Array.isArray(v)) ? v.value : v) : [];
     return `<div class="cu-hq" data-i="${i}"><div class="cu-hq-t"><b>${i + 1}</b> ${txt}</div>${body}${sIss.length ? `<div class="cu-hwarn-msg">⚠ ${_cuEsc(sIss.join(' · '))}</div>` : ''}</div>`;
   }).join('');
+  _cuRenderFollowups();
 }
 
 function _cuHSet(i, val) {
@@ -747,6 +820,21 @@ function _cuOnClick(e) {
   }
   if (act === 'stage') { _cuEdit['상담단계'] = _cuEdit['상담단계'] === b.dataset.v ? '' : b.dataset.v; cuRenderStage(); return; }
   if (act === 'hadd') { _cuHAdd(Number(b.dataset.i)); return; }
+  if (act === 'fcopy' || act === 'fsave' || act === 'freset') {
+    const f = CU_FOLLOWUPS.find(x => x.key === b.dataset.k); if (!f) return;
+    const ta = document.querySelector(`#cuFollow textarea[data-k="${f.key}"]`);
+    if (act === 'fcopy') {
+      const txt = ta ? ta.value : _cuFollowText(f, _cuEdit);
+      navigator.clipboard.writeText(txt).then(() => showToast('📋 복사했습니다 — 카카오톡·문자에 붙여넣어 보내세요'), () => { ta && ta.select(); document.execCommand('copy'); showToast('📋 복사했습니다'); });
+    } else if (act === 'fsave') {
+      let name = String(_cuEdit['고객명'] || '').trim(); if (/^[가-힣]{3}$/.test(name)) name = name.slice(1);
+      let tpl = ta ? ta.value : f.text;
+      if (name) tpl = tpl.split(name).join('{이름}');
+      _cuFollowTpl[f.key] = tpl; chrome.storage.local.set({ cuFollowTpl: _cuFollowTpl });
+      showToast('💾 다음부터 이 문구로 띄웁니다');
+    } else { delete _cuFollowTpl[f.key]; chrome.storage.local.set({ cuFollowTpl: _cuFollowTpl }); _cuRenderFollowups(); showToast('처음 문구로 되돌렸습니다'); }
+    return;
+  }
   if (act === 'hdel') {
     const st = _cuEdit.health.state[_cuHealthCat] || {};
     const arr = Array.isArray(st[b.dataset.i]) ? st[b.dataset.i] : [];
