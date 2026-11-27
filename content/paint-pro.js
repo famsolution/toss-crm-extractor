@@ -106,8 +106,9 @@
         try { document.body && document.body.focus && document.body.focus(); } catch (_) {}
         await sleep(60);
       }
-      const items = await _within(navigator.clipboard.read(), 2500, '__timeout');
-      if (items === '__timeout') { _lastClipErr = '클립보드 읽기 권한 창이 떠 있거나 회사 보안 정책으로 막혀 있습니다'; return null; }
+      const items = await _within(navigator.clipboard.read().catch(function (e) { return { __err: e }; }), 2500, '__timeout');
+      if (items === '__timeout') { _lastClipErr = '클립보드 읽기 권한 창이 떠 있거나(주소창 확인) 응답이 없습니다'; return null; }
+      if (items && items.__err) throw items.__err;
       for (const it of items) {
         const t = it.types.find(function (x) { return x.startsWith('image/'); });
         if (t) { const blob = await it.getType(t); return await blobToDataURL(blob); }
@@ -206,8 +207,14 @@
 
   function _pageDialog(message, title, withCancel) {
     return new Promise(function (resolve) {
+      // CRM '보장분석 표 미리보기' 같은 창(모달)이 떠 있으면 그 위에 보이고 눌려야 한다 —
+      // 일반 요소는 z-index 가 아무리 커도 모달 아래에 깔리거나 눌리지 않는다(사무실 PC 에서 '미리보기에서 멈춤'으로 보임).
+      // → 브라우저 '맨 위 층' 에 올라가는 <dialog>.showModal() 로 띄운다.
+      const dlg = document.createElement('dialog');
+      dlg.style.cssText = 'padding:0;margin:0;border:0;background:transparent;width:100vw;height:100vh;max-width:none;max-height:none;overflow:hidden;pointer-events:auto;';
       const hostEl = document.createElement('div');
-      hostEl.style.cssText = 'position:fixed; inset:0; z-index:2147483647;';
+      hostEl.style.cssText = 'position:fixed; inset:0; z-index:2147483647; pointer-events:auto;';
+      dlg.appendChild(hostEl);
       const root = hostEl.attachShadow({ mode: 'open' });
       const style = document.createElement('style');
       style.textContent = _DLG_CSS;
@@ -220,7 +227,9 @@
       const ok   = document.createElement('button'); ok.className = 'o'; ok.textContent = '확인';
       t.textContent = title || (withCancel ? '확인' : '알림');
       m.textContent = String(message == null ? '' : message);
-      const finish = function (v) { try { hostEl.remove(); } catch (e) {} resolve(v); };
+      let fin = false;
+      const finish = function (v) { if (fin) return; fin = true; try { dlg.close(); } catch (e) {} try { dlg.remove(); } catch (e) {} resolve(v); };
+      dlg.addEventListener('cancel', function (e) { e.preventDefault(); finish(false); });
       ok.addEventListener('click', function () { finish(true); });
       if (withCancel) {
         const cancel = document.createElement('button');
@@ -231,8 +240,9 @@
       acts.appendChild(ok);
       box.appendChild(t); box.appendChild(m); box.appendChild(acts);
       back.appendChild(box); root.appendChild(back);
-      document.body.appendChild(hostEl);
-      ok.focus();
+      (document.body || document.documentElement).appendChild(dlg);
+      try { dlg.showModal(); } catch (e) { try { dlg.setAttribute('open', ''); } catch (_) {} }
+      setTimeout(function () { try { ok.focus(); } catch (e) {} }, 30);
     });
   }
   function pageAlert(message, title)   { return _pageDialog(message, title, false); }
@@ -334,10 +344,12 @@
     try {
       if (!_ppMsgEl || !document.documentElement.contains(_ppMsgEl)) {
         _ppMsgEl = document.createElement('div');
-        _ppMsgEl.style.cssText = 'position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:2147483647;background:#37352F;color:#fff;padding:9px 16px;border-radius:8px;font:600 14px -apple-system,"Malgun Gothic",sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none;';
-        document.documentElement.appendChild(_ppMsgEl);
+        _ppMsgEl.style.cssText = 'position:fixed;top:14px;left:50%;right:auto;bottom:auto;margin:0;border:0;transform:translateX(-50%);z-index:2147483647;background:#37352F;color:#fff;padding:9px 16px;border-radius:8px;font:600 14px -apple-system,"Malgun Gothic",sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);pointer-events:none;';
+        try { _ppMsgEl.setAttribute('popover', 'manual'); } catch (e) {}   // 미리보기 창 위에도 보이도록 맨 위 층으로
+        (document.body || document.documentElement).appendChild(_ppMsgEl);
       }
       _ppMsgEl.textContent = msg; _ppMsgEl.style.display = '';
+      try { if (_ppMsgEl.showPopover) { _ppMsgEl.hidePopover && _ppMsgEl.matches(':popover-open') && _ppMsgEl.hidePopover(); _ppMsgEl.showPopover(); } } catch (e) {}
       clearTimeout(_ppMsgT);
       if (ms) _ppMsgT = setTimeout(function () { if (_ppMsgEl) _ppMsgEl.style.display = 'none'; }, ms);
     } catch (e) {}
@@ -378,6 +390,7 @@
     const tips = [];
     if (_ppBgSilent) tips.push('· 확장의 뒤쪽(백그라운드)이 답하지 않습니다 — chrome://extensions 에서 상담 도우미 🔄 새로고침 후 CRM 탭도 F5');
     if (/이미지 복사/.test(_ppStep)) tips.push('· CRM [이미지 복사] 를 직접 눌러 "복사되었습니다" 가 뜨는지 확인 — 안 뜨면 이 PC 의 클립보드 사용이 막힌 것입니다(주소창 왼쪽 🔒 → 사이트 설정 → 클립보드 허용)');
+    if (/클립보드/.test(_ppStep)) tips.push('· CRM [이미지 복사] 를 눌러도 이미지가 오지 않았습니다 — CRM 미리보기에서 [이미지 복사] 를 직접 눌러 "복사되었습니다" 가 뜨는지 확인해 주세요. 안 뜨면 이 PC 의 클립보드 사용이 막힌 것입니다(주소창 왼쪽 🔒 → 사이트 설정 → 클립보드 → 허용)');
     if (/클립보드/.test(_ppStep) || _lastClipErr) tips.push('· 클립보드: ' + (_lastClipErr || '읽기 실패'));
     if (/여는/.test(_ppStep)) tips.push('· 페인트프로 주소(tossinssu-pro.vercel.app)가 회사 인터넷에서 열리는지 주소창에 직접 넣어 확인');
     if (!tips.length) tips.push('· CRM 탭을 F5 로 새로고침한 뒤 다시 시도해 주세요');
