@@ -260,11 +260,38 @@
     keepStyle(el);
     el.style.setProperty('color', color, 'important'); el.style.setProperty('-webkit-text-fill-color', color, 'important'); el.style.setProperty('opacity', '1', 'important');
   }
+  // 값이 없는 칸 — CRM의 실제 빈 칸('-', 옅은 회색)과 똑같이
+  function emptyTemplate(cell) {
+    const t = cell.closest('table'); if (!t) return null;
+    for (const td of t.querySelectorAll('td')) {
+      if (td === cell || td.hasAttribute('data-tce-ed')) continue;
+      const ns = textNodes(td);
+      if (ns.length === 1 && ns[0].nodeValue.trim() === '-' && ns[0].parentElement !== td) return ns[0].parentElement;
+    }
+    return null;
+  }
+  function setEmpty(cell, list) {
+    list.forEach(x => { x.node.nodeValue = ''; });
+    list[0].node.nodeValue = '-';
+    const host = list[0].node.parentElement;
+    const tpl = emptyTemplate(cell);
+    if (host && !(list.length === 1 && list[0].orig.trim() === '-')) {   // 원래 빈 칸이면 CRM 모양 그대로
+      keepStyle(host);
+      if (tpl) {
+        const ts = getComputedStyle(tpl);
+        host.style.setProperty('color', ts.color, 'important'); host.style.setProperty('-webkit-text-fill-color', ts.color, 'important');
+        host.style.setProperty('font-size', ts.fontSize, 'important'); host.style.setProperty('font-weight', ts.fontWeight, 'important');
+      } else { host.style.setProperty('color', '#BBBDBF', 'important'); host.style.setProperty('-webkit-text-fill-color', '#BBBDBF', 'important'); host.style.setProperty('font-weight', '400', 'important'); }
+    }
+    cell.setAttribute('data-tce-ed', '1');
+    cell.title = '✏️ 비운 칸 — 원래: ' + list.map(x => x.orig).join('').trim();
+  }
   function setCellText(cell, text, color) {
     let list = editedNodes.get(cell);
     if (!list) { list = textNodes(cell).map(n => ({ node: n, orig: n.nodeValue })); if (!list.length) return; editedNodes.set(cell, list); }
     cell.querySelectorAll('[data-tce-unit]').forEach(x => x.remove());
     text = String(text == null ? '' : text);
+    if (text.trim() === '' || text.trim() === '-') { setEmpty(cell, list); return; }
     const hasUnitNode = list.length >= 2 && UNIT_RE.test(list[list.length - 1].orig) && /\d|-/.test(list[0].orig);
     const m = text.match(AMT_RE);
     const tpl = unitTemplate(cell);
@@ -424,6 +451,7 @@
         border-radius:3px;overflow:hidden;white-space:pre-wrap;word-break:break-all;cursor:text;display:flex;align-items:center}
       .e > div{width:100%;outline:none;min-height:1em}
       .e > div:empty::before{content:"(빈 칸)";color:#C0C4CF;font-weight:500}
+      .e ::selection{background:rgba(99,102,241,.22);color:var(--c,#1B242D);-webkit-text-fill-color:var(--c,#1B242D)}
       .bar{position:fixed;z-index:2147483646;display:flex;align-items:center;gap:6px;background:rgba(31,35,48,.96);backdrop-filter:blur(8px);border-radius:12px;padding:6px 8px;
         box-shadow:0 10px 28px rgba(17,24,39,.3);font:12px -apple-system,"Malgun Gothic",sans-serif;color:#E5E7EB;white-space:nowrap}
       .sw{width:18px;height:18px;border-radius:50%;border:0;cursor:pointer;padding:0;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.35)}
@@ -443,7 +471,7 @@
     ed.style.textAlign = cs.textAlign;
     ed.textContent = cur;
     const showColor = () => {
-      box.style.color = edColor || '#1B242D';
+      box.style.color = edColor || '#1B242D'; box.style.setProperty('--c', edColor || '#1B242D');
       sr.querySelectorAll('.sw').forEach(b => b.classList.toggle('sel', b.dataset.c === edColor));
     };
     showColor();
@@ -465,7 +493,7 @@
     bar.addEventListener('mousedown', ev => ev.preventDefault());
     bar.addEventListener('click', ev => {
       const b = ev.target.closest('button'); if (!b) return;
-      if (b.dataset.c !== undefined) { edColor = b.dataset.c; showColor(); ed.focus(); return; }
+      if (b.dataset.c !== undefined) { edColor = b.dataset.c; showColor(); save(ed.textContent); return; }   // 색을 누르면 바로 표에 적용
       if (b.dataset.a === 'clear') { ed.textContent = ''; ed.focus(); return; }
       if (b.dataset.a === 'orig') save(null, true);
     });

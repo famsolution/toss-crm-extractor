@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "상담 도우미",
-  "version": "3.66.1",
+  "version": "3.66.2",
   "description": "상담 도우미 — 마스킹 자동 복원 + 로그인/관리자 승인 권한 게이트.",
   "permissions": [
     "activeTab",
