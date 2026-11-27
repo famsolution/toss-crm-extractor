@@ -952,7 +952,7 @@
     barRoot.innerHTML = `<style>
       :host{all:initial}
       *{box-sizing:border-box}
-      .w{position:fixed;right:18px;top:74px;z-index:2147483645;font:13px/1.45 "Pretendard",-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;color:#1F2330;display:flex;flex-direction:column;align-items:flex-end;gap:8px;-webkit-font-smoothing:antialiased}
+      .w{position:fixed;right:18px;top:118px;z-index:2147483645;font:13px/1.45 "Pretendard",-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",sans-serif;color:#1F2330;display:flex;flex-direction:column;align-items:flex-end;gap:8px;-webkit-font-smoothing:antialiased}
       button{font:inherit;cursor:pointer}
       .fab{display:flex;align-items:center;gap:8px;border:0;border-radius:99px;padding:8px 16px 8px 10px;font-weight:700;font-size:13.5px;
         background:rgba(255,255,255,.92);backdrop-filter:blur(10px);color:#3730A3;box-shadow:0 1px 2px rgba(17,24,39,.06),0 8px 24px rgba(17,24,39,.14),inset 0 0 0 1px rgba(79,70,229,.18);transition:transform .15s,box-shadow .15s}
@@ -961,7 +961,7 @@
       .fab.on{background:linear-gradient(135deg,#6366F1,#7C3AED);color:#fff;box-shadow:0 8px 22px rgba(99,102,241,.45)}
       .fab.on i{background:rgba(255,255,255,.22);box-shadow:none}
       .fab.off{color:#9CA3AF}.fab.off i{background:#E5E7EB;color:#6B7280;box-shadow:none}
-      .p{width:300px;max-height:calc(100vh - 140px);overflow:auto;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-radius:18px;
+      .p{width:300px;max-height:calc(100vh - 186px);overflow:auto;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-radius:18px;
         box-shadow:0 1px 2px rgba(17,24,39,.05),0 18px 48px rgba(17,24,39,.2),inset 0 0 0 1px rgba(17,24,39,.06);padding:14px;display:flex;flex-direction:column;gap:12px;animation:pin .16s ease}
       @keyframes pin{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
       .p::-webkit-scrollbar{width:8px}.p::-webkit-scrollbar-thumb{background:#E2E4EC;border-radius:8px}
