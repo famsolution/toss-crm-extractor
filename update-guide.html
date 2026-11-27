@@ -35,38 +35,37 @@
 <div class="wrap">
   <div class="hero">
     <h1>🆕 확장 프로그램 업데이트 방법</h1>
-    <p>새 버전이 나오면 확장 프로그램 위쪽에 <b>주황색 띠</b>가 뜨고 아이콘에 <b>NEW</b> 가 붙습니다. 아래 두 단계면 끝납니다.</p>
-    <div class="flow"><span>① update.bat 더블클릭</span>→<span>② [적용] 누르기</span>→<span>✅ 최신 버전</span></div>
+    <p>처음 한 번 <b>자동 업데이트</b>를 켜 두면, 새 버전이 나올 때 확장을 여는 순간 알아서 설치되고 다시 켜집니다.</p>
+    <div class="flow"><span>① 자동 업데이트 켜기 (한 번)</span>→<span>② 새 버전 나오면 자동 설치</span>→<span>✅ 최신 버전</span></div>
   </div>
 
   <div class="card">
-    <h2><span class="n">1</span>update.bat 실행</h2>
+    <h2><span class="n">1</span>처음 한 번 — 자동 업데이트 켜기</h2>
     <ol>
-      <li>확장 프로그램을 <b>압축 풀어 둔 폴더</b>를 엽니다. (처음 설치할 때 <code>chrome://extensions</code> 에서 '압축해제된 확장 프로그램 로드'로 고른 폴더)</li>
-      <li>그 안의 <b class="k">update.bat</b> 을 더블클릭합니다.</li>
-      <li>검은 창에 <b>[3/3] 완료!</b> 가 나오면 아무 키나 눌러 닫습니다.</li>
+      <li>확장 머리말의 <b class="k">v버전</b> 표시를 누르고 <b class="k">⬆ 자동 업데이트 켜기</b> 를 누릅니다. (새 버전 안내 띠의 <b class="k">⬆ 업데이트</b> 를 눌러도 같습니다)</li>
+      <li>새 창이 열리면 [확인] → <b>확장 프로그램을 압축 풀어 둔 폴더</b>(안에 manifest.json · update.bat 이 있는 폴더)를 고릅니다.<br>
+        <small>모르겠으면 <code>chrome://extensions</code> → 상담 도우미 → 세부정보 → <b>소스</b> 에 나오는 폴더입니다.</small></li>
+      <li>크롬이 묻는 창에서 <b>「파일 수정 허용」</b>을 누릅니다. 「방문할 때마다 허용」이 보이면 그걸 고르세요 — 다시 묻지 않습니다.</li>
     </ol>
-    <div class="warn">"Windows의 PC 보호" 파란 창이 뜨면 <b>추가 정보 → 실행</b> 을 누르세요. 인터넷에서 받은 .bat 파일이라 처음 한 번 묻는 것입니다.</div>
     <div class="tip">저장한 비번·고객정보·설정은 크롬 안에 보관되어 있어서 업데이트해도 그대로 남습니다.</div>
   </div>
 
   <div class="card">
-    <h2><span class="n">2</span>[적용] 누르기</h2>
+    <h2><span class="n">2</span>그다음부터 — 자동</h2>
     <ul>
-      <li>확장 프로그램 아이콘을 다시 열면 띠가 <b>초록색</b>으로 바뀌어 있습니다. <b class="k">적용</b> 을 누르면 바로 새 버전으로 다시 켜집니다.</li>
-      <li>또는 <code>chrome://extensions</code> 에서 상담 도우미의 🔄 새로고침 버튼을 눌러도 됩니다.</li>
-      <li>열려 있던 CRM 탭은 한 번 새로고침(F5) 해 주세요.</li>
+      <li>새 버전이 나오면 확장 아이콘에 <b>NEW</b> 와 윈도우 알림이 뜹니다. (확인은 3시간마다 자동)</li>
+      <li>확장을 열면 <b>"새 버전 자동 설치 중…"</b> → 몇 초 뒤 스스로 다시 켜집니다. 확장을 한 번 더 열면 새 버전입니다.</li>
+      <li>크롬을 다시 켠 뒤 폴더 허락이 풀려 있으면 띠에 <b class="k">⬆ 업데이트</b> 가 보입니다 — 한 번 누르고 허용만 하면 됩니다.</li>
+      <li>열려 있던 CRM 탭은 업데이트 뒤 한 번 새로고침(F5) 해 주세요.</li>
     </ul>
   </div>
 
   <div class="card">
     <h2><span class="n">3</span>알아 두기</h2>
     <ul>
-      <li>새 버전 확인은 3시간마다, 그리고 확장 프로그램을 열 때 자동으로 합니다. 머리말의 <b class="k">v버전</b> 표시를 누르면 바로 확인합니다.</li>
-      <li>띠의 <b>✕</b> 를 누르면 그 버전은 다시 알리지 않습니다. (다음 버전이 나오면 다시 뜸)</li>
-      <li>폴더에 update.bat 이 없다면 이전 버전입니다. 이번 한 번만 최신 zip 을 받아 같은 폴더에 덮어 풀어 주세요. 그 다음부터는 update.bat 으로 됩니다.<br>
-        최신 zip: <code>github.com/famsolution/toss-crm-extractor/releases/latest</code></li>
-      <li>업데이트 확인은 버전 번호만 읽어 오며, 고객정보는 어디에도 보내지 않습니다.</li>
+      <li>머리말 <b class="k">v버전</b> 메뉴: 새 버전 확인 · 폴더 다시 고르기 · 자동 설치 끄기/켜기.</li>
+      <li>자동 설치가 안 되면 예전처럼 확장 폴더의 <b class="k">update.bat</b> 을 더블클릭한 뒤 확장을 다시 열어도 됩니다.</li>
+      <li>받는 것은 공개된 최신 설치 파일(zip) 뿐이며, 고객정보는 어디에도 보내지 않습니다. 고른 폴더가 지금 쓰는 확장 폴더가 맞을 때만 덮어씁니다.</li>
     </ul>
   </div>
   <div class="foot">상담 도우미 · 업데이트 안내</div>

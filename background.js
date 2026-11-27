@@ -339,11 +339,23 @@ async function _updCheck() {
     await chrome.action.setBadgeText({ text: has ? 'NEW' : '' });
     if (has) await chrome.action.setBadgeBackgroundColor({ color: '#F97316' });
   } catch (e) {}
+  // 새 버전을 처음 알게 되면 한 번 알림 (자동 업데이트를 켰으면 확장을 열 때 설치됨)
+  if (has) {
+    const st = await chrome.storage.local.get(['updNotified', 'updAuto']);
+    if (st.updNotified !== latest) {
+      await chrome.storage.local.set({ updNotified: latest });
+      try {
+        chrome.notifications.create('sdh-update', { type: 'basic', iconUrl: 'icons/icon128.png', title: '상담 도우미 새 버전 v' + latest,
+          message: st.updAuto ? '확장을 열면 자동으로 설치됩니다.' : '확장을 열어 [⬆ 업데이트] 를 눌러 주세요.' });
+      } catch (e) {}
+    }
+  }
   return { cur, latest, has };
 }
 chrome.runtime.onInstalled.addListener(() => { chrome.alarms.create('tce-update-check', { periodInMinutes: 180 }); _updCheck(); });
 chrome.runtime.onStartup.addListener(() => { chrome.alarms.create('tce-update-check', { periodInMinutes: 180 }); _updCheck(); });
 chrome.alarms.onAlarm.addListener(a => { if (a.name === 'tce-update-check') _updCheck(); });
+chrome.notifications.onClicked.addListener(id => { if (id === 'sdh-update') { chrome.tabs.create({ url: chrome.runtime.getURL('popup.html?full=1&upd=1') }); chrome.notifications.clear(id); } });
 chrome.runtime.onMessage.addListener((msg, sender, send) => {
   if (msg && msg.action === 'updCheckNow') { _updCheck().then(r => send(r || { error: 'offline' })); return true; }
   if (msg && msg.action === 'updReload') { send({ ok: true }); setTimeout(() => chrome.runtime.reload(), 150); return true; }
