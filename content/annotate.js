@@ -506,13 +506,45 @@
     return currentOrder().indexOf(key) === to;
   }
 
+  // 👥 계약자와 피보험자가 다른 보험 — '계약자/피보험자' 줄이 "홍길동/본인" 이면 같음, "홍길동/자녀"·"홍길동/김영희" 면 다름
+  let diffLeft = true;
+  try { chrome.storage.local.get(['anno_diff_left'], v => { diffLeft = !(v && v.anno_diff_left === false); }); } catch (e) {}
+  function diffKeys() {
+    const { parsed, keys } = mainScan();
+    const out = new Set();
+    for (const pt of parsed) {
+      const both = pt.rows.find(x => /^계약자\s*\/\s*피보험자$/.test(x.p.label.replace(/\s+/g, ' ').trim()));
+      const ca = pt.rows.find(x => x.p.label.trim() === '계약자'), ia = pt.rows.find(x => x.p.label.trim() === '피보험자');
+      if (both) {
+        both.p.prod.forEach((c, i) => {
+          const t = cellText(c).replace(/\s+/g, '');
+          const m = t.match(/^([^/]*)\/(.*)$/); if (!m || !keys[i]) return;
+          if (m[2] && m[2] !== '본인' && m[2] !== m[1]) out.add(keys[i]);
+        });
+        break;
+      }
+      if (ca && ia) {
+        ca.p.prod.forEach((c, i) => { const a = cellText(c).trim(), b = cellText(ia.p.prod[i] || c).trim(); if (keys[i] && b && b !== '본인' && a !== b) out.add(keys[i]); });
+        break;
+      }
+    }
+    return out;
+  }
+  // 맞출 순서 = 기억한 순서(없으면 CRM 순서) → 계약자·피보험자가 다른 보험을 맨 왼쪽으로 (각 무리 안의 순서는 그대로)
+  function desiredOrder(cur) {
+    const want = Array.isArray(data.order) && data.order.length ? data.order : cur;
+    let target = want.filter(k => cur.includes(k)).concat(cur.filter(k => !want.includes(k)));
+    if (diffLeft) { const d = diffKeys(); if (d.size) target = target.filter(k => d.has(k)).concat(target.filter(k => !d.has(k))); }
+    return target;
+  }
+
   async function replayOrder() {
-    const want = data.order;
-    if (!enabled || !Array.isArray(want) || !want.length) return;
+    if (!enabled) return;
     let cur = currentOrder();
     if (!cur.length) return;
-    // 저장된 순서에 있는 보험만 그 순서로, 새로 생긴 보험은 CRM 순서대로 뒤에
-    const target = want.filter(k => cur.includes(k)).concat(cur.filter(k => !want.includes(k)));
+    if (!(Array.isArray(data.order) && data.order.length) && !(diffLeft && diffKeys().size)) return;
+    // 저장된 순서에 있는 보험만 그 순서로, 새로 생긴 보험은 CRM 순서대로 뒤에 + 계약자≠피보험자 보험은 맨 왼쪽
+    const target = desiredOrder(cur);
     if (target.join(',') === cur.join(',')) { lastOrderSig = cur.join(','); return; }
     replaying = true;
     let failed = false;
@@ -537,8 +569,8 @@
     const prev = lastOrderSig ? lastOrderSig.split(',') : [];
     if (!lastOrderSig || !sameSet(cur, prev)) {   // 보험이 늘거나 줄면(표가 마저 그려짐) 기준을 새로 잡고, 기억한 순서와 다르면 다시 맞춤
       lastOrderSig = sig;
-      if (Array.isArray(data.order) && data.order.length && autoFixes < 3) {
-        const target = data.order.filter(k => cur.includes(k)).concat(cur.filter(k => !data.order.includes(k)));
+      if (autoFixes < 3) {
+        const target = desiredOrder(cur);
         if (target.join(',') !== sig) { autoFixes++; replayOrder(); }
       }
       return;
@@ -546,7 +578,7 @@
     if (Date.now() - userTouchAt > 6000) {
       // 사용자가 옮긴 게 아님 = CRM이 화면을 새로 그리며 원래 순서로 되돌림 → 기억한 순서로 다시 맞춤
       lastOrderSig = sig;
-      if (Array.isArray(data.order) && data.order.length && autoFixes < 3) { autoFixes++; replayOrder(); }
+      if (autoFixes < 3 && desiredOrder(cur).join(',') !== sig) { autoFixes++; replayOrder(); }
       return;
     }
     lastOrderSig = sig;
@@ -735,6 +767,7 @@
           ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르면 입력창이 뜹니다. 화면에서만 바뀌고 CRM 데이터는 그대로입니다. 고친 칸은 점선 테두리 · 마우스를 올리면 원래 글자.</div>` : ''}
           <div class="r"><span class="lab">보험 순서 ${ordered ? '— <b>기억됨</b>' : '— 번호를 바꾸거나 CRM에서 끌어 옮기면 기억'}</span>
             <button data-a="nums" class="${numsOn ? 'sel' : ''}">🔢 번호 ${numsOn ? '보임' : '숨김'}</button>
+            <button data-a="diffleft" class="${diffLeft ? 'sel' : ''}" title="계약자와 피보험자가 다른 보험을 항상 맨 왼쪽에 모읍니다 (모든 고객)">👥 계약자≠피보험자 왼쪽 ${diffLeft ? '켜짐' : '꺼짐'}</button>
             ${ordered ? '<button data-a="order-reset">원래 순서로</button>' : ''}</div>
           <div class="r"><button data-a="undo" ${undo.length ? '' : 'disabled'}>↶ 되돌리기${undo.length ? ' (' + undo.length + ')' : ''}</button></div>
           <div class="r dz"><span class="lab">원래대로 (이 고객)</span>
@@ -751,6 +784,7 @@
   async function onBar(e) {
     const a = e.currentTarget.dataset.a;
     if (a === 'toggle') { barOpen = !barOpen; if (!barOpen) mode = ''; renderBar(); return; }
+    if (a === 'diffleft') { diffLeft = !diffLeft; try { chrome.storage.local.set({ anno_diff_left: diffLeft }); } catch (x) {} renderBar(); if (diffLeft) { autoFixes = 0; replayOrder(); } return; }
     if (a === 'nums') { numsOn = !numsOn; try { chrome.storage.local.set({ anno_nums: numsOn }); } catch (x) {} numRoot && (numRoot.__sig = ''); drawNums(); renderBar(); return; }
     if (a === 'mode-hl') mode = 'hl';
     else if (a === 'mode-edit') mode = 'edit';
