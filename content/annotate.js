@@ -262,7 +262,7 @@
         const ns = getComputedStyle(tpl.num);
         if (host) { keepStyle(host); ['fontSize', 'fontWeight'].forEach(k => host.style.setProperty(k === 'fontSize' ? 'font-size' : 'font-weight', ns[k], 'important')); }
       } else { sp.style.marginLeft = '4px'; sp.style.opacity = '.6'; }
-      host.insertAdjacentElement('afterend', sp);
+      if (host === cell || !cell.contains(host.parentElement)) host.appendChild(sp); else host.insertAdjacentElement('afterend', sp);   // 칸 안에만
     }
     if (text !== '') paintText(host, numColor);
     cell.setAttribute('data-tce-ed', '1');
