@@ -92,6 +92,24 @@
       const r = pt.rows.find(x => x.p.label === '증권번호') || null;
       if (r) { keys = r.p.prod.map(c => 'n' + hash(cellText(c))); break; }
     }
+    // 증권번호가 비었거나(-, 가려진 번호 등) 두 보험이 같으면 구분이 안 돼 순서를 못 다룬다
+    //   → 그런 보험만 보험명·보험사·계약일 등을 합쳐 구분하고, 그래도 같으면 순번을 붙인다 (정상인 보험 키는 그대로라 저장된 순서 유지)
+    if (keys) {
+      const raw = (() => { for (const pt of parsed) { const r = pt.rows.find(x => x.p.label === '증권번호'); if (r) return r.p.prod.map(c => cellText(c).trim()); } return []; })();
+      const cnt = {}; keys.forEach(k => { cnt[k] = (cnt[k] || 0) + 1; });
+      const bad = keys.map((k, i) => cnt[k] > 1 || !/[0-9A-Za-z가-힣]{3,}/.test((raw[i] || '').replace(/[*●\-\s]/g, '')));
+      if (bad.some(Boolean)) {
+        const extraRows = [];
+        for (const pt of parsed) pt.rows.forEach(x => { if (/^(보험명|상품명|보험사명|보험사|계약일|가입일|계약자|피보험자|월납보험료|보험료)$/.test(x.p.label) && x.p.prod.length === keys.length) extraRows.push(x.p); });
+        const seen = {};
+        keys = keys.map((k, i) => {
+          if (!bad[i]) return k;
+          let base = 'c' + hash([raw[i] || ''].concat(extraRows.map(p => cellText(p.prod[i]).trim())).join('|'));
+          seen[base] = (seen[base] || 0) + 1;
+          return seen[base] > 1 ? base + '_' + seen[base] : base;
+        });
+      }
+    }
     if (!keys) {
       for (const pt of parsed) {
         const r = pt.rows.find(x => x.p.label === '보험명');
@@ -448,7 +466,44 @@
     });
     if (!res.ok) { console.info('[상담도우미] 한 번에 순서 맞추기 불가(' + res.why + ') — 하나씩 옮깁니다'); return false; }
     for (let i = 0; i < 15; i++) { await sleep(100); if (currentOrder().join(',') === target.join(',')) return true; }
+    // 화면(보험 내용 줄)이 기대대로 바뀌지 않았으면 — 머리칸만 바뀌었을 수 있으니 원래대로 되돌리고 끌어 옮기기로
+    window.postMessage({ __sdhOrder: 'revert', reqId }, '*');
+    console.info('[상담도우미] 한 번에 맞추기 결과가 화면과 달라 되돌림 — 하나씩 옮깁니다');
+    await sleep(300);
     return false;
+  }
+
+  // 한 보험(key)을 to 자리로 — 한 번 끌어 놓으면 한 칸 어긋나 떨어지거나, 표가 옆으로 넓어 목적지 칸이
+  // 화면 밖이면 놓을 곳이 없어 실패한다. → 둘 다 보이게 옆으로 스크롤하고, 멀면 보이는 데까지 나눠 옮기고,
+  // 옮긴 뒤 실제 자리를 다시 확인해 맞을 때까지 몇 번 더 한다.
+  function _visibleIdx(hs) {
+    const box = scrollBoxX(hs[0]); const br = box ? box.getBoundingClientRect() : { left: 0, right: innerWidth };
+    return hs.map(h => { const r = h.getBoundingClientRect(); return r.left >= Math.max(0, br.left) - 2 && r.right <= Math.min(innerWidth, br.right) + 2; });
+  }
+  function scrollBoxX(el) {
+    for (let p = el && el.parentElement; p && p !== document.body && p !== document.documentElement; p = p.parentElement) {
+      const cs = getComputedStyle(p);
+      if (/(auto|scroll|overlay)/.test(cs.overflowX) && p.scrollWidth > p.clientWidth + 2) return p;
+    }
+    return null;
+  }
+  async function moveKeyTo(key, to) {
+    for (let tries = 0; tries < 6; tries++) {
+      const cur = currentOrder(), j = cur.indexOf(key);
+      if (j < 0) return false;
+      if (j === to) return true;
+      let hs = headerCells();
+      try { hs[to].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+      await sleep(80);
+      hs = headerCells();
+      let vis = _visibleIdx(hs);
+      if (!vis[j]) { try { hs[j].scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {} await sleep(80); hs = headerCells(); vis = _visibleIdx(hs); }
+      // 출발 칸과 목적지 칸이 함께 안 보이면 보이는 범위 끝까지만 먼저 옮김
+      let t = to;
+      if (!vis[t]) { const dir = to < j ? -1 : 1; t = j; while (t + dir >= 0 && t + dir < hs.length && vis[t + dir] && t !== to) t += dir; if (t === j) t = j + dir; }
+      if (!(await moveColumn(j, t))) return false;
+    }
+    return currentOrder().indexOf(key) === to;
   }
 
   async function replayOrder() {
@@ -468,7 +523,7 @@
           cur = currentOrder();
           const j = cur.indexOf(target[i]);
           if (j < 0 || j === i) continue;
-          if (!(await moveColumn(j, i))) { failed = true; break; }
+          if (!(await moveKeyTo(target[i], i))) { failed = true; break; }
         }
       }
       if (failed) toast('⚠ 기억한 보험 순서를 맞추지 못했습니다 — CRM 순서 그대로 둡니다');
@@ -547,8 +602,12 @@
     return null;
   }
   function numPos(r, visTop) {
-    // 칸 바로 위. 아래로 스크롤해 머리칸이 위로 올라가도 표가 보이는 동안은 보이는 영역 맨 위에 떠서 따라온다
-    return { top: Math.max(visTop + 6, r.top - 32), left: r.left + r.width / 2 };
+    // ① 칸 위에 자리가 있으면 칸 바로 위 가운데
+    if (r.top - 32 >= visTop + 6) return { top: r.top - 32, left: r.left + r.width / 2 };
+    // ② 머리칸이 아직 보이는데 위에 자리가 없으면 칸 왼쪽 위 구석 — 가운데를 가리면 CRM 에서 끌어 옮기기가 막힌다
+    if (r.bottom > visTop + 34) return { top: Math.max(visTop + 2, r.top + 2), left: r.left + 18 };
+    // ③ 머리칸이 위로 지나갔으면 보이는 영역 맨 위에 떠서 따라온다
+    return { top: visTop + 6, left: r.left + r.width / 2 };
   }
   // 화면을 그리는 매 순간(스크롤·창 크기·CRM 화면 움직임) 머리칸을 따라 번호표 자리를 옮긴다
   function placeNums() {
@@ -615,13 +674,14 @@
     }
   }
   async function moveByNumber(from, to) {
-    const cur = currentOrder(); if (!cur.length) return;
+    const cur = currentOrder();
+    if (!cur.length) { toast('⚠ 표가 아직 다 그려지지 않았거나 보험을 구분할 수 없어 옮기지 못했습니다 — 잠시 뒤 다시 해 주세요'); return; }
     const target = cur.slice(); const [k] = target.splice(from, 1); target.splice(to, 0, k);
     numBusy = true; replaying = true; numRoot && (numRoot.__sig = ''); drawNums();
     let ok = false;
     try {
       ok = await fastOrder(target);
-      if (!ok) ok = await moveColumn(from, to) && currentOrder().join(',') === target.join(',');
+      if (!ok) { await moveKeyTo(k, to); ok = currentOrder().indexOf(k) === to; }
     } finally { replaying = false; numBusy = false; }
     const now = currentOrder();
     lastOrderSig = now.join(',');

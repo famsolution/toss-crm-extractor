@@ -50,9 +50,15 @@
     }
     return null;
   }
+  let last = null;   // 마지막으로 바꾼 상태와 원래 목록 — 화면이 기대대로 안 바뀌면 되돌린다
   window.addEventListener('message', ev => {
     const d = ev.data;
-    if (ev.source !== window || !d || d.__sdhOrder !== 'apply') return;
+    if (ev.source !== window || !d) return;
+    if (d.__sdhOrder === 'revert') {
+      try { if (last && last.reqId === d.reqId) { last.hook.queue.dispatch(last.list); last = null; } } catch (e) {}
+      return;
+    }
+    if (d.__sdhOrder !== 'apply') return;
     const reply = (ok, why) => { try { window.postMessage({ __sdhOrderRes: d.reqId, ok, why }, '*'); } catch (e) {} };
     try {
       const cells = headerCells();
@@ -66,6 +72,7 @@
       if (!st) return reply(false, 'state');
       const next = perm.map(i => st.list[i]);
       if (next.some(x => x === undefined) || new Set(next).size !== next.length) return reply(false, 'perm');
+      last = { reqId: d.reqId, hook: st.hook, list: st.list };
       st.hook.queue.dispatch(next);
       reply(true, '');
     } catch (e) { reply(false, String(e && e.message || e)); }
