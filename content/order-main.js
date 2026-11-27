@@ -50,6 +50,39 @@
     }
     return null;
   }
+  // ① 가장 확실한 방법: CRM 이 '끌어 놓기 끝' 때 부르는 함수(onDragEnd)를 직접 불러, 사람이 끌어 놓은 것과
+  //    똑같이 옮긴다. (실제 CRM 은 열 순서를 이 함수 안에서만 바꾼다 — 2026-11-28 실제 화면에서 확인)
+  function dndCtx(cells) {
+    let items = null, onEnd = null;
+    for (let f = fiberOf(cells[0]), n = 0; f && n < 80; f = f.return, n++) {
+      const m = f.memoizedProps;
+      if (!m) continue;
+      if (!items && Array.isArray(m.items) && m.items.length === cells.length) items = m.items.map(x => (x && typeof x === 'object' ? x.id : x));
+      if (typeof m.onDragEnd === 'function') { onEnd = m.onDragEnd; break; }
+    }
+    return items && onEnd ? { items, onEnd } : null;
+  }
+  const _wait = ms => new Promise(r => setTimeout(r, ms));
+  async function applyByDragEnd(perm) {
+    let cells = headerCells(), ctx = dndCtx(cells);
+    if (!ctx) return 'dnd';
+    const target = perm.map(i => ctx.items[i]);
+    if (target.some(x => x === undefined) || new Set(target.map(String)).size !== target.length) return 'perm';
+    const ev = (id, i, list) => ({ id, data: { current: { sortable: { index: i, items: list, containerId: 'Sortable' } } }, rect: { current: { initial: null, translated: null } }, disabled: false });
+    for (let i = 0; i < target.length; i++) {
+      ctx = dndCtx(headerCells()); if (!ctx) return 'dnd';
+      const cur = ctx.items;
+      if (String(cur[i]) === String(target[i])) continue;
+      const j = cur.findIndex(x => String(x) === String(target[i]));
+      if (j < 0) return 'missing';
+      ctx.onEnd({ active: ev(cur[j], j, cur), over: ev(cur[i], i, cur), delta: { x: 0, y: 0 }, collisions: null, activatorEvent: null });
+      // 화면이 다시 그려질 때까지 (최대 0.6초)
+      for (let w = 0; w < 30; w++) { await _wait(20); const c2 = dndCtx(headerCells()); if (c2 && String(c2.items[i]) === String(target[i])) break; }
+    }
+    const fin = dndCtx(headerCells());
+    return fin && fin.items.every((x, i) => String(x) === String(target[i])) ? '' : 'verify';
+  }
+
   let last = null;   // 마지막으로 바꾼 상태와 원래 목록 — 화면이 기대대로 안 바뀌면 되돌린다
   window.addEventListener('message', ev => {
     const d = ev.data;
@@ -60,6 +93,18 @@
     }
     if (d.__sdhOrder !== 'apply') return;
     const reply = (ok, why) => { try { window.postMessage({ __sdhOrderRes: d.reqId, ok, why }, '*'); } catch (e) {} };
+    (async () => {
+      try {
+        const cells = headerCells();
+        if (cells.length && Array.isArray(d.perm) && d.perm.length === cells.length) {
+          const why = await applyByDragEnd(d.perm);
+          if (!why) return reply(true, '');
+          if (why !== 'dnd') return reply(false, 'dragend-' + why);
+        }
+      } catch (e) {}
+      applyByState();
+    })();
+    function applyByState() {
     try {
       const cells = headerCells();
       const perm = d.perm;
@@ -76,5 +121,6 @@
       st.hook.queue.dispatch(next);
       reply(true, '');
     } catch (e) { reply(false, String(e && e.message || e)); }
+    }
   });
 })();

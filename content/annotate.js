@@ -462,7 +462,7 @@
       const on = ev => { if (ev.source === window && ev.data && ev.data.__sdhOrderRes === reqId) { window.removeEventListener('message', on); r(ev.data); } };
       window.addEventListener('message', on);
       window.postMessage({ __sdhOrder: 'apply', reqId, perm }, '*');
-      setTimeout(() => { window.removeEventListener('message', on); r({ ok: false, why: 'timeout' }); }, 1500);
+      setTimeout(() => { window.removeEventListener('message', on); r({ ok: false, why: 'timeout' }); }, 8000);
     });
     if (!res.ok) { console.info('[상담도우미] 한 번에 순서 맞추기 불가(' + res.why + ') — 하나씩 옮깁니다'); return false; }
     for (let i = 0; i < 15; i++) { await sleep(100); if (currentOrder().join(',') === target.join(',')) return true; }
