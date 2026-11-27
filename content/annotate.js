@@ -529,16 +529,16 @@
     if (numRoot.__sig === sig) return;
     numRoot.__sig = sig;
     numRoot.innerHTML = `<style>
-      .b{position:fixed;pointer-events:auto;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:99px;border:0;
-        background:#4F46E5;color:#fff;font:800 12.5px/22px -apple-system,"Malgun Gothic",sans-serif;text-align:center;cursor:pointer;
+      .b{position:fixed;pointer-events:auto;min-width:30px;height:30px;padding:0 8px;box-sizing:border-box;border-radius:99px;border:0;
+        background:#4F46E5;color:#fff;font:800 16px/30px -apple-system,"Malgun Gothic",sans-serif;text-align:center;cursor:pointer;
         box-shadow:0 2px 6px rgba(79,70,229,.35);transform:translateX(-50%);user-select:none}
       .b:hover{background:#4338CA}
       .b.busy{background:#94A3B8;cursor:wait}
-      input{position:fixed;pointer-events:auto;width:46px;height:24px;box-sizing:border-box;border:2px solid #4F46E5;border-radius:8px;
-        font:800 13px -apple-system,"Malgun Gothic",sans-serif;text-align:center;transform:translateX(-50%);outline:none;box-shadow:0 4px 12px rgba(15,23,42,.2)}
+      input{position:fixed;pointer-events:auto;width:58px;height:32px;box-sizing:border-box;border:2px solid #4F46E5;border-radius:9px;
+        font:800 16px -apple-system,"Malgun Gothic",sans-serif;text-align:center;transform:translateX(-50%);outline:none;box-shadow:0 4px 12px rgba(15,23,42,.2)}
     </style>` + rects.map((r, i) => {
       if (r.width < 4 || r.bottom < 0 || r.top > innerHeight) return '';
-      const room = r.top >= 26, top = room ? r.top - 24 : r.top + 1, left = room ? r.left + r.width / 2 : r.left + 14;   // 위에 자리가 없으면 칸 왼쪽 위 구석
+      const room = r.top >= 34, top = room ? r.top - 32 : r.top + 1, left = room ? r.left + r.width / 2 : r.left + 18;   // 위에 자리가 없으면 칸 왼쪽 위 구석
       return i === numEdit
         ? `<input data-i="${i}" type="number" min="1" max="${rects.length}" value="${i + 1}" style="left:${left}px;top:${top - 1}px" title="옮길 번호를 넣고 Enter (Esc 취소)">`
         : `<button class="b${numBusy ? ' busy' : ''}" data-i="${i}" style="left:${left}px;top:${top}px" title="번호를 눌러 바꾸면 그 자리로 옮깁니다">${i + 1}</button>`;
