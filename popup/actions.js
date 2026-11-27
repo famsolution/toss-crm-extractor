@@ -90,18 +90,19 @@ async function _execPaintProRoute(btn, safetyTimer) {
   // 확장을 새로고침한 뒤 CRM 탭을 새로고침하지 않으면 페이지에는 '옛 스크립트가 남긴 버튼' 만 있고
   // 메시지를 받을 스크립트가 없다 → 아무 반응 없음. 먼저 스크립트가 살아 있는지 확인하고 없으면 넣는다.
   //   (새로 넣은 스크립트가 옛 앵커를 자기 것으로 갈아끼운다 — paint-pro.js ensureButton)
-  try { if (typeof ensureContentScript === 'function') { await ensureContentScript(tab.id); await new Promise(r => setTimeout(r, 300)); } } catch {}
+  const _in = (p, ms, fb) => Promise.race([Promise.resolve(p).catch(() => fb), new Promise(r => setTimeout(() => r(fb), ms))]);   // 답이 없어도 멈추지 않게
+  try { if (typeof ensureContentScript === 'function') { await _in(ensureContentScript(tab.id), 5000, false); await new Promise(r => setTimeout(r, 300)); } } catch {}
   let hasAnchor = false;
   try {
-    const r = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => !!document.getElementById('__paintpro_send') });
+    const r = await _in(chrome.scripting.executeScript({ target: { tabId: tab.id }, func: () => !!document.getElementById('__paintpro_send') }), 5000, null);
     hasAnchor = !!(r && r[0] && r[0].result);
   } catch {}
   if (!hasAnchor) { showAlert('보장분석 페이지에서 실행해 주세요.'); _restore(); return; }
   // 🔑 popup 을 닫아 페이지 focus 복귀 → content.js 가 clipboard.read() 실행 가능
-  const sent = await new Promise(res => {
+  const sent = await _in(new Promise(res => {
     try { chrome.tabs.sendMessage(tab.id, { action: 'triggerPaintPro' }, r => { res(!chrome.runtime.lastError && !!(r && r.ok)); }); }
     catch { res(false); }
-  });
+  }), 5000, false);
   try { clearTimeout(safetyTimer); } catch {}
   if (!sent) { await showAlert('CRM 화면이 응답하지 않습니다.\nCRM 탭을 새로고침(F5)한 뒤 다시 눌러 주세요.'); _restore(); return; }
   // 팝업일 때만 닫는다(페이지에 포커스 돌려주기). 오른쪽 세로바·크게 보기 창은 그대로 둔다.

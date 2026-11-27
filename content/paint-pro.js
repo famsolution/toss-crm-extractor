@@ -73,6 +73,9 @@
     return Array.from(document.querySelectorAll('button, [role=tab]')).find(function (b) { return (b.textContent || '').trim() === '표'; });
   };
   const sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+  // 응답이 오지 않는 단계에서 멈추지 않도록 — ms 안에 안 끝나면 fallback 으로 넘어감
+  const _within = function (p, ms, fallback) { return Promise.race([Promise.resolve(p).catch(function () { return fallback; }), sleep(ms).then(function () { return fallback; })]); };
+  let _ppStep = '', _ppBgSilent = false;
   const blobToDataURL = function (blob) { return new Promise(function (res, rej) { const fr = new FileReader(); fr.onload = function () { res(fr.result); }; fr.onerror = rej; fr.readAsDataURL(blob); }); };
 
   // ── 클립보드 가로채기: CRM이 이미지를 클립보드에 쓰는 순간 그 dataURL 을 받는다 ──
@@ -103,7 +106,8 @@
         try { document.body && document.body.focus && document.body.focus(); } catch (_) {}
         await sleep(60);
       }
-      const items = await navigator.clipboard.read();
+      const items = await _within(navigator.clipboard.read(), 2500, '__timeout');
+      if (items === '__timeout') { _lastClipErr = '클립보드 읽기 권한 창이 떠 있거나 회사 보안 정책으로 막혀 있습니다'; return null; }
       for (const it of items) {
         const t = it.types.find(function (x) { return x.startsWith('image/'); });
         if (t) { const blob = await it.getType(t); return await blobToDataURL(blob); }
@@ -238,9 +242,12 @@
   function _setTabZoom100() {
     return new Promise(function (res) {
       try {
+        let done = false;
         chrome.runtime.sendMessage({ action: 'paintProZoom', op: 'set100' }, function (r) {
-          void chrome.runtime.lastError; res((r && r.ok && r.prev) || 0);
+          void chrome.runtime.lastError; if (done) return; done = true; res((r && r.ok && r.prev) || 0);
         });
+        // 백그라운드가 옛 버전이면(파일만 바뀌고 확장을 다시 불러오지 않음) 답이 오지 않는다 → 배율 맞추기 없이 진행
+        setTimeout(function () { if (!done) { done = true; _ppBgSilent = true; res(0); } }, 2500);
       } catch (e) { res(0); }
     });
   }
@@ -298,13 +305,14 @@
       if (stable >= 3) break;
       await sleep(100);
     }
-    try { await document.fonts.ready; } catch (e) {}
-    await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
+    try { await _within(document.fonts.ready, 2000, null); } catch (e) {}
+    await _within(new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); }), 400, null);   // 창이 가려져 있으면 그림 갱신이 멈춰서 기다리지 않음
   }
   // CRM 이미지가 '줄어든 상태'로 찍혔는지 — 보고서 폭 대비 이미지 폭이 화면 배율의 정수배(1·2·3배)가 아니면 의심
   async function _imgLooksScaled(url) {
     try {
-      const im = await new Promise(function (res, rej) { const i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = url; });
+      const im = await _within(new Promise(function (res, rej) { const i = new Image(); i.onload = function () { res(i); }; i.onerror = rej; i.src = url; }), 3000, null);
+      if (!im) return false;
       const title = _reportTitle();
       if (!title) return false;
       const want = im.width / im.height;
@@ -351,12 +359,36 @@
     });
   }
 
+  // 바깥 껍데기: 어떤 단계에서 멈춰도 60초 뒤에는 풀고, 어느 단계였는지 알려 준다
+  let _ppRunning = 0;
   async function sendToPaintPro(fab) {
+    if (_ppRunning && Date.now() - _ppRunning < 60000) { _ppStatus('🎨 이미 페인트프로로 보내는 중입니다… (' + _ppStep + ')', 2500); return; }
+    _ppRunning = Date.now(); _ppStep = '시작'; _ppBgSilent = false;
     const old = fab.textContent;
+    let finished = false;
+    const watchdog = setTimeout(function () {
+      if (finished) return;
+      _ppRunning = 0; fab.textContent = old; fab.disabled = false; _ppStatus('', 1);
+      pageAlert('페인트프로 보내기가 「' + _ppStep + '」 단계에서 멈췄습니다.\n\n' + _ppHint() + '\n\n[확장 v' + chrome.runtime.getManifest().version + ']', '🎨 페인트프로');
+    }, 60000);
+    try { await _sendToPaintPro(fab, old); }
+    finally { finished = true; clearTimeout(watchdog); _ppRunning = 0; }
+  }
+  function _ppHint() {
+    const tips = [];
+    if (_ppBgSilent) tips.push('· 확장의 뒤쪽(백그라운드)이 답하지 않습니다 — chrome://extensions 에서 상담 도우미 🔄 새로고침 후 CRM 탭도 F5');
+    if (/이미지 복사/.test(_ppStep)) tips.push('· CRM [이미지 복사] 를 직접 눌러 "복사되었습니다" 가 뜨는지 확인 — 안 뜨면 이 PC 의 클립보드 사용이 막힌 것입니다(주소창 왼쪽 🔒 → 사이트 설정 → 클립보드 허용)');
+    if (/클립보드/.test(_ppStep) || _lastClipErr) tips.push('· 클립보드: ' + (_lastClipErr || '읽기 실패'));
+    if (/여는/.test(_ppStep)) tips.push('· 페인트프로 주소(tossinssu-pro.vercel.app)가 회사 인터넷에서 열리는지 주소창에 직접 넣어 확인');
+    if (!tips.length) tips.push('· CRM 탭을 F5 로 새로고침한 뒤 다시 시도해 주세요');
+    return tips.join('\n');
+  }
+  async function _sendToPaintPro(fab, old) {
     fab.textContent = '⏳ 이미지 준비 중…'; fab.disabled = true;
     _ppStatus('🎨 페인트프로로 보내는 중… (표 이미지 준비)');
     try {
       // 1) '이미지 복사' 버튼이 안 보이면 → '표' 탭을 먼저 눌러 표 화면을 띄운다
+      _ppStep = '표 화면 찾기';
       let btn = findCopyBtn();
       if (!btn) {
         const tab = findTableTab();
@@ -369,11 +401,12 @@
       //    배치는 줄어든 크기로 재고 글자는 원래 크기로 그려 글자가 커지고 겹치고 잘린다.
       //    (예전에 이미지가 약 99% 크기로 들어오던 것도 같은 원인.) 캡처가 끝나면 원래 배율로 되돌린다.
       let dataURL = null;
+      _ppStep = '화면 배율 100% 맞추기';
       const zoomBefore = await _setTabZoom100();
       if (zoomBefore && Math.abs(zoomBefore - 1) > 0.001) {
         await sleep(400);
-        try { await document.fonts.ready; } catch (e) {}
-        await new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); });
+        try { await _within(document.fonts.ready, 2000, null); } catch (e) {}
+        await _within(new Promise(function (r) { requestAnimationFrame(function () { requestAnimationFrame(r); }); }), 400, null);   // 창이 가려져 있으면 그림 갱신이 멈춰서 기다리지 않음
       }
       try {
 
@@ -381,7 +414,9 @@
       //    가로채기 스크립트가 dataURL 을 postMessage 로 보내준다(포커스 불필요).
       // 미리보기 창 애니메이션이 끝나 자리 잡을 때까지 기다린 뒤 누른다 (위 _waitPreviewSettled 설명)
       for (let attempt = 0; attempt < 2 && !dataURL; attempt++) {
+        _ppStep = '미리보기 자리 잡기 기다림';
         await _waitPreviewSettled(btn, attempt ? 6000 : 4000);
+        _ppStep = 'CRM 이미지 복사';
         _capturedImageURL = null;
         const clickedAt = Date.now();
         _ppStatus('🎨 페인트프로로 보내는 중… (이미지 복사)');
@@ -393,6 +428,7 @@
           if (_capturedImageURL && _capturedAt >= clickedAt) { dataURL = _capturedImageURL; break; }
         }
         if (!dataURL) {   // 폴백: 클립보드 직접 읽기(포커스 있을 때만 성공)
+          _ppStep = '클립보드에서 이미지 읽기';
           for (let i = 0; i < 8 && !dataURL; i++) { await sleep(180); dataURL = await readClipboardImage(); }
         }
         // 그래도 줄어든 상태로 찍혔으면 한 번 더 기다렸다 다시 누른다
@@ -407,11 +443,13 @@
       }
       if (!dataURL) {
         _ppStatus('', 1);
-        pageAlert('이미지를 읽지 못했습니다.\n\n· CRM "이미지 복사" 버튼이 정상 동작하는지 확인해 주세요.\n· 확장 새로고침 후 다시 시도해 보세요.' +
-          (_lastClipErr ? '\n\n[오류: ' + _lastClipErr + ']' : ''));
+        pageAlert('이미지를 읽지 못했습니다 (「' + _ppStep + '」 단계).\n\n' + _ppHint());
         return;
       }
-      await new Promise(function (r) { chrome.storage.local.set({ [STORAGE_KEY]: { dataURL: dataURL, fileName: '보장분석.png', ts: Date.now() } }, r); });
+      _ppStep = '이미지 넘길 준비';
+      const saveErr = await _within(new Promise(function (r) { chrome.storage.local.set({ [STORAGE_KEY]: { dataURL: dataURL, fileName: '보장분석.png', ts: Date.now() } }, function () { r(chrome.runtime.lastError ? chrome.runtime.lastError.message : ''); }); }), 5000, '저장 응답 없음');
+      if (saveErr) { _ppStatus('', 1); pageAlert('이미지를 넘기지 못했습니다: ' + saveErr + '\n(이미지 크기 ' + Math.round(dataURL.length / 1048576 * 10) / 10 + 'MB)\n\n' + _ppHint(), '🎨 페인트프로'); return; }
+      _ppStep = '페인트프로 여는';
       _ppStatus('🎨 페인트프로를 여는 중…');
       const opened = await _ppOpenEditor();
       if (opened) _ppStatus('✅ 페인트프로를 새 탭으로 열었습니다', 3500);
