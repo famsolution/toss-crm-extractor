@@ -240,9 +240,12 @@
     text = String(text == null ? '' : text);
     const hasUnitNode = list.length >= 2 && UNIT_RE.test(list[list.length - 1].orig) && /\d|-/.test(list[0].orig);
     const m = text.match(AMT_RE);
+    const tpl = unitTemplate(cell);
     let numText = text, unitText = null;
     if (m && (m[2] || hasUnitNode)) { numText = fmtNum(m[1]); unitText = m[2] ? m[2].replace(/\s/g, '') : list[list.length - 1].orig.trim(); }
-    const tpl = unitTemplate(cell);
+    else if (m && tpl && cell.closest('table') === tpl.num.closest('table')) { numText = fmtNum(m[1]); unitText = (tpl.unit.textContent || '').trim(); }   // 금액 표의 빈 칸에 숫자만 → 같은 표 단위(만원)
+    if (unitText === '만') unitText = '만원';   // CRM 표기와 같게
+    if (unitText === '억') unitText = '억원';
     const numColor = color || (tpl ? getComputedStyle(tpl.num).color : '#1B242D');
     list.forEach(x => { x.node.nodeValue = ''; });
     list[0].node.nodeValue = numText;
