@@ -520,13 +520,36 @@
     return !enabled || !numsOn || !cid || !orderReady || false ||
       document.documentElement.hasAttribute('data-sdh-capturing') || !!document.querySelector('[role="dialog"]');
   }
+  // 번호표 자리 — 칸 위(자리가 없으면 칸 왼쪽 위 구석)
+  function numPos(r) {
+    // 칸 바로 위. 아래로 스크롤해 머리칸이 화면 위로 올라가도 표가 보이는 동안은 화면 맨 위에 떠서 따라온다
+    return { top: Math.max(6, r.top - 32), left: r.left + r.width / 2 };
+  }
+  // 화면을 그리는 매 순간(스크롤·창 크기·CRM 화면 움직임) 머리칸을 따라 번호표 자리를 옮긴다
+  function placeNums() {
+    if (!numRoot || !numRoot.__cells) return;
+    const hs = numRoot.__cells;
+    numRoot.querySelectorAll('[data-i]').forEach(el => {
+      const h = hs[Number(el.dataset.i)];
+      if (!h || !h.isConnected) { el.style.display = 'none'; return; }
+      const r = h.getBoundingClientRect();
+      const tb = (h.closest('table') || h).getBoundingClientRect();   // 표 전체가 화면에 있는 동안 보임
+      if (r.width < 4 || tb.bottom < 50 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { el.style.display = 'none'; return; }
+      const p = numPos(r);
+      el.style.display = '';
+      el.style.left = p.left + 'px';
+      el.style.top = (el.tagName === 'INPUT' ? p.top - 1 : p.top) + 'px';
+    });
+  }
+  (function follow() { try { placeNums(); } catch (e) {} requestAnimationFrame(follow); })();
   function drawNums() {
     const hs = onCover() ? headerCells() : [];
-    if (numsHidden() || hs.length < 2) { if (numRoot) { numRoot.innerHTML = ''; numRoot.__sig = ''; } return; }
+    if (numsHidden() || hs.length < 2) { if (numRoot) { numRoot.innerHTML = ''; numRoot.__sig = ''; numRoot.__cells = null; } return; }
     ensureNumHost();
-    const rects = hs.map(h => h.getBoundingClientRect());
-    const sig = rects.map(r => [r.left, r.top, r.width].map(Math.round).join(':')).join('|') + '#' + numEdit + '#' + (numBusy ? 1 : 0);
-    if (numRoot.__sig === sig) return;
+    numRoot.__cells = hs;
+    // 번호표를 새로 만드는 건 칸 수·고치는 중·옮기는 중이 바뀔 때만 (스크롤 중 다시 만들면 입력칸이 사라짐)
+    const sig = hs.length + '#' + numEdit + '#' + (numBusy ? 1 : 0);
+    if (numRoot.__sig === sig) { placeNums(); return; }
     numRoot.__sig = sig;
     numRoot.innerHTML = `<style>
       .b{position:fixed;pointer-events:auto;min-width:30px;height:30px;padding:0 8px;box-sizing:border-box;border-radius:99px;border:0;
@@ -536,13 +559,10 @@
       .b.busy{background:#94A3B8;cursor:wait}
       input{position:fixed;pointer-events:auto;width:58px;height:32px;box-sizing:border-box;border:2px solid #4F46E5;border-radius:9px;
         font:800 16px -apple-system,"Malgun Gothic",sans-serif;text-align:center;transform:translateX(-50%);outline:none;box-shadow:0 4px 12px rgba(15,23,42,.2)}
-    </style>` + rects.map((r, i) => {
-      if (r.width < 4 || r.bottom < 0 || r.top > innerHeight) return '';
-      const room = r.top >= 34, top = room ? r.top - 32 : r.top + 1, left = room ? r.left + r.width / 2 : r.left + 18;   // 위에 자리가 없으면 칸 왼쪽 위 구석
-      return i === numEdit
-        ? `<input data-i="${i}" type="number" min="1" max="${rects.length}" value="${i + 1}" style="left:${left}px;top:${top - 1}px" title="옮길 번호를 넣고 Enter (Esc 취소)">`
-        : `<button class="b${numBusy ? ' busy' : ''}" data-i="${i}" style="left:${left}px;top:${top}px" title="번호를 눌러 바꾸면 그 자리로 옮깁니다">${i + 1}</button>`;
-    }).join('');
+    </style>` + hs.map((h, i) => i === numEdit
+      ? `<input data-i="${i}" type="number" min="1" max="${hs.length}" value="${i + 1}" title="옮길 번호를 넣고 Enter (Esc 취소)">`
+      : `<button class="b${numBusy ? ' busy' : ''}" data-i="${i}" title="번호를 눌러 바꾸면 그 자리로 옮깁니다">${i + 1}</button>`).join('');
+    placeNums();
     numRoot.querySelectorAll('button.b').forEach(b => b.addEventListener('click', ev => {
       ev.preventDefault(); ev.stopPropagation();
       if (numBusy) return;
@@ -551,8 +571,9 @@
     }));
     const inp = numRoot.querySelector('input');
     if (inp) {
+      const n = hs.length;
       const done = go => {
-        const from = Number(inp.dataset.i), to = Math.max(1, Math.min(rects.length, parseInt(inp.value, 10) || from + 1)) - 1;
+        const from = Number(inp.dataset.i), to = Math.max(1, Math.min(n, parseInt(inp.value, 10) || from + 1)) - 1;
         numEdit = -1; numRoot.__sig = ''; drawNums();
         if (go && to !== from) moveByNumber(from, to);
       };
