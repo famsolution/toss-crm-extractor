@@ -34,7 +34,7 @@
   let cid = '';                       // 고객 번호 (주소 끝 숫자)
   let data = { hl: [], edits: [], order: null };   // 이 고객 저장분
   let rules = [];                     // 공통 규칙 [{sec,row,color}]
-  let mode = '';                      // '' | 'hl' | 'edit'
+  let mode = 'edit';                  // '' | 'hl' | 'edit' — 기본은 글자 수정
   let curColor = 'y';
   let scope = 'one';                  // 'one' 이 고객 | 'all' 모든 고객
   const undo = [];                    // 되돌리기 스냅샷
@@ -194,6 +194,7 @@
   function restoreEdits() {
     editedNodes.forEach(list => list.forEach(x => { try { if (x.node.nodeValue !== x.orig) x.node.nodeValue = x.orig; } catch (e) {} }));
     editedNodes.clear();
+    document.querySelectorAll('[data-tce-edc]').forEach(el => { const st = el.getAttribute('data-tce-edc'); if (st) el.setAttribute('style', st); else el.removeAttribute('style'); el.removeAttribute('data-tce-edc'); });
     document.querySelectorAll('[data-tce-ed]').forEach(el => { el.removeAttribute('data-tce-ed'); el.removeAttribute('title'); el.style.removeProperty('outline'); });
   }
   function textNodes(el) {
@@ -209,6 +210,10 @@
     let list = editedNodes.get(cell);
     if (!list) { list = textNodes(cell).map(n => ({ node: n, orig: n.nodeValue })); if (!list.length) return; editedNodes.set(cell, list); }
     list.forEach((x, i) => { x.node.nodeValue = i === 0 ? text : ''; });
+    // CRM 은 빈 칸('-')·단위 글자를 아주 옅은 회색으로 그린다 → 고친 글자가 거의 안 보임. 진하게 보이도록.
+    const host = list[0].node.parentElement;
+    if (host && !host.hasAttribute('data-tce-edc')) { host.setAttribute('data-tce-edc', host.getAttribute('style') || ''); }
+    if (host) { host.style.setProperty('color', '#1B242D', 'important'); host.style.setProperty('-webkit-text-fill-color', '#1B242D', 'important'); host.style.setProperty('opacity', '1', 'important'); }
     cell.setAttribute('data-tce-ed', '1');
     cell.title = '✏️ 고친 글자 — 원래: ' + list.map(x => x.orig).join('').trim();
     cell.style.setProperty('outline', '1.5px dashed rgba(37, 99, 235, 0.55)');
@@ -258,11 +263,25 @@
   }
 
   // ── 클릭 처리 (형광펜·글자 수정 모드일 때만 CRM 동작을 막고 가로챔) ──
+  // 표시 모드가 켜져 있어도 CRM 자체 기능은 그대로 쓰게 — 보험 머리칸(끌어 옮기기), 버튼·입력·선택 상자,
+  // 매니저 의견·코멘트 줄, (글자 수정 모드의) 줄 이름 칸은 가로채지 않는다
+  const PASS_SEL = 'button,a,input,select,textarea,label,[role="button"],[role="combobox"],[role="listbox"],[role="option"],[aria-haspopup],[contenteditable="true"]';
+  function passThrough(e, cell) {
+    if (!cell) return true;
+    if (cell.closest('[aria-roledescription="sortable"]')) return true;
+    if (e.target.closest && e.target.closest(PASS_SEL) && cell.contains(e.target.closest(PASS_SEL))) return true;
+    const tr = cell.closest('tr'), first = tr && tr.firstElementChild;
+    const rowName = first ? (first.textContent || '').trim() : '';
+    if (/^매니저\s*(의견|코멘트)/.test(rowName)) return true;
+    if (mode === 'edit') { const loc = locate(cell); if (!loc || !loc.row || loc.isLabel) return true; }
+    return false;
+  }
   function onClick(e) {
     if (!enabled || !mode || !cid) return;
     if (e.composedPath && e.composedPath().includes(barHost)) return;
     const cell = e.target.closest && e.target.closest('td,th');
     if (!cell || !cell.closest('table')) return;
+    if (passThrough(e, cell)) return;
     e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation();
     const loc = locate(cell); if (!loc || !loc.row) return;
     if (mode === 'hl') toggleHighlight(loc);
@@ -272,7 +291,7 @@
     if (!enabled || !mode) return;
     if (e.composedPath && e.composedPath().includes(barHost)) return;
     const cell = e.target.closest && e.target.closest('td,th');
-    if (cell && cell.closest('table')) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
+    if (cell && cell.closest('table') && !passThrough(e, cell)) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); }
   }
 
   async function toggleHighlight(loc) {
@@ -315,7 +334,9 @@
       .h{position:fixed;z-index:2147483646;font:11px -apple-system,"Malgun Gothic",sans-serif;color:#fff;background:#1E293B;border-radius:6px;padding:3px 8px;white-space:nowrap;pointer-events:none}</style>
       <div class="e"><div contenteditable="true" spellcheck="false"></div></div><div class="h"></div>`;
     const box = sr.querySelector('.e'), ed = sr.querySelector('.e > div'), hint = sr.querySelector('.h');
-    ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'color', 'textAlign', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'letterSpacing'].forEach(k => { box.style[k] = cs[k]; });
+    ['fontFamily', 'fontSize', 'lineHeight', 'textAlign', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'letterSpacing'].forEach(k => { box.style[k] = cs[k]; });
+    box.style.color = '#1B242D'; box.style.fontWeight = '600'; box.style.caretColor = '#4F46E5';   // 칸 글자색이 옅어도 쓰는 글자는 또렷하게
+    if (parseFloat(cs.paddingLeft) < 4) box.style.paddingLeft = '4px';
     ed.style.textAlign = cs.textAlign;
     ed.textContent = cur;
     hint.textContent = 'Enter 저장 · Esc 취소 · 비우면 원래 글자 (원래: ' + (orig.length > 24 ? orig.slice(0, 24) + '…' : orig) + ')';
@@ -815,7 +836,7 @@
   }
   async function onBar(e) {
     const a = e.currentTarget.dataset.a;
-    if (a === 'toggle') { barOpen = !barOpen; if (!barOpen) mode = ''; renderBar(); return; }
+    if (a === 'toggle') { barOpen = !barOpen; renderBar(); return; }
     if (a === 'diffleft') { diffLeft = !diffLeft; try { chrome.storage.local.set({ anno_diff_left: diffLeft }); } catch (x) {} renderBar(); if (diffLeft) { autoFixes = 0; replayOrder(); } return; }
     if (a === 'nums') { numsOn = !numsOn; try { chrome.storage.local.set({ anno_nums: numsOn }); } catch (x) {} numRoot && (numRoot.__sig = ''); drawNums(); renderBar(); return; }
     if (a === 'mode-hl') mode = 'hl';
@@ -875,7 +896,7 @@
   async function onRoute() {
     const now = onCover() ? cidOf() : '';
     if (now === cid) return;
-    cid = now; mode = ''; undo.length = 0; lastOrderSig = ''; orderReady = false; autoFixes = 0; closeEditor();
+    cid = now; mode = mode === 'hl' ? 'hl' : 'edit'; undo.length = 0; lastOrderSig = ''; orderReady = false; autoFixes = 0; closeEditor();
     unpaintAll(); restoreEdits();
     if (!cid) { renderBar(); return; }
     await loadAll();
