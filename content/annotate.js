@@ -501,6 +501,89 @@
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.style.opacity = '0'; }, 3500);
   }
   let barOpen = false;
+  // ═══════════════════════════════════════════════════════════════
+  // 🔢 보험 번호표 — 상품명 위에 1·2·3… 번호를 띄우고, 번호를 눌러 바꾸면 그 자리로 옮긴다
+  //   번호표는 표 바깥의 확장 전용 층에 그려서 CRM 화면·이미지에는 들어가지 않는다.
+  //   미리보기 창이 떠 있거나(이미지 복사·페인트프로) 페인트프로가 찍는 중이면 숨긴다.
+  // ═══════════════════════════════════════════════════════════════
+  let numsOn = true, numHost = null, numRoot = null, numEdit = -1, numBusy = false;
+  try { chrome.storage.local.get(['anno_nums'], v => { numsOn = !(v && v.anno_nums === false); drawNums(); }); } catch (e) {}
+  function ensureNumHost() {
+    if (numHost && document.documentElement.contains(numHost)) return;
+    numHost = document.createElement('div');
+    numHost.setAttribute('data-tce-ui', '');
+    numHost.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;z-index:2147483644;pointer-events:none;';
+    numRoot = numHost.attachShadow({ mode: 'closed' });
+    document.documentElement.appendChild(numHost);
+  }
+  function numsHidden() {
+    return !enabled || !numsOn || !cid || !orderReady || false ||
+      document.documentElement.hasAttribute('data-sdh-capturing') || !!document.querySelector('[role="dialog"]');
+  }
+  function drawNums() {
+    const hs = onCover() ? headerCells() : [];
+    if (numsHidden() || hs.length < 2) { if (numRoot) { numRoot.innerHTML = ''; numRoot.__sig = ''; } return; }
+    ensureNumHost();
+    const rects = hs.map(h => h.getBoundingClientRect());
+    const sig = rects.map(r => [r.left, r.top, r.width].map(Math.round).join(':')).join('|') + '#' + numEdit + '#' + (numBusy ? 1 : 0);
+    if (numRoot.__sig === sig) return;
+    numRoot.__sig = sig;
+    numRoot.innerHTML = `<style>
+      .b{position:fixed;pointer-events:auto;min-width:22px;height:22px;padding:0 6px;box-sizing:border-box;border-radius:99px;border:0;
+        background:#4F46E5;color:#fff;font:800 12.5px/22px -apple-system,"Malgun Gothic",sans-serif;text-align:center;cursor:pointer;
+        box-shadow:0 2px 6px rgba(79,70,229,.35);transform:translateX(-50%);user-select:none}
+      .b:hover{background:#4338CA}
+      .b.busy{background:#94A3B8;cursor:wait}
+      input{position:fixed;pointer-events:auto;width:46px;height:24px;box-sizing:border-box;border:2px solid #4F46E5;border-radius:8px;
+        font:800 13px -apple-system,"Malgun Gothic",sans-serif;text-align:center;transform:translateX(-50%);outline:none;box-shadow:0 4px 12px rgba(15,23,42,.2)}
+    </style>` + rects.map((r, i) => {
+      if (r.width < 4 || r.bottom < 0 || r.top > innerHeight) return '';
+      const room = r.top >= 26, top = room ? r.top - 24 : r.top + 1, left = room ? r.left + r.width / 2 : r.left + 14;   // 위에 자리가 없으면 칸 왼쪽 위 구석
+      return i === numEdit
+        ? `<input data-i="${i}" type="number" min="1" max="${rects.length}" value="${i + 1}" style="left:${left}px;top:${top - 1}px" title="옮길 번호를 넣고 Enter (Esc 취소)">`
+        : `<button class="b${numBusy ? ' busy' : ''}" data-i="${i}" style="left:${left}px;top:${top}px" title="번호를 눌러 바꾸면 그 자리로 옮깁니다">${i + 1}</button>`;
+    }).join('');
+    numRoot.querySelectorAll('button.b').forEach(b => b.addEventListener('click', ev => {
+      ev.preventDefault(); ev.stopPropagation();
+      if (numBusy) return;
+      numEdit = Number(b.dataset.i); numRoot.__sig = ''; drawNums();
+      const inp = numRoot.querySelector('input'); if (inp) { inp.focus(); inp.select(); }
+    }));
+    const inp = numRoot.querySelector('input');
+    if (inp) {
+      const done = go => {
+        const from = Number(inp.dataset.i), to = Math.max(1, Math.min(rects.length, parseInt(inp.value, 10) || from + 1)) - 1;
+        numEdit = -1; numRoot.__sig = ''; drawNums();
+        if (go && to !== from) moveByNumber(from, to);
+      };
+      inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') done(true); else if (ev.key === 'Escape') done(false); });
+      inp.addEventListener('blur', () => { if (numEdit >= 0) done(true); });
+    }
+  }
+  async function moveByNumber(from, to) {
+    const cur = currentOrder(); if (!cur.length) return;
+    const target = cur.slice(); const [k] = target.splice(from, 1); target.splice(to, 0, k);
+    numBusy = true; replaying = true; numRoot && (numRoot.__sig = ''); drawNums();
+    let ok = false;
+    try {
+      ok = await fastOrder(target);
+      if (!ok) ok = await moveColumn(from, to) && currentOrder().join(',') === target.join(',');
+    } finally { replaying = false; numBusy = false; }
+    const now = currentOrder();
+    lastOrderSig = now.join(',');
+    if (ok) {
+      snapshot();
+      data.order = now;
+      await saveCustomer();
+      toast(`🔢 ${from + 1}번 보험을 ${to + 1}번 자리로 옮기고 기억했습니다`);
+      renderBar();
+    } else toast('⚠ 이 자리로 옮기지 못했습니다 — CRM에서 직접 끌어 옮겨 주세요');
+    numRoot && (numRoot.__sig = ''); drawNums();
+  }
+  setInterval(drawNums, 300);
+  window.addEventListener('scroll', () => drawNums(), true);
+  window.addEventListener('resize', () => drawNums());
+
   function renderBar() {
     if (!onCover()) { if (barHost) barHost.remove(); barHost = null; return; }
     ensureBar();
@@ -536,7 +619,8 @@
             <button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객(줄 단위)</button></div>
           <div class="hint">칸을 누르면 그 칸의 글자, 줄 이름(예: 질병입원의료비)을 누르면 그 줄 글자 전체에 칠해집니다. 같은 색으로 다시 누르면 지워집니다.${scope === 'all' ? '<br><b>모든 고객</b>: 누른 줄이 모든 고객 화면에서 칠해집니다.' : ''}</div>` : ''}
           ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르면 입력창이 뜹니다. 화면에서만 바뀌고 CRM 데이터는 그대로입니다. 고친 칸은 점선 테두리 · 마우스를 올리면 원래 글자.</div>` : ''}
-          <div class="r"><span class="lab">보험 순서 ${ordered ? '— <b>기억됨</b>' : '— CRM에서 끌어 옮기면 자동으로 기억'}</span>
+          <div class="r"><span class="lab">보험 순서 ${ordered ? '— <b>기억됨</b>' : '— 번호를 바꾸거나 CRM에서 끌어 옮기면 기억'}</span>
+            <button data-a="nums" class="${numsOn ? 'sel' : ''}">🔢 번호 ${numsOn ? '보임' : '숨김'}</button>
             ${ordered ? '<button data-a="order-reset">원래 순서로</button>' : ''}</div>
           <div class="r"><button data-a="undo" ${undo.length ? '' : 'disabled'}>↶ 되돌리기${undo.length ? ' (' + undo.length + ')' : ''}</button></div>
           <div class="r dz"><span class="lab">원래대로 (이 고객)</span>
@@ -553,6 +637,7 @@
   async function onBar(e) {
     const a = e.currentTarget.dataset.a;
     if (a === 'toggle') { barOpen = !barOpen; if (!barOpen) mode = ''; renderBar(); return; }
+    if (a === 'nums') { numsOn = !numsOn; try { chrome.storage.local.set({ anno_nums: numsOn }); } catch (x) {} numRoot && (numRoot.__sig = ''); drawNums(); renderBar(); return; }
     if (a === 'mode-hl') mode = 'hl';
     else if (a === 'mode-edit') mode = 'edit';
     else if (a === 'mode-off') { mode = ''; closeEditor(); }

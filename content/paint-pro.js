@@ -403,8 +403,9 @@
       _ppRunning = 0; fab.textContent = old; fab.disabled = false; _ppStatus('', 1);
       _ppFail('페인트프로 보내기가 「' + _ppStep + '」 단계에서 멈췄습니다.\n\n' + _ppHint());
     }, 60000);
+    try { document.documentElement.setAttribute('data-sdh-capturing', '1'); } catch (e) {}   // 화면 위 번호표 등 확장 표시 숨김
     try { await _sendToPaintPro(fab, old); }
-    finally { finished = true; clearTimeout(watchdog); _ppRunning = 0; }
+    finally { finished = true; clearTimeout(watchdog); _ppRunning = 0; try { document.documentElement.removeAttribute('data-sdh-capturing'); } catch (e) {} }
   }
   // 실패 안내 + [확인] 을 누르면 진단 내용을 클립보드에 복사(사용자 클릭이라 복사 가능)
   async function _ppFail(msg) {
