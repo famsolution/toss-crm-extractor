@@ -401,7 +401,7 @@
       roots().forEach(root => {
         const scan = scanRoot(root);
         const { parsed, keys } = scan;
-        if (hideDiff) { if (root === document) scan.parsed = parsed.filter(pt => !pt.t.closest('[role="dialog"]')); const hn = hideDiffCols(scan); if (root === document) hiddenN = hn; scan.parsed = parsed; }
+        if (hideDiff) { if (root === document) scan.parsed = parsed.filter(pt => !pt.t.closest('[role="dialog"]')); const hn = hideDiffCols(scan); if (root === document) hiddenN = hn; scan.parsed = parsed; if (hn) fixSummary(root); }
         parsed.forEach(pt => {
           if (root === document && pt.t.closest('[role="dialog"]')) return;   // 미리보기 표는 따로
           pt.rows.forEach(({ p }) => {
@@ -787,7 +787,59 @@
     el.setAttribute(HIDE, el.style.getPropertyValue('display') || '');
     el.style.setProperty('display', 'none', 'important');
   }
+  // 📊 숨긴 보험이 있으면 왼쪽 요약(보험 개수·월납/기납/잔여/총 보험료 합계)을 남은 보험 기준으로 다시 계산.
+  //   CRM이 합계에 넣는 보험만 센다 — 원래 합계를 그대로 맞추는 규칙(전부 / 납입종료 제외 / +정상만)을 골라 씀.
+  const sumOrig = new Map();          // 글자 노드 → 원래 글자
+  function restoreSummary() { sumOrig.forEach((v, n) => { if (n.isConnected) n.nodeValue = v; }); sumOrig.clear(); }
+  function fixSummary(root) {
+    const num = str => { const m = String(str).replace(/,/g, '').match(/-?\d+(?:\.\d+)?/); return m ? +m[0] : 0; };
+    root.querySelectorAll('table').forEach(t => {
+      if (root === document && t.closest('[role="dialog"]')) return;
+      const rows = Array.prototype.filter.call(t.querySelectorAll('tr'), r => r.closest('table') === t);
+      const box = rows.length && Array.prototype.find.call(rows[0].children, c => /보험\s*개수/.test(c.textContent || ''));
+      if (!box) return;
+      const lab = r => { const h = Array.prototype.find.call(r.children, c => c.tagName === 'TH' && c !== box); return h ? h.textContent.replace(/\s+/g, '') : ''; };
+      const tds = r => Array.prototype.filter.call(r.children, c => c.tagName === 'TD');
+      const rowOf = name => rows.find(r => lab(r) === name);
+      const prem = ['월납보험료', '기납보험료', '잔여보험료', '총보험료'].map(rowOf);
+      if (prem.some(r => !r)) return;
+      const n = tds(prem[0]).length; if (!n) return;
+      const hid = tds(prem[0]).map(c => c.hasAttribute(HIDE));
+      if (!hid.some(Boolean)) return;
+      // 요약 칸의 값 글자 노드: 이름(보험 개수 등) 다음에 오는 숫자 글자
+      const leaves = []; const w = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+      for (let x = w.nextNode(); x; x = w.nextNode()) if (x.nodeValue.trim()) leaves.push(x);
+      const slots = {};
+      [['cnt', /보험\s*개수/], ['m', /월납/], ['g', /기납/], ['j', /잔여/], ['t', /총\s*보험료/]].forEach(([k, re]) => {
+        const i = leaves.findIndex(x => re.test(x.nodeValue));
+        const v = i >= 0 && leaves.slice(i + 1).find(x => /\d/.test(x.nodeValue));
+        if (v) slots[k] = v;
+      });
+      if (!slots.cnt) return;
+      const orig = k => slots[k] ? num(sumOrig.has(slots[k]) ? sumOrig.get(slots[k]) : slots[k].nodeValue) : null;
+      const M = prem.map(r => tds(r).map(c => num(c.textContent)));
+      const payR = rowOf('납입여부'), stR = rowOf('계약상태');
+      const pay = payR ? tds(payR).map(c => c.textContent.trim()) : [], st = stR ? tds(stR).map(c => c.textContent.trim()) : [];
+      const rulesC = [
+        () => true,
+        j => !/납입\s*종료|완납/.test(pay[j] || ''),
+        j => !/납입\s*종료|완납/.test(pay[j] || '') && (!st[j] || /정상/.test(st[j]))
+      ];
+      const keys = ['m', 'g', 'j', 't'];
+      const fits = f => { const use = M[0].map((_, j) => f(j)); return use.filter(Boolean).length === orig('cnt') && keys.every((k, i) => orig(k) == null || M[i].reduce((a, v, j) => a + (use[j] ? v : 0), 0) === orig(k)); };
+      const rule = rulesC.find(fits) || rulesC[1];
+      const use = M[0].map((_, j) => rule(j) && !hid[j]);
+      const set = (k, val) => {
+        const node = slots[k]; if (!node) return;
+        if (!sumOrig.has(node)) sumOrig.set(node, node.nodeValue);
+        node.nodeValue = sumOrig.get(node).replace(/-?[\d,]+(?:\.\d+)?/, Math.round(val).toLocaleString('ko-KR'));
+      };
+      set('cnt', use.filter(Boolean).length);
+      keys.forEach((k, i) => set(k, M[i].reduce((a, v, j) => a + (use[j] ? v : 0), 0)));
+    });
+  }
   function unhideAll() {
+    restoreSummary();
     document.querySelectorAll('[' + HIDE + ']').forEach(el => {
       const v = el.getAttribute(HIDE);
       if (v) el.style.setProperty('display', v); else el.style.removeProperty('display');
