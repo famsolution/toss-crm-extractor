@@ -944,6 +944,7 @@
   window.addEventListener('scroll', () => drawNums(), true);
   window.addEventListener('resize', () => drawNums());
 
+  let moreOpen = false;
   function renderBar() {
     if (!onCover()) { if (barHost) barHost.remove(); barHost = null; return; }
     ensureBar();
@@ -962,7 +963,7 @@
       .fab.on{background:linear-gradient(135deg,#6366F1,#7C3AED);color:#fff;box-shadow:0 8px 22px rgba(99,102,241,.45)}
       .fab.on i{background:rgba(255,255,255,.22);box-shadow:none}
       .fab.off{color:#9CA3AF}.fab.off i{background:#E5E7EB;color:#6B7280;box-shadow:none}
-      .p{width:300px;max-height:calc(100vh - 186px);overflow:auto;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-radius:18px;
+      .p{width:290px;max-height:calc(100vh - 186px);overflow:auto;background:rgba(255,255,255,.96);backdrop-filter:blur(14px);border-radius:18px;
         box-shadow:0 1px 2px rgba(17,24,39,.05),0 18px 48px rgba(17,24,39,.2),inset 0 0 0 1px rgba(17,24,39,.06);padding:14px;display:flex;flex-direction:column;gap:12px;animation:pin .16s ease}
       @keyframes pin{from{opacity:0;transform:translateY(-6px) scale(.98)}to{opacity:1;transform:none}}
       .p::-webkit-scrollbar{width:8px}.p::-webkit-scrollbar-thumb{background:#E2E4EC;border-radius:8px}
@@ -989,6 +990,21 @@
       .sw.sel{box-shadow:0 0 0 2px #fff,0 0 0 4px #6366F1}
       .hint{font-size:12px;color:#4B5163;line-height:1.6;background:linear-gradient(180deg,#F7F7FF,#F3F4FB);border-radius:12px;padding:9px 11px;box-shadow:inset 0 0 0 1px #E8E9F7}
       .hr{height:1px;background:#EEF0F4;margin:0 -2px}
+      .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+      .tools button{border:0;border-radius:14px;padding:10px 4px 9px;background:#F4F5F9;color:#4B5163;font-weight:700;font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:inset 0 0 0 1px #E6E8EF;transition:background .12s,color .12s,box-shadow .12s}
+      .tools button i{font-style:normal;font-size:20px;line-height:1}
+      .tools button:hover{background:#EEF0FF;color:#4F46E5}
+      .tools button.sel{background:linear-gradient(135deg,#6366F1,#8B5CF6);color:#fff;box-shadow:0 6px 16px rgba(99,102,241,.35)}
+      .tip{font-size:12px;color:#6B7280;text-align:center;line-height:1.5}
+      .tip b{color:#4F46E5}
+      .row2{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;font-weight:600;padding:2px 2px}
+      .seg.sm button{padding:5px 8px;font-size:12px;flex:none}
+      .sw.er{background:#fff;font-size:14px;display:grid;place-items:center;box-shadow:inset 0 0 0 1px #E6E8EF}
+      .ur{justify-content:flex-start}.ur .more{margin-left:auto}
+      .more{border:0;background:transparent;color:#8A90A2;font-size:12px;font-weight:700;padding:6px 4px}
+      .more:hover,.more.sel{color:#4F46E5}
+      .mo{display:flex;flex-direction:column;gap:9px;background:#FAFAFC;border-radius:12px;padding:10px;box-shadow:inset 0 0 0 1px #EEF0F4}
+      .mo .tg{background:#fff}
       .dz .chip{color:#B42318;background:#FEF3F2;box-shadow:inset 0 0 0 1px #FDE1DE}.dz .chip:hover{background:#FEE4E2;color:#912018}
       .pw{border:0;width:100%;border-radius:12px;padding:9px;font-weight:700;font-size:12.5px;color:#6B7280;background:transparent;box-shadow:inset 0 0 0 1px #ECEEF3}
       .pw:hover{color:#B42318;background:#FEF3F2;box-shadow:inset 0 0 0 1px #FDE1DE}
@@ -999,32 +1015,32 @@
         <button class="fab ${mode ? 'on' : ''} ${!enabled ? 'off' : ''}" data-a="toggle"><i>${fabIcon}</i>${fabLabel}</button>
         ${barOpen ? `<div class="p">
           ${enabled ? `
-          <div class="sec"><span class="lab">모드 · 켜진 동안 표를 누르면 표시가 됩니다</span>
-            <div class="seg"><button data-a="mode-off" class="${!mode ? 'sel' : ''}">👀 보기</button><button data-a="mode-hl" class="${mode === 'hl' ? 'sel' : ''}">🖍 형광펜</button><button data-a="mode-edit" class="${mode === 'edit' ? 'sel' : ''}">✏️ 글자 수정</button></div></div>
+          <div class="tools">
+            <button data-a="mode-off" class="${!mode ? 'sel' : ''}"><i>👀</i>보기</button>
+            <button data-a="mode-hl" class="${mode === 'hl' ? 'sel' : ''}"><i>🖍</i>형광펜</button>
+            <button data-a="mode-edit" class="${mode === 'edit' ? 'sel' : ''}"><i>✏️</i>글자 수정</button>
+          </div>
           ${mode === 'hl' ? `
-          <div class="sec"><span class="lab">색</span>
-            <div class="r">${COLORS.map(c => `<button class="sw ${curColor === c.k ? 'sel' : ''}" data-a="c-${c.k}" title="${c.name}" style="background:${c.bg}"></button>`).join('')}
-              <button data-a="c-x" class="chip ${curColor === 'x' ? 'sel' : ''}" title="누른 칸의 형광펜 지우기">🧽 지우개</button></div></div>
-          <div class="sec"><span class="lab">적용 범위</span>
-            <div class="seg"><button data-a="s-one" class="${scope === 'one' ? 'sel' : ''}">이 고객만</button><button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객 (줄 단위)</button></div></div>
-          <div class="hint">칸을 누르면 그 칸, 줄 이름(예: 질병입원의료비)을 누르면 그 줄 전체가 칠해집니다. 같은 색으로 다시 누르면 지워집니다.${scope === 'all' ? '<br><b>모든 고객</b> — 누른 줄이 모든 고객 화면에서 칠해집니다.' : ''}</div>` : ''}
-          ${mode === 'edit' ? `<div class="hint">고칠 칸을 누르고 바로 입력하세요. <b>Enter</b> 저장 · <b>Esc</b> 취소. 금액(예: 3000만원)은 CRM과 같은 모양으로, 글자색·비우기·원래 글자는 칸 아래 도구 줄에서. 화면에서만 바뀌고 CRM 데이터는 그대로이며, 마우스를 올리면 원래 글자가 보입니다.</div>` : ''}
+          <div class="r">${COLORS.map(c => `<button class="sw ${curColor === c.k ? 'sel' : ''}" data-a="c-${c.k}" title="${c.name}" style="background:${c.bg}"></button>`).join('')}
+            <button data-a="c-x" class="sw er ${curColor === 'x' ? 'sel' : ''}" title="지우개 — 누른 칸의 색 지우기">🧽</button></div>
+          <div class="tip">칸을 누르면 칠해져요 · 줄 이름을 누르면 줄 전체${scope === 'all' ? ' · <b>모든 고객</b>' : ''}</div>` : ''}
+          ${mode === 'edit' ? `<div class="tip">칸을 누르고 입력 → <b>Enter</b> · 색은 칸 아래에서</div>` : ''}
+          ${!mode ? `<div class="tip">표를 눌러도 아무것도 바뀌지 않아요</div>` : ''}
           <div class="hr"></div>
-          <div class="sec"><span class="lab">보험 순서 ${ordered ? '<b>기억됨</b>' : ''}</span>
-            <button class="tg ${numsOn ? 'sel' : ''}" data-a="nums"><span>🔢 번호표 보이기<small>번호를 눌러 바꾸면 그 자리로 옮깁니다</small></span><s></s></button>
-            <button class="tg ${diffLeft ? 'sel' : ''}" data-a="diffleft" title="모든 고객에 적용"><span>👥 계약자≠피보험자 맨 왼쪽<small>모든 고객에 적용</small></span><s></s></button>
-            <span class="lab" style="margin-top:6px">피보험자가 다른 보험 <small style="font-weight:500;color:#8A90A2">· 화면·페인트프로·이미지 (모든 고객)</small></span>
-            <div class="seg"><button data-a="dv-all" class="${!hideDiff ? 'sel' : ''}">전부 보기</button><button data-a="dv-hide" class="${hideDiff === 'hide' ? 'sel' : ''}">🙈 숨기기</button><button data-a="dv-only" class="${hideDiff === 'only' ? 'sel' : ''}">👥 이것만</button></div>
-            ${hideDiff && hiddenN ? `<div class="hint">${hiddenN}개 보험을 감췄습니다</div>` : ''}
-            ${ordered ? '<div class="r"><button class="chip" data-a="order-reset">↺ CRM 원래 순서로</button></div>' : ''}</div>
+          <button class="tg ${numsOn ? 'sel' : ''}" data-a="nums"><span>🔢 번호로 순서 바꾸기</span><s></s></button>
+          <div class="row2"><span title="계약자와 피보험자가 다른 보험">👥 다른 피보험자</span>
+            <div class="seg sm"><button data-a="dv-all" class="${!hideDiff ? 'sel' : ''}">전부</button><button data-a="dv-hide" class="${hideDiff === 'hide' ? 'sel' : ''}">빼기</button><button data-a="dv-only" class="${hideDiff === 'only' ? 'sel' : ''}">만 보기</button></div></div>
           <div class="hr"></div>
-          <div class="sec"><span class="lab">되돌리기 · 지우기 (이 고객)</span>
-            <div class="r"><button class="chip" data-a="undo" ${undo.length ? '' : 'disabled'} title="Ctrl+Z">↶ 되돌리기${undo.length ? ' ' + undo.length : ''}</button><button class="chip" data-a="redo" ${redo.length ? '' : 'disabled'} title="Ctrl+Shift+Z">↷ 다시 실행${redo.length ? ' ' + redo.length : ''}</button></div>
-            <div class="r dz"><button class="chip" data-a="clr-hl">형광펜 지우기</button><button class="chip" data-a="clr-ed">글자 원래대로</button><button class="chip" data-a="clr-all">전부</button></div>
-            ${rules.length ? `<div class="r dz"><button class="chip" data-a="clr-rules">모든 고객 규칙 ${rules.length}개 지우기</button></div>` : ''}</div>
-          <button class="pw" data-a="disable">⏻ 표시 기능 끄기</button>
-          ` : `<div class="hint">표시 기능이 꺼져 있어 CRM 원래 화면입니다. 켜면 저장해 둔 형광펜·글자·순서가 다시 적용됩니다.</div>
-          <button class="pw on" data-a="enable">⏻ 표시 기능 켜기</button>`}
+          <div class="r ur"><button class="chip" data-a="undo" ${undo.length ? '' : 'disabled'} title="Ctrl+Z">↶ 되돌리기</button><button class="chip" data-a="redo" ${redo.length ? '' : 'disabled'} title="Ctrl+Shift+Z">↷ 다시</button>
+            <button class="more ${moreOpen ? 'sel' : ''}" data-a="more">${moreOpen ? '접기 ▴' : '더보기 ▾'}</button></div>
+          ${moreOpen ? `<div class="mo">
+            ${mode === 'hl' ? `<div class="row2"><span>형광펜 적용</span><div class="seg sm"><button data-a="s-one" class="${scope === 'one' ? 'sel' : ''}">이 고객</button><button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객</button></div></div>` : ''}
+            <button class="tg ${diffLeft ? 'sel' : ''}" data-a="diffleft"><span>다른 피보험자 보험 맨 왼쪽</span><s></s></button>
+            <div class="r dz">${ordered ? '<button class="chip" data-a="order-reset">CRM 원래 순서</button>' : ''}<button class="chip" data-a="clr-hl">형광펜 지우기</button><button class="chip" data-a="clr-ed">글자 원래대로</button><button class="chip" data-a="clr-all">전부 지우기</button>${rules.length ? `<button class="chip" data-a="clr-rules">모든 고객 형광펜 ${rules.length}개 지우기</button>` : ''}</div>
+            <button class="pw" data-a="disable">⏻ 표시 기능 끄기</button>
+          </div>` : ''}
+          ` : `<div class="tip">꺼져 있어요. 켜면 저장한 표시가 다시 나와요.</div>
+          <button class="pw on" data-a="enable">⏻ 켜기</button>`}
         </div>` : ''}
         <div class="t"></div>
       </div>`;
@@ -1033,6 +1049,7 @@
   async function onBar(e) {
     const a = e.currentTarget.dataset.a;
     if (a === 'toggle') { barOpen = !barOpen; renderBar(); return; }
+    if (a === 'more') { moreOpen = !moreOpen; renderBar(); return; }
     if (a === 'diffleft') { diffLeft = !diffLeft; try { chrome.storage.local.set({ anno_diff_left: diffLeft }); } catch (x) {} renderBar(); if (diffLeft) { autoFixes = 0; replayOrder(); } return; }
     if (a === 'dv-all' || a === 'dv-hide' || a === 'dv-only') {
       hideDiff = a === 'dv-hide' ? 'hide' : a === 'dv-only' ? 'only' : '';
