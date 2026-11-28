@@ -390,6 +390,7 @@
   }
   function onClick(e) {
     if (!enabled || !mode || !cid) return;
+    if (Date.now() - dragDoneAt < 500) { e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); return; }   // 드래그 끝의 click 은 무시
     if (e.composedPath && e.composedPath().includes(barHost)) return;
     const cell = e.target.closest && e.target.closest('td,th');
     if (!cell || !cell.closest('table')) return;
@@ -1023,7 +1024,7 @@
           ${mode === 'hl' ? `
           <div class="r">${COLORS.map(c => `<button class="sw ${curColor === c.k ? 'sel' : ''}" data-a="c-${c.k}" title="${c.name}" style="background:${c.bg}"></button>`).join('')}
             <button data-a="c-x" class="sw er ${curColor === 'x' ? 'sel' : ''}" title="지우개 — 누른 칸의 색 지우기">🧽</button></div>
-          <div class="tip">칸을 누르면 칠해져요 · 줄 이름을 누르면 줄 전체${scope === 'all' ? ' · <b>모든 고객</b>' : ''}</div>` : ''}
+          <div class="tip">칸을 누르거나 <b>끌어서</b> 칠해요 · 줄 이름은 줄 전체${scope === 'all' ? ' · <b>모든 고객</b>' : ''}</div>` : ''}
           ${mode === 'edit' ? `<div class="tip">칸을 누르고 입력 → <b>Enter</b> · 색은 칸 아래에서</div>` : ''}
           ${!mode ? `<div class="tip">표를 눌러도 아무것도 바뀌지 않아요</div>` : ''}
           <div class="hr"></div>
@@ -1133,6 +1134,85 @@
     orderReady = true;
     applyAll();
   }
+
+  // 🖍 형광펜 드래그 — 누른 채로 끌면 지나간 네모 영역의 칸이 한 번에 칠해짐 (지우개면 한 번에 지움)
+  let drag = null, dragDoneAt = 0, dragHost = null, dragBox = null;
+  function dragCellAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    const c = el && el.closest && el.closest('td,th');
+    return c && drag && c.closest('table') === drag.table ? c : null;
+  }
+  function dragCells() {
+    const a = drag.start.getBoundingClientRect(), b = drag.cur.getBoundingClientRect();
+    const L = Math.min(a.left, b.left) + 1, R = Math.max(a.right, b.right) - 1, T = Math.min(a.top, b.top) + 1, B = Math.max(a.bottom, b.bottom) - 1;
+    const out = [];
+    drag.table.querySelectorAll('td,th').forEach(c => {
+      if (c.closest('table') !== drag.table) return;
+      const r = c.getBoundingClientRect();
+      if (r.width > 0 && r.left < R && r.right > L && r.top < B && r.bottom > T) out.push(c);
+    });
+    return { out, L, R, T, B };
+  }
+  function drawDrag() {
+    if (!dragHost) {
+      dragHost = document.createElement('div'); dragHost.setAttribute('data-tce-ui', '1');
+      dragHost.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;z-index:2147483643;pointer-events:none;';
+      dragBox = document.createElement('div'); dragHost.appendChild(dragBox);
+    }
+    if (!dragHost.isConnected) document.documentElement.appendChild(dragHost);
+    const { L, R, T, B } = dragCells();
+    const c = COLORS.find(x => x.k === curColor);
+    dragBox.style.cssText = `position:fixed;left:${L - 1}px;top:${T - 1}px;width:${R - L + 2}px;height:${B - T + 2}px;border-radius:3px;`
+      + (c ? `background:${c.bg};mix-blend-mode:multiply;` : 'background:rgba(255,255,255,.5);') + 'box-shadow:0 0 0 2px rgba(99,102,241,.75);';
+  }
+  function endDrag() { if (dragHost) dragHost.remove(); drag = null; }
+  // (pointerdown 을 막으면 mouse* 이벤트가 안 오므로 pointer 이벤트로 처리)
+  document.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0 || !ev.isPrimary || !enabled || mode !== 'hl' || !cid) return;
+    if (ev.composedPath && ev.composedPath().includes(barHost)) return;
+    const cell = ev.target.closest && ev.target.closest('td,th');
+    if (!cell || !cell.closest('table') || passThrough(ev, cell)) return;
+    drag = { table: cell.closest('table'), start: cell, cur: cell, moved: false };
+  }, true);
+  document.addEventListener('pointermove', ev => {
+    if (!drag) return;
+    if (!(ev.buttons & 1)) { endDrag(); return; }
+    const c = dragCellAt(ev.clientX, ev.clientY);
+    if (c && c !== drag.cur) { drag.cur = c; drag.moved = true; }
+    if (drag.moved) { ev.preventDefault(); drawDrag(); }
+  }, true);
+  document.addEventListener('pointerup', async ev => {
+    if (!drag) return;
+    const d = drag; const moved = d.moved && d.cur !== d.start;
+    const cells = moved ? dragCells().out : [];
+    endDrag();
+    if (!moved) return;                                  // 한 칸만 눌렀으면 평소처럼 click 이 처리
+    dragDoneAt = Date.now();
+    ev.preventDefault(); ev.stopPropagation();
+    const locs = cells.map(locate).filter(l => l && l.row);
+    if (!locs.length) return;
+    snapshot();
+    const color = curColor; let n = 0;
+    const seen = new Set();
+    for (const loc of locs) {
+      if (scope === 'all') {
+        const k = loc.sec + '|' + loc.row; if (seen.has(k)) continue; seen.add(k);
+        const i = rules.findIndex(r => r.sec === loc.sec && r.row === loc.row);
+        if (color === 'x') { if (i >= 0) { rules.splice(i, 1); n++; } }
+        else if (i >= 0) { rules[i].color = color; n++; } else { rules.push({ sec: loc.sec, row: loc.row, color }); n++; }
+      } else {
+        const col = loc.isLabel ? '*' : loc.col;
+        const i = data.hl.findIndex(h => h.sec === loc.sec && h.row === loc.row && h.col === col);
+        if (color === 'x') { if (i >= 0) { data.hl.splice(i, 1); n++; } }
+        else if (i >= 0) { data.hl[i].color = color; n++; } else { data.hl.push({ sec: loc.sec, row: loc.row, col, color }); n++; }
+      }
+    }
+    if (scope === 'all') saveRules(); else await saveCustomer();
+    applyAll(); renderBar();
+    toast(color === 'x' ? `🧽 ${n}칸 형광펜을 지웠습니다` : `🖍 ${n}칸을 칠했습니다${scope === 'all' ? ' (모든 고객, 줄 단위)' : ''}`);
+  }, true);
+  window.addEventListener('blur', endDrag);
+  document.addEventListener('pointercancel', endDrag, true);
 
   document.addEventListener('click', onClick, true);
   ['pointerdown', 'keydown', 'dragstart'].forEach(t => document.addEventListener(t, ev => {
