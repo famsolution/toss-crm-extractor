@@ -32,8 +32,9 @@
 
   let enabled = true;
   let cid = '';                       // 고객 번호 (주소 끝 숫자)
-  let data = { hl: [], edits: [], order: null };   // 이 고객 저장분
+  let data = { hl: [], edits: [], order: null, badges: [] };   // 이 고객 저장분
   let rules = [];                     // 공통 규칙 [{sec,row,color}]
+  let curBadge = 'warn', customBadge = '';   // 🏷 뱃지 모드에서 붙일 꼬리표
   let mode = 'edit';                  // '' | 'hl' | 'edit' — 기본은 글자 수정
   let curColor = 'y';
   let scope = 'one';                  // 'one' 이 고객 | 'all' 모든 고객
@@ -54,7 +55,7 @@
     rules = Array.isArray(st.anno_rules) ? st.anno_rules : [];
     const res = cid ? await send({ action: 'annoLoad', cid }) : null;
     data = (res && res.ok && res.data) || { hl: [], edits: [], order: null };
-    data.hl = data.hl || []; data.edits = data.edits || [];
+    data.hl = data.hl || []; data.edits = data.edits || []; data.badges = data.badges || [];
   }
   async function saveCustomer() { if (cid) await send({ action: 'annoSave', cid, data }); }
   function saveRules() { try { chrome.storage.local.set({ anno_rules: rules }); } catch (e) {} }
@@ -330,12 +331,73 @@
     cell.title = '✏️ 고친 글자 — 원래: ' + list.map(x => x.orig).join('').trim();
   }
 
+  // 🏷 뱃지 — 칸 안에 붙는 둥근 꼬리표(경고·주의·유지…). 🧲 놓은 줄의 높이에 딱 맞게 붙고, 가로 위치는 놓은 자리 그대로.
+  //   글자는 ::after 로 그려 칸의 글자(textContent)에 섞이지 않게 한다 — 표 읽기·금액 처리에 영향 없음.
+  const BADGES = [
+    { k: 'warn', t: '경고', bg: '#FEE2E2', fg: '#B91C1C', bd: '#FCA5A5' },
+    { k: 'care', t: '주의', bg: '#FFEDD5', fg: '#C2410C', bd: '#FDBA74' },
+    { k: 'keep', t: '유지', bg: '#DCFCE7', fg: '#15803D', bd: '#86EFAC' },
+    { k: 'rec', t: '추천', bg: '#DBEAFE', fg: '#1D4ED8', bd: '#93C5FD' },
+    { k: 'end', t: '해지', bg: '#F3F4F6', fg: '#374151', bd: '#D1D5DB' }
+  ];
+  const BD = 'data-tce-bd';
+  (function badgeCss() {
+    const st = document.createElement('style'); st.setAttribute('data-tce-ui', '1');
+    st.textContent = '[data-tce-bd]::after,[data-tce-ghost]::after{content:attr(data-t)}[data-tce-bd].tce-drag{opacity:.35}';
+    (document.head || document.documentElement).appendChild(st);
+  })();
+  function badgeStyle(k) { return BADGES.find(b => b.k === k) || BADGES[3]; }
+  function drawBadge(cell, b, idx) {
+    if (!cell.hasAttribute('data-tce-bdc')) {
+      cell.setAttribute('data-tce-bdc', cell.style.getPropertyValue('position') || '-');
+      if (getComputedStyle(cell).position === 'static') cell.style.setProperty('position', 'relative');
+    }
+    const st = badgeStyle(b.c);
+    const h = Math.max(16, Math.min(30, cell.clientHeight - 6));     // 🧲 줄 높이에 맞춤
+    const el = document.createElement('div');
+    el.setAttribute(BD, String(idx)); el.setAttribute('aria-hidden', 'true');
+    el.setAttribute('data-t', b.t || st.t);
+    el.style.cssText = `position:absolute;z-index:3;top:50%;transform:translateY(-50%);height:${h}px;left:0;box-sizing:border-box;`
+      + `display:flex;align-items:center;padding:0 ${Math.round(h * 0.38)}px;border-radius:${Math.round(h * 0.32)}px;`
+      + `background:${st.bg};color:${st.fg};box-shadow:inset 0 0 0 1px ${st.bd};font:700 ${Math.max(11, Math.round(h * 0.5))}px/1 "Pretendard","Toss Product Sans",-apple-system,"Malgun Gothic",sans-serif;`
+      + `white-space:nowrap;letter-spacing:-.2px;pointer-events:${mode === 'badge' ? 'auto' : 'none'};cursor:${mode === 'badge' ? 'grab' : 'default'};user-select:none;`;
+    cell.appendChild(el);
+    // 🧲 가로도 자석 — 글자 바로 뒤('a') 또는 칸 오른쪽 끝('r')에 붙는다. 같은 칸 여러 개면 나란히.
+    const w = el.offsetWidth, W = cell.clientWidth;
+    const slot = cell.__bdSlot || (cell.__bdSlot = { a: badgeTextEnd(cell) + 6, r: W - 4 });
+    let left;
+    if (b.pos === 'r') { left = slot.r - w; slot.r = left - 4; }
+    else { left = slot.a; slot.a = left + w + 4; }
+    el.style.left = Math.round(Math.max(2, Math.min(W - w - 2, left))) + 'px';
+  }
+  // 칸 안 글자의 오른쪽 끝(칸 기준 px)
+  function badgeTextEnd(cell) {
+    const box = cell.getBoundingClientRect(); const k = box.width ? cell.offsetWidth / box.width : 1;
+    let end = 0;
+    textNodes(cell).forEach(n => { const r = document.createRange(); r.selectNodeContents(n); Array.prototype.forEach.call(r.getClientRects(), q => { if (q.width > 0) end = Math.max(end, (q.right - box.left) * k - cell.clientLeft); }); });
+    return end || 6;
+  }
+  // 놓은 자리가 글자 뒤와 칸 오른쪽 끝 중 어디에 가까운지
+  function badgeSide(cell, clientX) {
+    const box = cell.getBoundingClientRect(); const k = box.width ? cell.offsetWidth / box.width : 1;
+    const x = (clientX - box.left) * k, a = badgeTextEnd(cell), r = cell.clientWidth;
+    return Math.abs(x - r) < Math.abs(x - a) ? 'r' : 'a';
+  }
+  function unBadgeAll() {
+    document.querySelectorAll('[' + BD + ']').forEach(el => el.remove());
+    document.querySelectorAll('[data-tce-bdc]').forEach(c => {
+      const v = c.getAttribute('data-tce-bdc');
+      if (v && v !== '-') c.style.setProperty('position', v); else if (!c.hasAttribute(MARK)) c.style.removeProperty('position');
+      c.removeAttribute('data-tce-bdc'); c.__bdSlot = null;
+    });
+  }
   function applyAll() {
     if (applying) return;
     applying = true;
     try {
-      unpaintAll(); restoreEdits(); unhideAll(); hiddenN = 0;
+      unBadgeAll(); unpaintAll(); restoreEdits(); unhideAll(); hiddenN = 0;
       if (!enabled || !cid) return;
+      const badgeQ = [];
       roots().forEach(root => {
         const scan = scanRoot(root);
         const { parsed, keys } = scan;
@@ -353,11 +415,13 @@
               if (h) paint(c, h.color);
               const ed = data.edits.find(x => x.sec === pt.sec && x.row === p.label && x.col === key);
               if (ed) setCellText(c, ed.text, ed.color);
+              data.badges.forEach((b, bi) => { if (b.sec === pt.sec && b.row === p.label && b.col === key) badgeQ.push([c, b, bi]); });
             });
           });
         });
       });
       drawAll();
+      badgeQ.forEach(([c, b, bi]) => drawBadge(c, b, bi));
     } finally { setTimeout(() => { applying = false; }, 0); }
     if (painted.size && document.querySelector('[role="dialog"]')) { setTimeout(scheduleRedraw, 400); setTimeout(scheduleRedraw, 1200); }
   }
@@ -399,6 +463,7 @@
     const loc = locate(cell); if (!loc || !loc.row) return;
     if (mode === 'hl') toggleHighlight(loc);
     else if (mode === 'edit' && !loc.isLabel) openEditor(cell, loc);
+    else if (mode === 'badge' && !loc.isLabel) addBadge(cell, loc, e.clientX);
   }
   function swallow(e) {
     if (!enabled || !mode) return;
@@ -849,21 +914,19 @@
     return null;
   }
   function numPos(r, visTop) {
-    // 🧲 머리칸 윗선에 딱 붙임(번호표 아랫선 = 칸 윗선) — 표와 함께 움직이고, 머리칸이 위로 지나가면 같이 사라진다
-    if (r.top - 30 >= visTop) return { top: r.top - 30, left: r.left + r.width / 2 };
-    // 위에 자리가 없으면 칸 안 왼쪽 위 구석 — 가운데를 가리면 CRM 에서 끌어 옮기기가 막힌다
-    if (r.bottom > visTop + 32) return { top: Math.max(visTop, r.top) + 2, left: r.left + 18 };
-    return null;
+    // ① 칸 위에 자리가 있으면 칸 바로 위 가운데
+    if (r.top - 32 >= visTop + 6) return { top: r.top - 32, left: r.left + r.width / 2 };
+    // ② 머리칸이 아직 보이는데 위에 자리가 없으면 칸 왼쪽 위 구석 — 가운데를 가리면 CRM 에서 끌어 옮기기가 막힌다
+    if (r.bottom > visTop + 34) return { top: Math.max(visTop + 2, r.top + 2), left: r.left + 18 };
+    // ③ 머리칸이 위로 지나갔으면 보이는 영역 맨 위에 떠서 따라온다
+    return { top: visTop + 6, left: r.left + r.width / 2 };
   }
   // 화면을 그리는 매 순간(스크롤·창 크기·CRM 화면 움직임) 머리칸을 따라 번호표 자리를 옮긴다
   function placeNums() {
     if (!numRoot || !numRoot.__cells) return;
     const hs = numRoot.__cells;
     const sb = numRoot.__box && numRoot.__box.isConnected ? numRoot.__box : null;
-    const sbr = sb ? sb.getBoundingClientRect() : null;
-    const visTop = sbr ? Math.max(0, sbr.top) : 0;
-    const hb = numRoot.__hbox && numRoot.__hbox.isConnected ? numRoot.__hbox.getBoundingClientRect() : sbr;
-    const visL = hb ? Math.max(0, hb.left) : 0, visR = hb ? Math.min(innerWidth, hb.right) : innerWidth;
+    const visTop = sb ? Math.max(0, sb.getBoundingClientRect().top) : 0;
     // 보장분석 표들(보장·특약 등 여러 개일 수 있음) 중 가장 아래 끝 — 이게 보이는 동안 번호표를 띄워 둔다
     let bottom = -1;
     (numRoot.__tables || []).forEach(t => { if (t.isConnected) bottom = Math.max(bottom, t.getBoundingClientRect().bottom); });
@@ -874,7 +937,6 @@
       const r = h.getBoundingClientRect();
       if (r.width < 4 || bottom < visTop + 44 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { el.style.display = 'none'; return; }
       const p = numPos(r, visTop);
-      if (!p || p.left < visL + 8 || p.left > visR - 8) { el.style.display = 'none'; return; }
       el.style.display = '';
       el.style.left = p.left + 'px';
       el.style.top = p.top + 'px';
@@ -887,7 +949,6 @@
     ensureNumHost();
     numRoot.__cells = hs;
     numRoot.__box = scrollBox(hs[0].closest('table') || hs[0]);
-    numRoot.__hbox = (() => { for (let q = hs[0].parentElement; q && q !== document.body; q = q.parentElement) { const cs = getComputedStyle(q); if (/(auto|scroll|overlay|hidden)/.test(cs.overflowX) && q.scrollWidth > q.clientWidth + 2) return q; } return null; })();
     try { numRoot.__tables = mainScan().parsed.map(pt => pt.t); } catch (e) { numRoot.__tables = []; }
     // 번호표를 새로 만드는 건 칸 수·고치는 중·옮기는 중이 바뀔 때만 (스크롤 중 다시 만들면 입력칸이 사라짐)
     const sig = hs.length + '#' + numEdit + '#' + (numBusy ? 1 : 0);
@@ -954,8 +1015,8 @@
     if (!onCover()) { if (barHost) barHost.remove(); barHost = null; return; }
     ensureBar();
     const ordered = Array.isArray(data.order) && data.order.length;
-    const fabLabel = !enabled ? '표시 꺼짐' : mode === 'hl' ? '형광펜 사용 중' : mode === 'edit' ? '글자 수정 중' : '표시 도구';
-    const fabIcon = !enabled ? '⏻' : mode === 'edit' ? '✏️' : '🖍';
+    const fabLabel = !enabled ? '표시 꺼짐' : mode === 'hl' ? '형광펜 사용 중' : mode === 'edit' ? '글자 수정 중' : mode === 'badge' ? '뱃지 붙이는 중' : '표시 도구';
+    const fabIcon = !enabled ? '⏻' : mode === 'edit' ? '✏️' : mode === 'badge' ? '🏷' : '🖍';
     barRoot.innerHTML = `<style>
       :host{all:initial}
       *{box-sizing:border-box}
@@ -995,7 +1056,13 @@
       .sw.sel{box-shadow:0 0 0 2px #fff,0 0 0 4px #6366F1}
       .hint{font-size:12px;color:#4B5163;line-height:1.6;background:linear-gradient(180deg,#F7F7FF,#F3F4FB);border-radius:12px;padding:9px 11px;box-shadow:inset 0 0 0 1px #E8E9F7}
       .hr{height:1px;background:#EEF0F4;margin:0 -2px}
-      .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+      .tools{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+      .bds{gap:6px}
+      .bdg{border:0;border-radius:9px;padding:6px 11px;font-weight:800;font-size:12.5px;transition:transform .1s}
+      .bdg:hover{transform:translateY(-1px)}
+      .bdg.sel{outline:2px solid #6366F1;outline-offset:2px}
+      .bt{width:100%;border:0;border-radius:10px;padding:8px 11px;font:inherit;font-size:12.5px;background:#F4F5F9;box-shadow:inset 0 0 0 1px #E6E8EF;outline:none}
+      .bt:focus{box-shadow:inset 0 0 0 1.5px #818CF8;background:#fff}
       .tools button{border:0;border-radius:14px;padding:10px 4px 9px;background:#F4F5F9;color:#4B5163;font-weight:700;font-size:12.5px;display:flex;flex-direction:column;align-items:center;gap:4px;box-shadow:inset 0 0 0 1px #E6E8EF;transition:background .12s,color .12s,box-shadow .12s}
       .tools button i{font-style:normal;font-size:20px;line-height:1}
       .tools button:hover{background:#EEF0FF;color:#4F46E5}
@@ -1023,8 +1090,13 @@
           <div class="tools">
             <button data-a="mode-off" class="${!mode ? 'sel' : ''}"><i>👀</i>보기</button>
             <button data-a="mode-hl" class="${mode === 'hl' ? 'sel' : ''}"><i>🖍</i>형광펜</button>
-            <button data-a="mode-edit" class="${mode === 'edit' ? 'sel' : ''}"><i>✏️</i>글자 수정</button>
+            <button data-a="mode-edit" class="${mode === 'edit' ? 'sel' : ''}"><i>✏️</i>글자</button>
+            <button data-a="mode-badge" class="${mode === 'badge' ? 'sel' : ''}"><i>🏷</i>뱃지</button>
           </div>
+          ${mode === 'badge' ? `
+          <div class="r bds">${BADGES.map(b => `<button class="bdg ${curBadge === b.k ? 'sel' : ''}" data-a="bd-${b.k}" style="background:${b.bg};color:${b.fg};box-shadow:inset 0 0 0 1px ${b.bd}">${b.t}</button>`).join('')}</div>
+          <input class="bt" maxlength="12" placeholder="직접 쓰기 (비우면 '${badgeStyle(curBadge).t}')" value="${customBadge.replace(/"/g, '&quot;')}">
+          <div class="tip">칸 누르면 붙이기 · 끌면 옮기기<br>붙은 뱃지를 누르면 지우기</div>` : ''}
           ${mode === 'hl' ? `
           <div class="r">${COLORS.map(c => `<button class="sw ${curColor === c.k ? 'sel' : ''}" data-a="c-${c.k}" title="${c.name}" style="background:${c.bg}"></button>`).join('')}
             <button data-a="c-x" class="sw er ${curColor === 'x' ? 'sel' : ''}" title="지우개 — 누른 칸의 색 지우기">🧽</button></div>
@@ -1041,7 +1113,7 @@
           ${moreOpen ? `<div class="mo">
             ${mode === 'hl' ? `<div class="row2"><span>형광펜 적용</span><div class="seg sm"><button data-a="s-one" class="${scope === 'one' ? 'sel' : ''}">이 고객</button><button data-a="s-all" class="${scope === 'all' ? 'sel' : ''}">모든 고객</button></div></div>` : ''}
             <button class="tg ${diffLeft ? 'sel' : ''}" data-a="diffleft"><span>다른 피보험자 보험 맨 왼쪽</span><s></s></button>
-            <div class="r dz">${ordered ? '<button class="chip" data-a="order-reset">CRM 원래 순서</button>' : ''}<button class="chip" data-a="clr-hl">형광펜 지우기</button><button class="chip" data-a="clr-ed">글자 원래대로</button><button class="chip" data-a="clr-all">전부 지우기</button>${rules.length ? `<button class="chip" data-a="clr-rules">모든 고객 형광펜 ${rules.length}개 지우기</button>` : ''}</div>
+            <div class="r dz">${ordered ? '<button class="chip" data-a="order-reset">CRM 원래 순서</button>' : ''}<button class="chip" data-a="clr-hl">형광펜 지우기</button><button class="chip" data-a="clr-ed">글자 원래대로</button><button class="chip" data-a="clr-bd">뱃지 지우기</button><button class="chip" data-a="clr-all">전부 지우기</button>${rules.length ? `<button class="chip" data-a="clr-rules">모든 고객 형광펜 ${rules.length}개 지우기</button>` : ''}</div>
             <button class="pw" data-a="disable">⏻ 표시 기능 끄기</button>
           </div>` : ''}
           ` : `<div class="tip">꺼져 있어요. 켜면 저장한 표시가 다시 나와요.</div>
@@ -1050,6 +1122,8 @@
         <div class="t"></div>
       </div>`;
     barRoot.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', onBar));
+    const bt = barRoot.querySelector('.bt');
+    if (bt) { bt.addEventListener('input', () => { customBadge = bt.value; }); bt.addEventListener('keydown', ev => ev.stopPropagation()); }
   }
   async function onBar(e) {
     const a = e.currentTarget.dataset.a;
@@ -1066,9 +1140,11 @@
       return;
     }
     if (a === 'nums') { numsOn = !numsOn; try { chrome.storage.local.set({ anno_nums: numsOn }); } catch (x) {} numRoot && (numRoot.__sig = ''); drawNums(); renderBar(); return; }
-    if (a === 'mode-hl') mode = 'hl';
-    else if (a === 'mode-edit') mode = 'edit';
-    else if (a === 'mode-off') { mode = ''; closeEditor(); }
+    if (a === 'mode-hl') { mode = 'hl'; applyAll(); }
+    else if (a === 'mode-edit') { mode = 'edit'; applyAll(); }
+    else if (a === 'mode-badge') { mode = 'badge'; closeEditor(); applyAll(); }
+    else if (a.startsWith('bd-')) curBadge = a.slice(3);
+    else if (a === 'mode-off') { mode = ''; closeEditor(); applyAll(); }
     else if (a.startsWith('c-')) curColor = a.slice(2);
     else if (a === 's-one') scope = 'one';
     else if (a === 's-all') scope = 'all';
@@ -1078,13 +1154,17 @@
       if (!confirmBox('기억한 보험 순서를 지우고 원래 순서로 돌아갈까요? (페이지를 새로 불러옵니다)')) return;
       snapshot(); data.order = null; await saveCustomer(); location.reload(); return;
     }
+    else if (a === 'clr-bd') {
+      if (!data.badges.length) { toast('붙인 뱃지가 없습니다'); return; }
+      snapshot(); data.badges = []; await saveCustomer(); applyAll(); toast('🏷 이 고객의 뱃지를 모두 지웠습니다 (↶ 로 되돌릴 수 있음)');
+    }
     else if (a === 'clr-hl' || a === 'clr-ed' || a === 'clr-all') {
-      const what = a === 'clr-hl' ? '이 고객의 형광펜을 모두' : a === 'clr-ed' ? '이 고객의 고친 글자를 모두 원래대로' : '이 고객의 형광펜·고친 글자·기억한 순서를 모두';
+      const what = a === 'clr-hl' ? '이 고객의 형광펜을 모두' : a === 'clr-ed' ? '이 고객의 고친 글자를 모두 원래대로' : '이 고객의 형광펜·고친 글자·뱃지·기억한 순서를 모두';
       if (!confirmBox(what + ' 지울까요? (↶ 되돌리기로 다시 살릴 수 있습니다)')) return;
       snapshot();
       if (a !== 'clr-ed') data.hl = [];
       if (a !== 'clr-hl') data.edits = [];
-      if (a === 'clr-all') data.order = null;
+      if (a === 'clr-all') { data.order = null; data.badges = []; }
       await saveCustomer(); applyAll(); toast('원래대로 했습니다 (↶ 로 되돌릴 수 있음)');
     }
     else if (a === 'clr-rules') {
@@ -1138,6 +1218,69 @@
     orderReady = true;
     applyAll();
   }
+
+  async function addBadge(cell, loc, clientX) {
+    snapshot();
+    const t = customBadge.trim();
+    data.badges.push({ sec: loc.sec, row: loc.row, col: loc.col, pos: badgeSide(cell, clientX), c: curBadge, t: t || badgeStyle(curBadge).t });
+    await saveCustomer(); applyAll(); renderBar();
+  }
+  // 뱃지 끌어 옮기기 — 놓은 칸에 🧲 붙음(줄 높이에 맞춤). 표 밖에 놓거나 그냥 한 번 누르면 지움.
+  let bdDrag = null;
+  document.addEventListener('pointerdown', ev => {
+    if (ev.button !== 0 || !enabled || mode !== 'badge' || !cid) return;
+    const el = ev.target && ev.target.closest && ev.target.closest('[' + BD + ']');
+    if (!el) return;
+    ev.preventDefault(); ev.stopPropagation(); ev.stopImmediatePropagation();
+    const r = el.getBoundingClientRect();
+    bdDrag = { idx: Number(el.getAttribute(BD)), el, sx: ev.clientX, sy: ev.clientY, ox: ev.clientX - r.left, oy: ev.clientY - r.top, moved: false, ghost: null };
+  }, true);
+  document.addEventListener('pointermove', ev => {
+    const d = bdDrag; if (!d) return;
+    if (!d.moved && Math.hypot(ev.clientX - d.sx, ev.clientY - d.sy) < 4) return;
+    ev.preventDefault();
+    if (!d.moved) {
+      d.moved = true;
+      const r = d.el.getBoundingClientRect();
+      d.ghost = d.el.cloneNode(true); d.ghost.removeAttribute(BD); d.ghost.setAttribute('data-tce-ui', '1'); d.ghost.setAttribute('data-tce-ghost', '');
+      d.ghost.style.cssText = d.el.style.cssText + `;position:fixed;transform:none;top:0;left:0;width:${r.width}px;pointer-events:none;z-index:2147483646;box-shadow:0 8px 20px rgba(17,24,39,.25);`;
+      document.documentElement.appendChild(d.ghost);
+      d.el.classList.add('tce-drag');
+    }
+    // 🧲 붙을 자리 미리 보기 — 가로는 손 따라, 세로는 놓일 줄 가운데에 딱
+    const x = ev.clientX - d.ox; let y = ev.clientY - d.oy;
+    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    const cell = under && under.closest && under.closest('td,th');
+    let gx = x;
+    if (cell && cell.closest('table') && !cell.contains(d.el)) {
+      const cr = cell.getBoundingClientRect(); y = cr.top + cr.height / 2 - d.ghost.offsetHeight / 2; d.ghost.style.opacity = '1';
+      gx = badgeSide(cell, ev.clientX) === 'r' ? cr.right - 4 - d.ghost.offsetWidth : cr.left + badgeTextEnd(cell) + 6;
+    } else if (cell && cell.closest('table')) { const cr = cell.getBoundingClientRect(); y = cr.top + cr.height / 2 - d.ghost.offsetHeight / 2; d.ghost.style.opacity = '1'; }
+    else d.ghost.style.opacity = '.5';
+    d.ghost.style.left = gx + 'px'; d.ghost.style.top = y + 'px';
+  }, true);
+  document.addEventListener('pointerup', async ev => {
+    const d = bdDrag; if (!d) return; bdDrag = null;
+    dragDoneAt = Date.now();
+    ev.preventDefault(); ev.stopPropagation();
+    const b = data.badges[d.idx];
+    if (d.ghost) d.ghost.remove();
+    if (!b) return;
+    if (!d.moved) {
+      snapshot(); data.badges.splice(d.idx, 1);
+      await saveCustomer(); applyAll(); renderBar(); toast(`🏷 '${b.t}' 뱃지를 지웠습니다 (Ctrl+Z 로 되돌리기)`); return;
+    }
+    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    const cell = under && under.closest && under.closest('td,th');
+    const loc = cell && cell.closest('table') ? locate(cell) : null;
+    snapshot();
+    if (!loc || !loc.row || loc.isLabel) {
+      data.badges.splice(d.idx, 1);
+      await saveCustomer(); applyAll(); renderBar(); toast(`🏷 표 밖에 놓아서 '${b.t}' 뱃지를 지웠습니다 (Ctrl+Z 로 되돌리기)`); return;
+    }
+    Object.assign(b, { sec: loc.sec, row: loc.row, col: loc.col, pos: badgeSide(cell, ev.clientX) });
+    await saveCustomer(); applyAll(); renderBar();
+  }, true);
 
   // 🖍 형광펜 드래그 — 누른 채로 끌면 지나간 네모 영역의 칸이 한 번에 칠해짐 (지우개면 한 번에 지움)
   let drag = null, dragDoneAt = 0, dragHost = null, dragBox = null;
@@ -1240,7 +1383,7 @@
   }, true));
   new MutationObserver(muts => {
     if (applying) return;
-    const ours = n => n.nodeType === 1 && (n.hasAttribute('data-tce-hl') || n.hasAttribute('data-tce-ui') || n.hasAttribute('data-tce-unit'));
+    const ours = n => n.nodeType === 1 && (n.hasAttribute('data-tce-hl') || n.hasAttribute('data-tce-ui') || n.hasAttribute('data-tce-unit') || n.hasAttribute('data-tce-bd'));
     if (muts.every(m => (m.target && m.target.closest && m.target.closest('[data-tce-ui],[data-tce-hl]')) ||
       (m.type === 'childList' && Array.prototype.every.call(m.addedNodes, ours) && Array.prototype.every.call(m.removedNodes, ours)))) return;
     scheduleApply();
