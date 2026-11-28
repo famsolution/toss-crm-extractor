@@ -849,19 +849,21 @@
     return null;
   }
   function numPos(r, visTop) {
-    // ① 칸 위에 자리가 있으면 칸 바로 위 가운데
-    if (r.top - 32 >= visTop + 6) return { top: r.top - 32, left: r.left + r.width / 2 };
-    // ② 머리칸이 아직 보이는데 위에 자리가 없으면 칸 왼쪽 위 구석 — 가운데를 가리면 CRM 에서 끌어 옮기기가 막힌다
-    if (r.bottom > visTop + 34) return { top: Math.max(visTop + 2, r.top + 2), left: r.left + 18 };
-    // ③ 머리칸이 위로 지나갔으면 보이는 영역 맨 위에 떠서 따라온다
-    return { top: visTop + 6, left: r.left + r.width / 2 };
+    // 🧲 머리칸 윗선에 딱 붙임(번호표 아랫선 = 칸 윗선) — 표와 함께 움직이고, 머리칸이 위로 지나가면 같이 사라진다
+    if (r.top - 30 >= visTop) return { top: r.top - 30, left: r.left + r.width / 2 };
+    // 위에 자리가 없으면 칸 안 왼쪽 위 구석 — 가운데를 가리면 CRM 에서 끌어 옮기기가 막힌다
+    if (r.bottom > visTop + 32) return { top: Math.max(visTop, r.top) + 2, left: r.left + 18 };
+    return null;
   }
   // 화면을 그리는 매 순간(스크롤·창 크기·CRM 화면 움직임) 머리칸을 따라 번호표 자리를 옮긴다
   function placeNums() {
     if (!numRoot || !numRoot.__cells) return;
     const hs = numRoot.__cells;
     const sb = numRoot.__box && numRoot.__box.isConnected ? numRoot.__box : null;
-    const visTop = sb ? Math.max(0, sb.getBoundingClientRect().top) : 0;
+    const sbr = sb ? sb.getBoundingClientRect() : null;
+    const visTop = sbr ? Math.max(0, sbr.top) : 0;
+    const hb = numRoot.__hbox && numRoot.__hbox.isConnected ? numRoot.__hbox.getBoundingClientRect() : sbr;
+    const visL = hb ? Math.max(0, hb.left) : 0, visR = hb ? Math.min(innerWidth, hb.right) : innerWidth;
     // 보장분석 표들(보장·특약 등 여러 개일 수 있음) 중 가장 아래 끝 — 이게 보이는 동안 번호표를 띄워 둔다
     let bottom = -1;
     (numRoot.__tables || []).forEach(t => { if (t.isConnected) bottom = Math.max(bottom, t.getBoundingClientRect().bottom); });
@@ -872,6 +874,7 @@
       const r = h.getBoundingClientRect();
       if (r.width < 4 || bottom < visTop + 44 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) { el.style.display = 'none'; return; }
       const p = numPos(r, visTop);
+      if (!p || p.left < visL + 8 || p.left > visR - 8) { el.style.display = 'none'; return; }
       el.style.display = '';
       el.style.left = p.left + 'px';
       el.style.top = p.top + 'px';
@@ -884,6 +887,7 @@
     ensureNumHost();
     numRoot.__cells = hs;
     numRoot.__box = scrollBox(hs[0].closest('table') || hs[0]);
+    numRoot.__hbox = (() => { for (let q = hs[0].parentElement; q && q !== document.body; q = q.parentElement) { const cs = getComputedStyle(q); if (/(auto|scroll|overlay|hidden)/.test(cs.overflowX) && q.scrollWidth > q.clientWidth + 2) return q; } return null; })();
     try { numRoot.__tables = mainScan().parsed.map(pt => pt.t); } catch (e) { numRoot.__tables = []; }
     // 번호표를 새로 만드는 건 칸 수·고치는 중·옮기는 중이 바뀔 때만 (스크롤 중 다시 만들면 입력칸이 사라짐)
     const sig = hs.length + '#' + numEdit + '#' + (numBusy ? 1 : 0);
